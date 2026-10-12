@@ -1,0 +1,34 @@
+# Hệ điều hành / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+# Bí mật
+.env.*
+.env
+!.env.example
+*.local
+config.local.*
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+db.sqlite3
+# Node
+node_modules/
+# Java
+target/
+*.class
+# C#
+bin/
+obj/
+# PHP
+vendor/
+writable/cache/
+writable/logs/
+# Go
+*.exe
+*.test
+.run/

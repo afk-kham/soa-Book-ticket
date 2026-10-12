@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thông báo — Admin SOA Đặt vé</title><link rel="stylesheet" href="../css/admin.css"></head><body>
+<div id="app"><div class="card" id="list"></div></div>
+<script src="../js/config.js"></script><script src="../js/common.js"></script>
+<script>
+Admin.shell("notification", "Nhật ký thông báo", "Notification Service · cổng 5006 · notification_db (TV6)");
+document.getElementById("content").insertAdjacentHTML("afterbegin",
+  '<div class="card toolbar"><input id="f-q" placeholder="Lọc theo username hoặc mã đơn"><button id="btn-filter" class="secondary">Lọc</button></div>');
+document.getElementById("page-actions").innerHTML = '<button id="btn-send">Gửi thông báo thử</button>';
+var all = [];
+function render() {
+  var q = document.getElementById("f-q").value.trim().toLowerCase();
+  var rows = all.filter(function (r) { return !q || r.username.toLowerCase().indexOf(q) >= 0 || String(r.bookingId) === q; });
+  Admin.table(document.getElementById("list"), [{label: "ID", key: "id"}, {label: "Mã đơn", key: "bookingId"}, {label: "Người nhận", key: "username"},
+    {label: "Kênh", key: "channel"}, {label: "Nội dung", key: "message"}, {label: "Gửi lúc", render: function (r) { return Admin.fmtTime(r.sentAt); }}], rows);
+}
+async function load() {
+  Admin.clearError();
+  try { all = await Admin.api("notification", "GET", "/api/notify/logs"); render(); } catch (e) { Admin.showError(e); document.getElementById("list").innerHTML = ""; }
+}
+document.getElementById("btn-filter").onclick = render;
+document.getElementById("btn-send").onclick = function () {
+  Admin.openForm({title: "Gửi thông báo thử", submitLabel: "Gửi", fields: [{name: "username", label: "Username", required: true, value: "user1"},
+    {name: "bookingId", label: "Mã đơn", type: "number", required: true, min: 1, value: 1}, {name: "channel", label: "Kênh", type: "select", options: ["EMAIL", "SMS"]}],
+    onSubmit: async function (d) { await Admin.api("notification", "POST", "/api/notify", {username: d.username.trim(), bookingId: Number(d.bookingId), channel: d.channel}); Admin.toast("Đã ghi nhận thông báo"); load(); }});
+};
+load();
+</script></body></html>

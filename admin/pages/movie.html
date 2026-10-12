@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phim — Admin SOA Đặt vé</title><link rel="stylesheet" href="../css/admin.css"></head><body>
+<div id="app"><div class="card" id="list"></div></div>
+<script src="../js/config.js"></script><script src="../js/common.js"></script>
+<script>
+Admin.shell("movie", "Quản lý phim", "Movie Service · cổng 5001 · movie_db (TV1)");
+Admin.crudPage({
+  service: "movie", path: "/api/movies", noun: "phim",
+  columns: [{label: "ID", key: "id"}, {label: "Tên phim", key: "title"}, {label: "Thể loại", key: "genre"},
+            {label: "Thời lượng", render: function (r) { return r.duration + " phút"; }}, {label: "Poster", key: "poster"},
+            {label: "Ngày tạo", render: function (r) { return Admin.fmtTime(r.createdAt); }}],
+  fields: function () { return [
+    {name: "title", label: "Tên phim", required: true}, {name: "genre", label: "Thể loại", required: true},
+    {name: "duration", label: "Thời lượng (phút)", type: "number", required: true, min: 1}, {name: "poster", label: "Poster (tên file)"}]; },
+  toForm: function (r) { return r; },
+  toPayload: function (d) { return {title: d.title.trim(), genre: d.genre.trim(), duration: Number(d.duration), poster: d.poster.trim()}; }
+});
+</script></body></html>

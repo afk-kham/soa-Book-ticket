@@ -1,0 +1,65 @@
+<mxfile host="app.diagrams.net" modified="2026-10-05T00:00:00.000Z" agent="Antigravity" version="24.0.0">
+  <diagram name="ERD_Movie" id="erd-movie-id">
+    <mxGraphModel dx="1000" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Tiêu đề sơ đồ -->
+        <mxCell id="title" value="SƠ ĐỒ THỰC THỂ LIÊN KẾT (ERD) - MOVIE SERVICE" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;fontColor=#1E293B;" vertex="1" parent="1">
+          <mxGeometry x="150" y="30" width="520" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="(CSDL: movie_db | Bảng chính: movies | Kèm các liên kết khóa ngoại logic)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=2;fontColor=#64748B;" vertex="1" parent="1">
+          <mxGeometry x="150" y="60" width="520" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Thực thể chính: movies -->
+        <mxCell id="table_movies" value="&lt;b&gt;movies&lt;/b&gt; (movie_db)" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#3B82F6;fontColor=#1E3A8A;" vertex="1" parent="1">
+          <mxGeometry x="270" y="140" width="280" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="col_id" value="+ id: INT [PK, AUTO_INCREMENT]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="table_movies">
+          <mxGeometry y="30" width="280" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="col_title" value="+ title: VARCHAR(255) [NOT NULL]" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontColor=#334155;" vertex="1" parent="table_movies">
+          <mxGeometry y="56" width="280" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="col_genre" value="+ genre: VARCHAR(100)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontColor=#334155;" vertex="1" parent="table_movies">
+          <mxGeometry y="82" width="280" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="col_duration" value="+ duration: INT (phút)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontColor=#334155;" vertex="1" parent="table_movies">
+          <mxGeometry y="108" width="280" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="col_poster" value="+ poster: VARCHAR(255)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontColor=#334155;" vertex="1" parent="table_movies">
+          <mxGeometry y="134" width="280" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="col_created" value="+ created_at: TIMESTAMP" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=10;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontColor=#334155;" vertex="1" parent="table_movies">
+          <mxGeometry y="160" width="280" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Service bên ngoài 1: Showtime Service -->
+        <mxCell id="ext_showtime" value="&lt;b&gt;Showtime Service&lt;/b&gt;&#xa;[showtime_db.showtimes]&#xa;movie_id (FK Logic)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#F1F5F9;strokeColor=#94A3B8;fontColor=#475569;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="40" y="380" width="220" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Service bên ngoài 2: Booking Service -->
+        <mxCell id="ext_booking" value="&lt;b&gt;Booking Service&lt;/b&gt;&#xa;[booking_db.bookings]&#xa;movie_id (FK Logic)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#F1F5F9;strokeColor=#94A3B8;fontColor=#475569;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="560" y="380" width="220" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Khóa ngoại logic (Nét đứt theo quy định Kế hoạch SOA) -->
+        <mxCell id="rel_showtime" value="FK logic: movie_id&#xa;(1 : N)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.25;entryY=1;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;dashed=1;strokeWidth=2;strokeColor=#EF4444;fontColor=#B91C1C;" edge="1" parent="1" source="ext_showtime" target="table_movies">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rel_booking" value="FK logic: movie_id&#xa;(1 : N)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.75;entryY=1;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;dashed=1;strokeWidth=2;strokeColor=#EF4444;fontColor=#B91C1C;" edge="1" parent="1" source="ext_booking" target="table_movies">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Chú thích quy tắc -->
+        <mxCell id="note" value="&lt;b&gt;Ghi chú nguyên tắc SOA:&lt;/b&gt;&#xa;- Database-per-service: Mỗi service sở hữu riêng 1 CSDL.&#xa;- Không tạo FOREIGN KEY vật lý giữa các service trong MySQL.&#xa;- Liên kết giữa các bảng là khóa ngoại logic (Logic FK) qua ID." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#FEF9C3;strokeColor=#F59E0B;fontColor=#78350F;size=16;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="255" y="490" width="310" height="100" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,13 @@
+erDiagram
+  BOOKING_LOGIC {
+    Number id PK "booking_db.bookings.id"
+  }
+  TRANSACTIONS {
+    ObjectId _id PK
+    Number bookingId FK "logical FK"
+    Number amount "VND"
+    String method "MOMO|VNPAY|CASH"
+    String status "PAID|FAILED"
+    Date paidAt
+  }
+  BOOKING_LOGIC ||..o{ TRANSACTIONS : "logic reference"

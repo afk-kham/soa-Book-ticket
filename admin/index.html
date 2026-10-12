@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tổng quan — Admin SOA Đặt vé</title><link rel="stylesheet" href="css/admin.css"></head><body>
+<div id="app"><div class="card"><b>Trạng thái 6 service</b> <small style="color:#6b7280">(tự làm mới mỗi 10 giây — mỗi service là một tiến trình độc lập)</small>
+<div class="grid" id="health" style="margin-top:12px"></div></div>
+<div class="card"><b>Luồng đặt vé</b><p style="color:#6b7280;margin:6px 0 0">Client → <b>Booking</b> → User (xác thực) → Movie (phim) → Showtime (giá, suất) → lưu đơn PENDING → <b>Payment</b> → PAID/CANCELLED → <b>Notification</b>.
+Các trang Admin gọi trực tiếp từng service; không có service nào đọc CSDL của service khác.</p></div></div>
+<script src="js/config.js"></script><script src="js/common.js"></script>
+<script>
+Admin.shell("index", "Tổng quan hệ thống", "Kiểm tra sống của từng service bằng một request GET nhẹ tới từng service");
+async function check() {
+  var cards = await Promise.all(Object.keys(SOA.services).map(async function (k) {
+    var s = SOA.services[k], t0 = Date.now(), ok = true;
+    try { await Admin.api(k, "GET", s.ping); } catch (e) { ok = false; }
+    return '<div class="stat"><b>' + s.name + ' Service</b><span>' + s.owner + ' · cổng ' + s.port + '</span><div style="margin-top:8px">' +
+      Admin.badge(ok ? "up" : "down") + (ok ? ' <span>' + (Date.now() - t0) + ' ms</span>' : '') + '</div></div>';
+  }));
+  document.getElementById("health").innerHTML = cards.join("");
+}
+check(); setInterval(check, 10000);
+</script></body></html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suất chiếu — Admin SOA Đặt vé</title><link rel="stylesheet" href="../css/admin.css"></head><body>
+<div id="app"><div class="card" id="list"></div></div>
+<script src="../js/config.js"></script><script src="../js/common.js"></script>
+<script>
+Admin.shell("showtime", "Quản lý suất chiếu", "Showtime Service · cổng 5002 · showtime_db (TV2) — tên phim lấy qua API của Movie Service");
+var movies = {};
+Admin.crudPage({
+  service: "showtime", path: "/api/showtimes", noun: "suất chiếu",
+  beforeLoad: async function () {
+    try { (await Admin.api("movie", "GET", "/api/movies")).forEach(function (m) { movies[m.id] = m.title; }); } catch (e) { Admin.toast("Không lấy được danh sách phim: " + e.message, "error"); }
+  },
+  columns: [{label: "ID", key: "id"},
+            {label: "Phim", render: function (r) { return Admin.esc(movies[r.movieId] || "(không rõ)") + " <small>#" + r.movieId + "</small>"; }},
+            {label: "Rạp", key: "cinema"}, {label: "Phòng", key: "room"},
+            {label: "Giờ chiếu", render: function (r) { return Admin.fmtTime(r.time); }},
+            {label: "Giá vé", render: function (r) { return Admin.money(r.price); }}],
+  fields: function () { return [
+    {name: "movieId", label: "Phim", type: "select", options: Object.keys(movies).map(function (id) { return {value: id, label: movies[id] + " (#" + id + ")"}; })},
+    {name: "cinema", label: "Rạp", required: true}, {name: "room", label: "Phòng", required: true},
+    {name: "time", label: "Giờ chiếu", type: "datetime-local", required: true},
+    {name: "price", label: "Giá vé (VND)", type: "number", required: true, min: 0}]; },
+  toForm: function (r) { return {movieId: r.movieId, cinema: r.cinema, room: r.room, time: String(r.time).replace(" ", "T").slice(0, 16), price: r.price}; },
+  toPayload: function (d) { return {movieId: Number(d.movieId), cinema: d.cinema.trim(), room: d.room.trim(), time: d.time.replace("T", " ") + ":00", price: Number(d.price)}; }
+});
+</script></body></html>

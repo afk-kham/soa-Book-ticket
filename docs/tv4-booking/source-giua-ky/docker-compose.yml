@@ -1,0 +1,26 @@
+# MySQL 8 riêng cho Booking Service (TV4).
+# Chạy tại thư mục booking-service:  docker compose up -d
+# Lần đầu tạo volume, MySQL tự chạy db/schema.sql rồi db/seed.sql.
+services:
+  booking-mysql:
+    image: mysql:8.0
+    container_name: soa-booking-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?Hay dat DB_PASSWORD trong file .env}
+      TZ: Asia/Ho_Chi_Minh
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    ports:
+      - "${DB_PORT:-3307}:3306"
+    volumes:
+      - booking_mysql_data:/var/lib/mysql
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  booking_mysql_data:

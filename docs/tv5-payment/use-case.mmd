@@ -1,0 +1,10 @@
+flowchart LR
+  B[Booking Service] -->|UC-01 Gửi yêu cầu thanh toán| P((Payment Service))
+  A[Admin] -->|UC-05 Xem lịch sử| P
+  P --> V[UC-02 Kiểm tra yêu cầu]
+  V --> S[UC-03 Giả lập kết quả]
+  S --> W[UC-04 Lưu giao dịch]
+  W --> D[(D1 transactions)]
+  W --> R[Trả kết quả PAID / FAILED]
+  R --> B
+  D --> A

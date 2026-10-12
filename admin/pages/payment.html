@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thanh toán — Admin SOA Đặt vé</title><link rel="stylesheet" href="../css/admin.css"></head><body>
+<div id="app"><div class="card" id="list"></div></div>
+<script src="../js/config.js"></script><script src="../js/common.js"></script>
+<script>
+Admin.shell("payment", "Lịch sử thanh toán", "Payment Service · cổng 5005 · payment_db / MongoDB (TV5) — chỉ xem; giao dịch được tạo bởi Booking");
+document.getElementById("content").insertAdjacentHTML("afterbegin",
+  '<div class="card toolbar"><input id="f-booking" type="number" min="1" placeholder="Lọc theo mã đơn"><button id="btn-filter" class="secondary">Lọc</button></div>');
+async function load() {
+  Admin.clearError();
+  var b = document.getElementById("f-booking").value.trim();
+  try {
+    var rows = await Admin.api("payment", "GET", "/api/payment" + (b ? "?bookingId=" + encodeURIComponent(b) : ""));
+    Admin.table(document.getElementById("list"), [{label: "Mã giao dịch", key: "id"}, {label: "Mã đơn", key: "bookingId"},
+      {label: "Số tiền", render: function (r) { return Admin.money(r.amount); }}, {label: "Phương thức", key: "method"},
+      {label: "Trạng thái", render: function (r) { return Admin.badge(r.status); }}, {label: "Thời điểm", render: function (r) { return Admin.fmtTime(r.paidAt); }}], rows);
+  } catch (e) { Admin.showError(e); document.getElementById("list").innerHTML = ""; }
+}
+document.getElementById("btn-filter").onclick = load;
+load();
+</script></body></html>

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin – Đơn đặt vé (Booking Service)</title>
+<style>
+  /* Trang admin Booking Service (TV4). Mọi class có tiền tố bk- để không đụng CSS khi ghép 6 tab. */
+  :root {
+    --bk-ink: #1c2430;
+    --bk-muted: #5b6573;
+    --bk-paper: #f5f6f8;
+    --bk-surface: #ffffff;
+    --bk-line: #dce1e8;
+    --bk-accent: #2457c5;
+    --bk-accent-dark: #1b449c;
+    --bk-pending-bg: #fdf3d3; --bk-pending-fg: #8a5a00;
+    --bk-paid-bg: #dcf5e6;    --bk-paid-fg: #17643b;
+    --bk-cancel-bg: #fde3e1;  --bk-cancel-fg: #a3261b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bk-paper); color: var(--bk-ink);
+    font: 14px/1.5 "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .bk-page { max-width: 1180px; margin: 0 auto; padding: 28px 24px 40px; }
+  .bk-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .bk-head h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
+  .bk-head p { margin: 4px 0 0; color: var(--bk-muted); }
+  .bk-btn {
+    border: 1px solid var(--bk-accent); background: var(--bk-accent); color: #fff;
+    border-radius: 6px; padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  .bk-btn:hover { background: var(--bk-accent-dark); }
+  .bk-btn:disabled { opacity: .6; cursor: progress; }
+  .bk-btn-ghost { background: transparent; color: var(--bk-accent); }
+  .bk-btn-ghost:hover { background: #eaf0fb; }
+  button:focus-visible, input:focus-visible { outline: 3px solid #9db7ee; outline-offset: 2px; }
+
+  .bk-toolbar {
+    margin-top: 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    background: var(--bk-surface); border: 1px solid var(--bk-line); border-radius: 8px; padding: 12px;
+  }
+  .bk-seg { display: inline-flex; border: 1px solid var(--bk-line); border-radius: 6px; overflow: hidden; }
+  .bk-seg button {
+    border: 0; border-right: 1px solid var(--bk-line); background: var(--bk-surface); color: var(--bk-ink);
+    padding: 7px 12px; font: inherit; cursor: pointer; display: inline-flex; gap: 6px; align-items: center;
+  }
+  .bk-seg button:last-child { border-right: 0; }
+  .bk-seg button[aria-pressed="true"] { background: var(--bk-ink); color: #fff; }
+  .bk-seg .bk-count { font-variant-numeric: tabular-nums; opacity: .75; }
+  .bk-search {
+    flex: 1 1 240px; min-width: 200px; border: 1px solid var(--bk-line); border-radius: 6px;
+    padding: 8px 10px; font: inherit; color: var(--bk-ink);
+  }
+  .bk-revenue { margin-left: auto; color: var(--bk-muted); white-space: nowrap; }
+  .bk-revenue strong { color: var(--bk-paid-fg); font-variant-numeric: tabular-nums; }
+
+  .bk-msg { margin: 16px 0 0; padding: 12px 14px; border-radius: 8px; display: none; }
+  .bk-msg.bk-show { display: block; }
+  .bk-msg-error { background: var(--bk-cancel-bg); color: var(--bk-cancel-fg); border: 1px solid #f5b5ae; }
+  .bk-msg-info { background: #eef2f8; color: var(--bk-muted); border: 1px solid var(--bk-line); }
+  .bk-msg code { background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 4px; }
+
+  .bk-meta { margin: 14px 0 8px; color: var(--bk-muted); }
+  .bk-table-wrap { background: var(--bk-surface); border: 1px solid var(--bk-line); border-radius: 8px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 820px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--bk-line); vertical-align: middle; }
+  th { font-size: 12.5px; font-weight: 600; color: var(--bk-muted); background: #fafbfc; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: #f8fafd; }
+  tbody tr.bk-selected { background: #eef3fd; }
+  .bk-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .bk-id { font-weight: 650; font-variant-numeric: tabular-nums; }
+
+  /* Ghế hiển thị như nhãn ghế trong rạp */
+  .bk-seats { display: flex; gap: 4px; flex-wrap: wrap; }
+  .bk-seat {
+    display: inline-block; min-width: 32px; text-align: center; padding: 1px 6px;
+    border: 1px solid #b9c3d1; border-bottom-width: 3px; border-radius: 6px 6px 3px 3px;
+    font-size: 12.5px; font-weight: 600; background: #fff;
+  }
+  .bk-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .bk-PENDING { background: var(--bk-pending-bg); color: var(--bk-pending-fg); }
+  .bk-PAID { background: var(--bk-paid-bg); color: var(--bk-paid-fg); }
+  .bk-CANCELLED { background: var(--bk-cancel-bg); color: var(--bk-cancel-fg); }
+
+  /* Ngăn chi tiết đơn */
+  .bk-drawer {
+    position: fixed; top: 0; right: 0; height: 100%; width: min(380px, 100%);
+    background: var(--bk-surface); border-left: 1px solid var(--bk-line);
+    padding: 22px; overflow-y: auto; visibility: hidden;
+    transform: translateX(100%); transition: transform .2s ease, visibility .2s;
+  }
+  .bk-drawer.bk-open { transform: translateX(0); visibility: visible; box-shadow: -12px 0 32px rgba(28, 36, 48, .12); }
+  .bk-drawer h2 { margin: 0 0 4px; font-size: 18px; }
+  .bk-drawer .bk-src { color: var(--bk-muted); font-size: 12.5px; margin: 0 0 16px; }
+  .bk-drawer dl { margin: 0; display: grid; grid-template-columns: 120px 1fr; row-gap: 10px; }
+  .bk-drawer dt { color: var(--bk-muted); }
+  .bk-drawer dd { margin: 0; font-weight: 600; }
+  .bk-drawer-close { position: absolute; top: 14px; right: 14px; }
+  .bk-foot { margin-top: 16px; color: var(--bk-muted); font-size: 12.5px; }
+  @media (prefers-reduced-motion: reduce) { .bk-drawer { transition: none; } }
+</style>
+</head>
+<body>
+<main class="bk-page" id="booking-admin">
+  <div class="bk-head">
+    <div>
+      <h1>Đơn đặt vé</h1>
+      <p>Theo dõi các đơn khách đã đặt và trạng thái thanh toán của từng đơn.</p>
+    </div>
+    <button class="bk-btn" id="bk-reload" type="button">Tải lại</button>
+  </div>
+
+  <div class="bk-toolbar" role="search">
+    <div class="bk-seg" id="bk-status-filter" aria-label="Lọc theo trạng thái"></div>
+    <input class="bk-search" id="bk-search" type="search"
+           placeholder="Tìm theo người đặt, mã đơn hoặc ghế (ví dụ user1, 3, A1)" aria-label="Tìm đơn">
+    <div class="bk-revenue">Đã thanh toán: <strong id="bk-revenue">0 đ</strong></div>
+  </div>
+
+  <div class="bk-msg bk-msg-error" id="bk-error" role="alert"></div>
+  <div class="bk-msg bk-msg-info" id="bk-info"></div>
+
+  <div class="bk-meta" id="bk-meta">Đang tải dữ liệu…</div>
+  <div class="bk-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Mã đơn</th><th>Người đặt</th><th>Phim</th><th>Suất chiếu</th><th>Ghế</th>
+          <th class="bk-num">Tổng tiền</th><th>Trạng thái</th><th>Thời gian đặt</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="bk-rows"></tbody>
+    </table>
+  </div>
+  <p class="bk-foot" id="bk-foot"></p>
+</main>
+
+<aside class="bk-drawer" id="bk-drawer" aria-hidden="true" aria-labelledby="bk-d-title">
+  <button class="bk-btn bk-btn-ghost bk-drawer-close" id="bk-drawer-close" type="button">Đóng</button>
+  <h2 id="bk-d-title">Chi tiết đơn</h2>
+  <p class="bk-src" id="bk-d-src"></p>
+  <dl id="bk-d-body"></dl>
+</aside>
+
+<script>
+  // Địa chỉ Booking Service. Khi ghép admin chung chỉ cần sửa hằng số này.
+  const API_BASE = "http://localhost:5004";
+
+  const STATUSES = ["PENDING", "PAID", "CANCELLED"];
+  const STATUS_TEXT = { PENDING: "Chờ thanh toán", PAID: "Đã thanh toán", CANCELLED: "Đã hủy" };
+  const state = { bookings: [], status: "ALL", query: "", selectedId: null };
+
+  const $ = (id) => document.getElementById(id);
+  const money = (n) => Number(n || 0).toLocaleString("vi-VN") + " đ";
+
+  function formatTime(iso) {
+    // "2026-10-05T15:54:43" -> "05/10/2026 15:54"
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso || "");
+    return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}` : (iso || "");
+  }
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text; // luôn dùng textContent, không chèn HTML từ API
+    return node;
+  }
+
+  async function callApi(path) {
+    let res;
+    try {
+      res = await fetch(API_BASE + path, { headers: { Accept: "application/json" } });
+    } catch (e) {
+      throw new Error(`Không kết nối được Booking Service tại ${API_BASE}. ` +
+        "Hãy chạy service (dotnet run trong thư mục booking-service) rồi bấm Tải lại.");
+    }
+    let body = null;
+    try { body = await res.json(); } catch (e) { /* phản hồi không phải JSON */ }
+    if (!res.ok || !body || body.status !== "success") {
+      const msg = body && body.message ? body.message : `HTTP ${res.status}`;
+      throw new Error(`API trả lỗi: ${msg}`);
+    }
+    return body.data;
+  }
+
+  async function loadBookings() {
+    const btn = $("bk-reload");
+    btn.disabled = true;
+    btn.textContent = "Đang tải…";
+    showError("");
+    $("bk-meta").textContent = "Đang tải dữ liệu…";
+    try {
+      state.bookings = await callApi("/api/booking");
+      render();
+    } catch (e) {
+      state.bookings = [];
+      render();
+      showError(e.message);
+      $("bk-meta").textContent = "Không có dữ liệu để hiển thị.";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Tải lại";
+    }
+  }
+
+  function showError(message) {
+    const box = $("bk-error");
+    box.textContent = message;
+    box.classList.toggle("bk-show", Boolean(message));
+  }
+
+  function filtered() {
+    const q = state.query.trim().toLowerCase();
+    return state.bookings.filter((b) => {
+      if (state.status !== "ALL" && b.status !== state.status) return false;
+      if (!q) return true;
+      return b.username.toLowerCase().includes(q)
+        || String(b.id) === q.replace(/^#/, "")
+        || b.seats.some((s) => s.toLowerCase() === q);
+    });
+  }
+
+  function renderFilter() {
+    const box = $("bk-status-filter");
+    box.textContent = "";
+    const options = ["ALL", ...STATUSES];
+    for (const value of options) {
+      const count = value === "ALL" ? state.bookings.length : state.bookings.filter((b) => b.status === value).length;
+      const btn = el("button");
+      btn.type = "button";
+      btn.setAttribute("aria-pressed", String(state.status === value));
+      btn.title = value === "ALL" ? "Tất cả đơn" : STATUS_TEXT[value];
+      btn.append(el("span", "", value === "ALL" ? "Tất cả" : value), el("span", "bk-count", String(count)));
+      btn.addEventListener("click", () => { state.status = value; render(); });
+      box.append(btn);
+    }
+  }
+
+  function seatChips(seats) {
+    const wrap = el("div", "bk-seats");
+    for (const s of seats) wrap.append(el("span", "bk-seat", s));
+    return wrap;
+  }
+
+  function badge(status) {
+    const b = el("span", `bk-badge bk-${STATUSES.includes(status) ? status : "PENDING"}`, status);
+    b.title = STATUS_TEXT[status] || status;
+    return b;
+  }
+
+  function renderRows() {
+    const tbody = $("bk-rows");
+    tbody.textContent = "";
+    const rows = filtered();
+    for (const b of rows) {
+      const tr = el("tr");
+      if (b.id === state.selectedId) tr.className = "bk-selected";
+      const cells = [
+        el("td", "bk-id", `#${b.id}`),
+        el("td", "", b.username),
+        el("td", "", `Phim #${b.movieId}`),
+        el("td", "", `Suất #${b.showtimeId}`),
+        el("td"),
+        el("td", "bk-num", money(b.totalPrice)),
+        el("td"),
+        el("td", "", formatTime(b.createdAt)),
+        el("td"),
+      ];
+      cells[4].append(seatChips(b.seats));
+      cells[6].append(badge(b.status));
+      const view = el("button", "bk-btn bk-btn-ghost", "Xem");
+      view.type = "button";
+      view.addEventListener("click", () => openDetail(b.id));
+      cells[8].append(view);
+      tr.append(...cells);
+      tbody.append(tr);
+    }
+
+    const total = state.bookings.length;
+    const info = $("bk-info");
+    if (total > 0 && rows.length === 0) {
+      info.textContent = "Không có đơn nào khớp bộ lọc. Chọn \"Tất cả\" hoặc xóa ô tìm kiếm.";
+      info.classList.add("bk-show");
+    } else if (total === 0 && !$("bk-error").textContent) {
+      info.textContent = "Chưa có đơn đặt vé nào. Đơn mới xuất hiện ở đây sau khi gọi POST /api/booking.";
+      info.classList.add("bk-show");
+    } else {
+      info.classList.remove("bk-show");
+    }
+    $("bk-meta").textContent = `Hiển thị ${rows.length} / ${total} đơn.`;
+  }
+
+  function render() {
+    renderFilter();
+    renderRows();
+    const paid = state.bookings.filter((b) => b.status === "PAID").reduce((sum, b) => sum + b.totalPrice, 0);
+    $("bk-revenue").textContent = money(paid);
+  }
+
+  async function openDetail(id) {
+    state.selectedId = id;
+    renderRows();
+    const drawer = $("bk-drawer");
+    const body = $("bk-d-body");
+    body.textContent = "";
+    $("bk-d-title").textContent = `Chi tiết đơn #${id}`;
+    $("bk-d-src").textContent = `Đang gọi GET /api/booking/${id}…`;
+    drawer.classList.add("bk-open");
+    drawer.setAttribute("aria-hidden", "false");
+    $("bk-drawer-close").focus();
+    try {
+      const b = await callApi(`/api/booking/${id}`);
+      $("bk-d-src").textContent = `Dữ liệu lấy từ GET /api/booking/${id}`;
+      const rows = [
+        ["Mã đơn", `#${b.id}`],
+        ["Người đặt", b.username],
+        ["Mã phim", `#${b.movieId}`],
+        ["Mã suất chiếu", `#${b.showtimeId}`],
+        ["Ghế", seatChips(b.seats)],
+        ["Số ghế", String(b.seats.length)],
+        ["Tổng tiền", money(b.totalPrice)],
+        ["Trạng thái", badge(b.status)],
+        ["Ý nghĩa", STATUS_TEXT[b.status] || ""],
+        ["Thời gian đặt", formatTime(b.createdAt)],
+      ];
+      for (const [label, value] of rows) {
+        const dd = el("dd");
+        if (typeof value === "string") dd.textContent = value; else dd.append(value);
+        body.append(el("dt", "", label), dd);
+      }
+    } catch (e) {
+      $("bk-d-src").textContent = e.message;
+    }
+  }
+
+  function closeDetail() {
+    state.selectedId = null;
+    $("bk-drawer").classList.remove("bk-open");
+    $("bk-drawer").setAttribute("aria-hidden", "true");
+    renderRows();
+  }
+
+  $("bk-reload").addEventListener("click", loadBookings);
+  $("bk-search").addEventListener("input", (e) => { state.query = e.target.value; renderRows(); });
+  $("bk-drawer-close").addEventListener("click", closeDetail);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
+  $("bk-foot").textContent = `Nguồn API: ${API_BASE}/api/booking. Trang chỉ xem, không sửa dữ liệu.`;
+
+  loadBookings();
+</script>
+</body>
+</html>

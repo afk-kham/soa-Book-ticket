@@ -1,0 +1,8 @@
+flowchart LR
+  B[Booking Service] -->|bookingId, amount, method| P1[1.0 Tiếp nhận yêu cầu]
+  P1 -->|Dữ liệu hợp lệ| P2[2.0 Xử lý thanh toán]
+  P2 -->|PAID / FAILED| B
+  P2 -->|transaction| D[(D1 - transactions)]
+  A[Admin] -->|GET /api/payment| P3[3.0 Truy vấn lịch sử]
+  P3 -->|Đọc giao dịch| D
+  P3 -->|Danh sách giao dịch| A
