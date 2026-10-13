@@ -1,0 +1,13 @@
+{
+  "name": "SOA Cinema Builder",
+  "id": "soa-cinema-builder-dev",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": { "allowedDomains": ["none"] },
+  "menu": [
+    { "name": "1. Client — prototype + hoạt ảnh chuyển màn hình", "command": "client" },
+    { "name": "2. Admin — dựng 5 màn hình + prototype", "command": "admin" }
+  ]
+}
