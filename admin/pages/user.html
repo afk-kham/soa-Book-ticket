@@ -1,27 +1,37 @@
 <!DOCTYPE html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Người dùng — Admin SOA Đặt vé</title><link rel="stylesheet" href="../css/admin.css"></head><body>
-<div id="app"><div class="card" id="list"></div></div>
+<div id="app"><div id="stats"></div><div class="card" id="list"></div></div>
 <script src="../js/config.js"></script><script src="../js/common.js"></script>
 <script>
 Admin.shell("user", "Quản lý người dùng", "User/Auth Service · cổng 5003 · user_db (TV3) — không bao giờ hiển thị mật khẩu");
-document.getElementById("page-actions").innerHTML = '<button id="btn-reg">+ Đăng ký tài khoản</button> <button class="secondary" id="btn-login">Thử đăng nhập</button>';
+document.getElementById("page-actions").innerHTML = '<button class="secondary" id="btn-login">Thử đăng nhập</button><button id="btn-reg">+ Đăng ký tài khoản</button>';
 async function load() {
   Admin.clearError();
+  var list = document.getElementById("list");
+  Admin.loading(list);
   try {
     var rows = await Admin.api("user", "GET", "/api/users");
-    Admin.table(document.getElementById("list"), [{label: "ID", key: "id"}, {label: "Tên đăng nhập", key: "username"}, {label: "Email", key: "email"},
-      {label: "Vai trò", render: function (r) { return Admin.badge(r.role); }}], rows);
-  } catch (e) { Admin.showError(e); }
+    var admins = rows.filter(function (r) { return r.role === "ADMIN"; }).length;
+    Admin.stats(document.getElementById("stats"), [{label: "Tổng tài khoản", value: rows.length}, {label: "Quản trị viên", value: admins},
+      {label: "Người dùng", value: rows.length - admins}, {label: "Có email", value: rows.filter(function (r) { return r.email; }).length}]);
+    Admin.table(list, [{label: "ID", render: function (r) { return '<span class="id">#' + r.id + "</span>"; }},
+      {label: "Tên đăng nhập", render: function (r) { return '<span class="cell-movie">' + Admin.thumb(r.username, "round") + "<b>" + Admin.esc(r.username) + "</b></span>"; }},
+      {label: "Email", render: function (r) { return r.email ? Admin.esc(r.email) : '<small>—</small>'; }},
+      {label: "Vai trò", render: function (r) { return Admin.badge(r.role, r.role === "ADMIN" ? "Quản trị" : "Người dùng"); }}],
+      rows, null, {search: "Tìm theo tên, email...", empty: "Chưa có tài khoản nào"});
+  } catch (e) { Admin.showError(e); list.innerHTML = ""; document.getElementById("stats").innerHTML = ""; }
 }
 document.getElementById("btn-reg").onclick = function () {
-  Admin.openForm({title: "Đăng ký tài khoản", fields: [{name: "username", label: "Tên đăng nhập", required: true}, {name: "email", label: "Email", type: "email"},
-    {name: "password", label: "Mật khẩu (≥ 6 ký tự)", type: "password", required: true}],
-    onSubmit: async function (d) { await Admin.api("user", "POST", "/api/register", d); Admin.toast("Đã tạo tài khoản"); load(); }});
+  Admin.openForm({title: "Đăng ký tài khoản", subtitle: "Tài khoản mới luôn có vai trò USER (User Service không nhận role từ client).", submitLabel: "Tạo tài khoản",
+    fields: [{name: "username", label: "Tên đăng nhập", required: true}, {name: "email", label: "Email", type: "email"},
+    {name: "password", label: "Mật khẩu", type: "password", required: true, hint: "Ít nhất 6 ký tự; được băm BCrypt trước khi lưu."}],
+    onSubmit: async function (d) { await Admin.api("user", "POST", "/api/register", d); Admin.toast("Đã tạo tài khoản " + d.username); load(); }});
 };
 document.getElementById("btn-login").onclick = function () {
-  Admin.openForm({title: "Thử đăng nhập", submitLabel: "Đăng nhập", fields: [{name: "username", label: "Tên đăng nhập", required: true}, {name: "password", label: "Mật khẩu", type: "password", required: true}],
-    onSubmit: async function (d) { var r = await Admin.api("user", "POST", "/api/login", d); Admin.toast("Đăng nhập OK — vai trò " + r.role); }});
+  Admin.openForm({title: "Thử đăng nhập", subtitle: "Kiểm tra POST /api/login của User Service.", submitLabel: "Đăng nhập",
+    fields: [{name: "username", label: "Tên đăng nhập", required: true}, {name: "password", label: "Mật khẩu", type: "password", required: true}],
+    onSubmit: async function (d) { var r = await Admin.api("user", "POST", "/api/login", d); Admin.toast("Đăng nhập thành công — " + r.username + " · vai trò " + r.role); }});
 };
 load();
 </script></body></html>

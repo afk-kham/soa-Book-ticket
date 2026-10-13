@@ -1,27 +1,30 @@
 <!DOCTYPE html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Thông báo — Admin SOA Đặt vé</title><link rel="stylesheet" href="../css/admin.css"></head><body>
-<div id="app"><div class="card" id="list"></div></div>
+<div id="app"><div id="stats"></div><div class="card" id="list"></div></div>
 <script src="../js/config.js"></script><script src="../js/common.js"></script>
 <script>
 Admin.shell("notification", "Nhật ký thông báo", "Notification Service · cổng 5006 · notification_db (TV6)");
-document.getElementById("content").insertAdjacentHTML("afterbegin",
-  '<div class="card toolbar"><input id="f-q" placeholder="Lọc theo username hoặc mã đơn"><button id="btn-filter" class="secondary">Lọc</button></div>');
-document.getElementById("page-actions").innerHTML = '<button id="btn-send">Gửi thông báo thử</button>';
-var all = [];
-function render() {
-  var q = document.getElementById("f-q").value.trim().toLowerCase();
-  var rows = all.filter(function (r) { return !q || r.username.toLowerCase().indexOf(q) >= 0 || String(r.bookingId) === q; });
-  Admin.table(document.getElementById("list"), [{label: "ID", key: "id"}, {label: "Mã đơn", key: "bookingId"}, {label: "Người nhận", key: "username"},
-    {label: "Kênh", key: "channel"}, {label: "Nội dung", key: "message"}, {label: "Gửi lúc", render: function (r) { return Admin.fmtTime(r.sentAt); }}], rows);
-}
+document.getElementById("page-actions").innerHTML = '<button class="secondary" id="btn-reload">Làm mới</button><button id="btn-send">Gửi thông báo thử</button>';
 async function load() {
   Admin.clearError();
-  try { all = await Admin.api("notification", "GET", "/api/notify/logs"); render(); } catch (e) { Admin.showError(e); document.getElementById("list").innerHTML = ""; }
+  var list = document.getElementById("list");
+  Admin.loading(list);
+  try {
+    var rows = await Admin.api("notification", "GET", "/api/notify/logs"), ch = {}, people = {};
+    rows.forEach(function (r) { ch[r.channel] = (ch[r.channel] || 0) + 1; people[r.username] = 1; });
+    Admin.stats(document.getElementById("stats"), [{label: "Thông báo đã gửi", value: rows.length}, {label: "Qua Email", value: ch.EMAIL || 0},
+      {label: "Qua SMS", value: ch.SMS || 0}, {label: "Người nhận", value: Object.keys(people).length}]);
+    Admin.table(list, [{label: "ID", render: function (r) { return '<span class="id">#' + r.id + "</span>"; }},
+      {label: "Mã đơn", render: function (r) { return '<span class="id">#' + Admin.esc(r.bookingId) + "</span>"; }}, {label: "Người nhận", key: "username"},
+      {label: "Kênh", render: function (r) { return Admin.badge(r.channel); }}, {label: "Nội dung", key: "message", wrap: true},
+      {label: "Gửi lúc", render: function (r) { return Admin.fmtTime(r.sentAt); }}],
+      rows, null, {search: "Tìm theo người nhận, mã đơn, nội dung...", empty: "Chưa có thông báo nào"});
+  } catch (e) { Admin.showError(e); list.innerHTML = ""; document.getElementById("stats").innerHTML = ""; }
 }
-document.getElementById("btn-filter").onclick = render;
+document.getElementById("btn-reload").onclick = load;
 document.getElementById("btn-send").onclick = function () {
-  Admin.openForm({title: "Gửi thông báo thử", submitLabel: "Gửi", fields: [{name: "username", label: "Username", required: true, value: "user1"},
+  Admin.openForm({title: "Gửi thông báo thử", subtitle: "Gửi giả lập — chỉ ghi vào nhật ký, không gửi thật.", submitLabel: "Gửi", fields: [{name: "username", label: "Username", required: true, value: "user1"},
     {name: "bookingId", label: "Mã đơn", type: "number", required: true, min: 1, value: 1}, {name: "channel", label: "Kênh", type: "select", options: ["EMAIL", "SMS"]}],
     onSubmit: async function (d) { await Admin.api("notification", "POST", "/api/notify", {username: d.username.trim(), bookingId: Number(d.bookingId), channel: d.channel}); Admin.toast("Đã ghi nhận thông báo"); load(); }});
 };

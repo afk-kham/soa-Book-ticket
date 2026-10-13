@@ -16,7 +16,7 @@ start() {  # start <tên> <thư mục> <lệnh...>
 echo "Khởi động các service..."
 start movie        services/movie        python3 movie_service.py
 start showtime     services/showtime     php -S 0.0.0.0:"${SHOWTIME_PORT:-5002}" router.php
-start user         services/user         mvn -q compile exec:java
+start user         services/user         bash -c 'mvn -q compile dependency:build-classpath -Dmdep.outputFile=target/cp.txt && exec java -cp "target/classes:$(cat target/cp.txt)" userservice.Main'   # exec:java không nạp được driver JDBC
 start booking      services/booking      dotnet run
 start payment      services/payment      node payment_service.js
 start notification services/notification go run .

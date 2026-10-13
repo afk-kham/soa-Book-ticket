@@ -1,7 +1,20 @@
 <!DOCTYPE html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Đặt vé phim — SOA</title><link rel="stylesheet" href="css/client.css"></head><body>
-<header><h1 id="title">🎬 Đặt vé phim</h1><nav id="nav"></nav></header>
-<main id="view"></main>
+<title>SOA Cinema — Đặt vé phim</title>
+<meta name="theme-color" content="#0b0d12">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/client.css"></head><body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="#/"><span class="brand-mark">▶</span><span>SOA<b>Cinema</b></span></a>
+  <nav class="mainnav" id="mainnav"></nav>
+  <div class="account" id="account"></div>
+</div></header>
+<main id="view" tabindex="-1"></main>
+<footer class="foot"><div class="foot-in">
+  <span><b>SOA Cinema</b> · Đồ án Kiến trúc hướng dịch vụ</span>
+  <span class="muted">Client gọi Movie · Showtime · User · Booking — thanh toán và thông báo do Booking điều phối.</span>
+</div></footer>
+<div id="toasts" aria-live="polite"></div>
 <script src="js/config.js"></script><script src="js/app.js"></script>
 </body></html>

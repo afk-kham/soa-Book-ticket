@@ -1,27 +1,35 @@
 <!DOCTYPE html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Suất chiếu — Admin SOA Đặt vé</title><link rel="stylesheet" href="../css/admin.css"></head><body>
-<div id="app"><div class="card" id="list"></div></div>
+<div id="app"><div class="card toolbar"><label style="color:var(--muted);font-size:13px">Lọc theo phim</label><select id="f-movie"><option value="">Tất cả phim</option></select></div>
+<div class="card" id="list"></div></div>
 <script src="../js/config.js"></script><script src="../js/common.js"></script>
 <script>
 Admin.shell("showtime", "Quản lý suất chiếu", "Showtime Service · cổng 5002 · showtime_db (TV2) — tên phim lấy qua API của Movie Service");
-var movies = {};
-Admin.crudPage({
-  service: "showtime", path: "/api/showtimes", noun: "suất chiếu",
+var movies = {}, filter = document.getElementById("f-movie");
+var page = Admin.crudPage({
+  service: "showtime", path: "/api/showtimes", noun: "suất chiếu", search: "Tìm theo phim, rạp, phòng...",
+  formHint: "Showtime Service sẽ gọi Movie Service để kiểm tra phim có tồn tại.",
+  listPath: function () { return "/api/showtimes" + (filter.value ? "?movieId=" + encodeURIComponent(filter.value) : ""); },
   beforeLoad: async function () {
-    try { (await Admin.api("movie", "GET", "/api/movies")).forEach(function (m) { movies[m.id] = m.title; }); } catch (e) { Admin.toast("Không lấy được danh sách phim: " + e.message, "error"); }
+    if (Object.keys(movies).length) return;
+    try {
+      (await Admin.api("movie", "GET", "/api/movies")).forEach(function (m) { movies[m.id] = m.title; });
+      filter.insertAdjacentHTML("beforeend", Object.keys(movies).map(function (id) { return '<option value="' + id + '">' + Admin.esc(movies[id]) + "</option>"; }).join(""));
+    } catch (e) { Admin.toast("Không lấy được danh sách phim: " + e.message, "error"); }
   },
-  columns: [{label: "ID", key: "id"},
-            {label: "Phim", render: function (r) { return Admin.esc(movies[r.movieId] || "(không rõ)") + " <small>#" + r.movieId + "</small>"; }},
+  columns: [{label: "ID", render: function (r) { return '<span class="id">#' + r.id + "</span>"; }},
+            {label: "Phim", render: function (r) { var t = movies[r.movieId]; return '<span class="cell-movie">' + Admin.thumb(t || "?") + "<span><b>" + Admin.esc(t || "(không rõ)") + "</b><br><small>Phim #" + r.movieId + "</small></span></span>"; }},
             {label: "Rạp", key: "cinema"}, {label: "Phòng", key: "room"},
-            {label: "Giờ chiếu", render: function (r) { return Admin.fmtTime(r.time); }},
-            {label: "Giá vé", render: function (r) { return Admin.money(r.price); }}],
+            {label: "Giờ chiếu", render: function (r) { return Admin.fmtTime(String(r.time).slice(0, 16)); }},
+            {label: "Giá vé", align: "num", render: function (r) { return Admin.money(r.price); }}],
   fields: function () { return [
     {name: "movieId", label: "Phim", type: "select", options: Object.keys(movies).map(function (id) { return {value: id, label: movies[id] + " (#" + id + ")"}; })},
-    {name: "cinema", label: "Rạp", required: true}, {name: "room", label: "Phòng", required: true},
+    {name: "cinema", label: "Rạp", required: true, placeholder: "VD: CGV Vincom Đồng Khởi"}, {name: "room", label: "Phòng", required: true, placeholder: "VD: P1"},
     {name: "time", label: "Giờ chiếu", type: "datetime-local", required: true},
-    {name: "price", label: "Giá vé (VND)", type: "number", required: true, min: 0}]; },
+    {name: "price", label: "Giá vé (VND)", type: "number", required: true, min: 0, placeholder: "90000"}]; },
   toForm: function (r) { return {movieId: r.movieId, cinema: r.cinema, room: r.room, time: String(r.time).replace(" ", "T").slice(0, 16), price: r.price}; },
   toPayload: function (d) { return {movieId: Number(d.movieId), cinema: d.cinema.trim(), room: d.room.trim(), time: d.time.replace("T", " ") + ":00", price: Number(d.price)}; }
 });
+filter.onchange = page.reload;
 </script></body></html>

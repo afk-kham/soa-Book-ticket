@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## Sửa script chạy User Service
+- `mvn exec:java` chạy app trong classloader riêng nên JDBC báo `No suitable driver` (gặp với Maven 3.10 + JDK 21). `start-all.bat` gọi `scripts/run-user.bat` (Maven chỉ build classpath, chạy bằng `java`); `start-all.sh` làm tương tự. Không đổi code `services/user/`.
+
+## Giao diện hoàn chỉnh — Client & Admin
+Chỉ sửa `client/` và `admin/`; **không** đổi API, CSDL hay code service. Vẫn là HTML/CSS/JS thuần, không cần build.
+
+### Client (`client/`)
+- Trang chủ: phim nổi bật, tìm kiếm theo tên, lọc theo thể loại, số suất chiếu của từng phim; ảnh bìa tự sinh theo tên phim (dùng ảnh thật nếu `poster` là URL).
+- Chi tiết phim: lịch chiếu chia theo ngày, nhóm theo rạp, hiện giá từng suất.
+- Chọn ghế: sơ đồ 6×10 có lối đi (cấu hình `SEAT_MAP` trong `js/config.js`), bảng tóm tắt, chọn phương thức thanh toán; gặp `SEAT_TAKEN` thì tự tải lại sơ đồ.
+- Kết quả dạng vé (mã đơn, giao dịch, trạng thái thông báo); "Vé của tôi" có tab lọc theo trạng thái, kèm tên phim/rạp/giờ chiếu.
+- Đăng nhập/đăng ký: kiểm tra dữ liệu, hiện/ẩn mật khẩu, nút điền nhanh tài khoản thử. Có trạng thái đang tải, lỗi service sập (kèm nút thử lại), giao diện điện thoại.
+
+### Admin (`admin/`)
+- Khung chung mới: thanh bên có biểu tượng và chấm trạng thái từng service, menu trên điện thoại, chế độ tối theo hệ điều hành.
+- `common.js` giữ nguyên mọi hàm cũ, thêm: tìm kiếm trong bảng (`table(..., opts)`), `stats`, `drawer`, `dl`, `confirmBox` (hộp xác nhận thay `window.confirm`), `loading`, `tryApi`, `ping`, `thumb`, `seats`.
+- Tổng quan: số liệu tổng (phim, suất chiếu, người dùng, đơn, doanh thu), sức khỏe 6 service (công nghệ, CSDL, độ trễ), đơn gần đây, tỉ lệ trạng thái đơn.
+- Đặt vé: thống kê theo trạng thái; bấm vào một đơn để xem chi tiết ghép từ Booking + Payment + Notification (vẫn hiện được khi một service sập).
+- Các trang còn lại có ô thống kê, tìm kiếm, lọc phim (Suất chiếu), nút làm mới.
+
 ## Baseline V2 — bổ sung sản phẩm của TV2 và TV4
 Chỉ **thêm** tài liệu/ý tưởng của hai thành viên; không đổi code đã tích hợp (Showtime, Booking, Admin, Client giữ nguyên).
 

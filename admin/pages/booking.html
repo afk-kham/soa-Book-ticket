@@ -1,41 +1,81 @@
 <!DOCTYPE html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Đặt vé — Admin SOA Đặt vé</title><link rel="stylesheet" href="../css/admin.css"></head><body>
-<div id="app"><div class="card" id="list"></div></div>
+<div id="app"><div id="stats"></div>
+<div class="card toolbar"><select id="f-status"><option value="">Tất cả trạng thái</option><option value="PENDING">Chờ thanh toán</option><option value="PAID">Đã thanh toán</option><option value="CANCELLED">Đã hủy</option></select>
+<input id="f-user" placeholder="Username"><button id="btn-filter" class="secondary">Lọc</button><button id="btn-clear" class="ghost">Xóa lọc</button></div>
+<div class="card" id="list"></div></div>
 <script src="../js/config.js"></script><script src="../js/common.js"></script>
 <script>
 Admin.shell("booking", "Quản lý đặt vé", "Booking Service · cổng 5004 · booking_db (TV4) — điều phối User, Movie, Showtime, Payment, Notification");
-document.getElementById("content").insertAdjacentHTML("afterbegin",
-  '<div class="card toolbar"><select id="f-status"><option value="">Tất cả trạng thái</option><option>PENDING</option><option>PAID</option><option>CANCELLED</option></select>' +
-  '<input id="f-user" placeholder="Lọc theo username"><button id="btn-filter" class="secondary">Lọc</button></div>');
-document.getElementById("page-actions").innerHTML = '<button id="btn-new">+ Đặt vé thử</button>';
+var esc = Admin.esc, ST = {PAID: "Đã thanh toán", PENDING: "Chờ thanh toán", CANCELLED: "Đã hủy"}, movies = {}, shows = {};
+document.getElementById("page-actions").innerHTML = '<button class="secondary" id="btn-reload">Làm mới</button><button id="btn-new">+ Đặt vé thử</button>';
+
+async function lookups() {   // tên phim / suất chiếu để hiển thị — lấy qua API, lỗi thì vẫn hiện mã số
+  var r = await Promise.all([Admin.tryApi("movie", "/api/movies", []), Admin.tryApi("showtime", "/api/showtimes", [])]);
+  r[0].forEach(function (m) { movies[m.id] = m; }); r[1].forEach(function (s) { shows[s.id] = s; });
+}
 async function load() {
   Admin.clearError();
-  var q = []; var s = document.getElementById("f-status").value, u = document.getElementById("f-user").value.trim();
+  var list = document.getElementById("list"), q = [], s = document.getElementById("f-status").value, u = document.getElementById("f-user").value.trim();
   if (s) q.push("status=" + s); if (u) q.push("username=" + encodeURIComponent(u));
+  Admin.loading(list);
   try {
-    var rows = await Admin.api("booking", "GET", "/api/booking" + (q.length ? "?" + q.join("&") : ""));
-    Admin.table(document.getElementById("list"), [{label: "Mã đơn", key: "id"}, {label: "Người đặt", key: "username"}, {label: "Phim #", key: "movieId"}, {label: "Suất #", key: "showtimeId"},
-      {label: "Ghế", render: function (r) { return Admin.esc(r.seats.join(", ")); }}, {label: "Tổng tiền", render: function (r) { return Admin.money(r.totalPrice); }},
-      {label: "Trạng thái", render: function (r) { return Admin.badge(r.status); }}, {label: "Tạo lúc", render: function (r) { return Admin.fmtTime(r.createdAt); }}], rows);
-  } catch (e) { Admin.showError(e); document.getElementById("list").innerHTML = ""; }
+    var rows = (await Admin.api("booking", "GET", "/api/booking" + (q.length ? "?" + q.join("&") : ""))).sort(function (a, b) { return b.id - a.id; });
+    var cnt = {PAID: 0, PENDING: 0, CANCELLED: 0}; rows.forEach(function (r) { cnt[r.status]++; });
+    Admin.stats(document.getElementById("stats"), [{label: "Số đơn" + (q.length ? " (đang lọc)" : ""), value: rows.length},
+      {label: "Đã thanh toán", value: cnt.PAID, hint: Admin.money(rows.filter(function (r) { return r.status === "PAID"; }).reduce(function (t, r) { return t + r.totalPrice; }, 0))},
+      {label: "Chờ thanh toán", value: cnt.PENDING}, {label: "Đã hủy", value: cnt.CANCELLED, hint: "Thanh toán thất bại / service sập"}]);
+    Admin.table(list, [{label: "Mã đơn", render: function (r) { return '<span class="id">#' + r.id + "</span>"; }},
+      {label: "Người đặt", key: "username"},
+      {label: "Phim", render: function (r) { var m = movies[r.movieId]; return '<span class="cell-movie">' + Admin.thumb(m ? m.title : "?") + "<span><b>" + esc(m ? m.title : "Phim #" + r.movieId) + "</b><br><small>Suất #" + r.showtimeId + "</small></span></span>"; }},
+      {label: "Ghế", render: function (r) { return Admin.seats(r.seats); }}, {label: "Tổng tiền", align: "num", render: function (r) { return Admin.money(r.totalPrice); }},
+      {label: "Trạng thái", render: function (r) { return Admin.badge(r.status, ST[r.status]); }}, {label: "Tạo lúc", render: function (r) { return Admin.fmtTime(r.createdAt); }}],
+      rows, null, {search: "Tìm theo mã, người đặt, phim, ghế...", onRowClick: detail, empty: "Không có đơn đặt vé phù hợp"});
+  } catch (e) { Admin.showError(e); list.innerHTML = ""; document.getElementById("stats").innerHTML = ""; }
 }
+
+// Chi tiết một đơn: ghép dữ liệu từ Booking + Payment + Notification (mỗi service một API riêng).
+function detail(b) {
+  Admin.drawer("Đơn đặt vé #" + b.id, (async function () {
+    var r = await Promise.all([Admin.tryApi("payment", "/api/payment?bookingId=" + b.id, null), Admin.tryApi("notification", "/api/notify/logs", null)]);
+    var pays = r[0], logs = r[1] && r[1].filter(function (l) { return String(l.bookingId) === String(b.id); });
+    var m = movies[b.movieId], s = shows[b.showtimeId];
+    var tl = [['ok', "Tạo đơn (PENDING)", Admin.fmtTime(b.createdAt)]];
+    (pays || []).forEach(function (p) { tl.push([p.status === "PAID" ? "ok" : "bad", "Thanh toán " + p.method + ": " + p.status, Admin.fmtTime(p.paidAt) + " · " + Admin.money(p.amount)]); });
+    tl.push([b.status === "PAID" ? "ok" : b.status === "CANCELLED" ? "bad" : "warn", "Trạng thái đơn: " + ST[b.status], ""]);
+    (logs || []).forEach(function (l) { tl.push(["ok", "Gửi thông báo " + l.channel, Admin.fmtTime(l.sentAt)]); });
+    return "<h4>Thông tin đơn</h4>" + Admin.dl([["Trạng thái", Admin.badge(b.status, ST[b.status])], ["Người đặt", esc(b.username)], ["Ghế", Admin.seats(b.seats)],
+        ["Tổng tiền", "<b>" + Admin.money(b.totalPrice) + "</b>"], ["Tạo lúc", Admin.fmtTime(b.createdAt)]]) +
+      "<h4>Phim &amp; suất chiếu</h4>" + Admin.dl([["Phim", m ? esc(m.title) + " <small>#" + m.id + "</small>" : "Phim #" + b.movieId], ["Rạp", s ? esc(s.cinema) + " · " + esc(s.room) : "Suất #" + b.showtimeId],
+        ["Giờ chiếu", s ? Admin.fmtTime(s.time) : ""], ["Giá / ghế", s ? Admin.money(s.price) : ""]]) +
+      "<h4>Giao dịch thanh toán <small>(Payment Service)</small></h4>" + (pays === null ? '<div class="alert">⚠ Payment Service không phản hồi</div>' : pays.length ? pays.map(function (p) {
+        return Admin.dl([["Mã giao dịch", '<span class="mono">' + esc(p.id) + "</span>"], ["Số tiền", Admin.money(p.amount)], ["Phương thức", Admin.badge(p.method)], ["Kết quả", Admin.badge(p.status)], ["Thời điểm", Admin.fmtTime(p.paidAt)]]);
+      }).join("<hr style='border:0;border-top:1px solid var(--line);margin:12px 0'>") : '<small>Chưa có giao dịch.</small>') +
+      "<h4>Tiến trình</h4><ul class=\"timeline\">" + tl.map(function (t) { return '<li><span class="tl-dot ' + t[0] + '"></span><div><b>' + esc(t[1]) + "</b><span>" + t[2] + "</span></div></li>"; }).join("") + "</ul>" +
+      (logs === null ? '<p><small>Notification Service không phản hồi — không lấy được nhật ký thông báo.</small></p>' : "");
+  })());
+}
+
 document.getElementById("btn-filter").onclick = load;
+document.getElementById("f-user").onkeydown = function (e) { if (e.key === "Enter") load(); };
+document.getElementById("f-status").onchange = load;
+document.getElementById("btn-clear").onclick = function () { document.getElementById("f-status").value = ""; document.getElementById("f-user").value = ""; load(); };
+document.getElementById("btn-reload").onclick = load;
 document.getElementById("btn-new").onclick = async function () {
-  var movies = [], showtimes = [];
-  try { movies = await Admin.api("movie", "GET", "/api/movies"); showtimes = await Admin.api("showtime", "GET", "/api/showtimes"); } catch (e) { Admin.toast(e.message, "error"); return; }
-  var title = {}; movies.forEach(function (m) { title[m.id] = m.title; });
-  Admin.openForm({title: "Đặt vé thử (đi qua toàn bộ luồng SOA)", submitLabel: "Đặt vé", fields: [
+  var sts;
+  try { sts = await Admin.api("showtime", "GET", "/api/showtimes"); } catch (e) { Admin.toast(e.message, "error"); return; }
+  Admin.openForm({title: "Đặt vé thử", subtitle: "Đi qua toàn bộ luồng SOA: User → Movie → Showtime → Payment → Notification.", submitLabel: "Đặt vé", fields: [
     {name: "username", label: "Username", required: true, value: "user1"},
-    {name: "showtimeId", label: "Suất chiếu", type: "select", options: showtimes.map(function (s) { return {value: s.id, label: "#" + s.id + " · " + (title[s.movieId] || s.movieId) + " · " + s.time + " · " + Admin.money(s.price)}; })},
-    {name: "seats", label: "Ghế (cách nhau bằng dấu phẩy)", required: true, placeholder: "A5,A6"},
+    {name: "showtimeId", label: "Suất chiếu", type: "select", options: sts.map(function (s) { return {value: s.id, label: "#" + s.id + " · " + (movies[s.movieId] ? movies[s.movieId].title : "Phim #" + s.movieId) + " · " + String(s.time).slice(0, 16) + " · " + Admin.money(s.price)}; })},
+    {name: "seats", label: "Ghế", required: true, placeholder: "A5,A6", hint: "Cách nhau bằng dấu phẩy; 1–10 ghế dạng A1, B12."},
     {name: "paymentMethod", label: "Thanh toán", type: "select", options: window.SOA.paymentMethods}],
     onSubmit: async function (d) {
-      var st = showtimes.filter(function (s) { return String(s.id) === d.showtimeId; })[0];
+      var st = sts.filter(function (s) { return String(s.id) === d.showtimeId; })[0];
       var r = await Admin.api("booking", "POST", "/api/booking", {username: d.username.trim(), movieId: st.movieId, showtimeId: st.id,
-        seats: d.seats.split(",").map(function (x) { return x.trim(); }).filter(Boolean), paymentMethod: d.paymentMethod});
-      Admin.toast("Đơn #" + r.id + ": " + r.status + " · thông báo " + r.notification); load();
+        seats: d.seats.split(",").map(function (x) { return x.trim().toUpperCase(); }).filter(Boolean), paymentMethod: d.paymentMethod});
+      Admin.toast("Đơn #" + r.id + ": " + r.status + " · thông báo " + r.notification, r.status === "PAID" ? "" : "error"); load();
     }});
 };
-load();
+lookups().then(load);
 </script></body></html>
