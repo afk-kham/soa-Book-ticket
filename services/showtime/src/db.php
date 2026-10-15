@@ -29,14 +29,22 @@ function to_api(array $row): array
     ];
 }
 
-function find_showtimes(?int $movieId): array
+/** $upcoming = true: chỉ các suất chưa bắt đầu (so với giờ hiện tại của máy chủ). */
+function find_showtimes(?int $movieId, bool $upcoming = false): array
 {
+    $where = [];
+    $args = [];
     if ($movieId !== null) {
-        $st = db()->prepare('SELECT id, movie_id, cinema, room, `time`, price FROM showtimes WHERE movie_id = ? ORDER BY `time`, id');
-        $st->execute([$movieId]);
-    } else {
-        $st = db()->query('SELECT id, movie_id, cinema, room, `time`, price FROM showtimes ORDER BY `time`, id');
+        $where[] = 'movie_id = ?';
+        $args[] = $movieId;
     }
+    if ($upcoming) {
+        $where[] = '`time` > ?';
+        $args[] = date('Y-m-d H:i:s');
+    }
+    $st = db()->prepare('SELECT id, movie_id, cinema, room, `time`, price FROM showtimes'
+        . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY `time`, id');
+    $st->execute($args);
     return array_map('to_api', $st->fetchAll());
 }
 

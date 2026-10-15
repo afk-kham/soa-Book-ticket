@@ -5,11 +5,11 @@
 <div class="card" id="list"></div></div>
 <script src="../js/config.js"></script><script src="../js/common.js"></script>
 <script>
-Admin.shell("showtime", "Quản lý suất chiếu", "Showtime Service · cổng 5002 · showtime_db (TV2) — tên phim lấy qua API của Movie Service");
+Admin.shell("showtime", "Quản lý suất chiếu", "Lịch chiếu theo rạp, phòng và khung giờ — 7 ngày tới luôn được tự xếp lịch nếu còn trống");
 var movies = {}, filter = document.getElementById("f-movie");
 var page = Admin.crudPage({
   service: "showtime", path: "/api/showtimes", noun: "suất chiếu", search: "Tìm theo phim, rạp, phòng...",
-  formHint: "Showtime Service sẽ gọi Movie Service để kiểm tra phim có tồn tại.",
+  formHint: "Phim phải có trong danh mục phim thì mới tạo được suất chiếu.",
   listPath: function () { return "/api/showtimes" + (filter.value ? "?movieId=" + encodeURIComponent(filter.value) : ""); },
   beforeLoad: async function () {
     if (Object.keys(movies).length) return;
@@ -19,7 +19,7 @@ var page = Admin.crudPage({
     } catch (e) { Admin.toast("Không lấy được danh sách phim: " + e.message, "error"); }
   },
   columns: [{label: "ID", render: function (r) { return '<span class="id">#' + r.id + "</span>"; }},
-            {label: "Phim", render: function (r) { var t = movies[r.movieId]; return '<span class="cell-movie">' + Admin.thumb(t || "?") + "<span><b>" + Admin.esc(t || "(không rõ)") + "</b><br><small>Phim #" + r.movieId + "</small></span></span>"; }},
+            {label: "Phim", render: function (r) { var t = movies[r.movieId]; return '<span class="cell-movie">' + Admin.thumb(t || "?") + "<span><b>" + Admin.esc(t || "(không rõ)") + "</b><br><small>" + (new Date(String(r.time).replace(" ", "T")) < new Date() ? "Đã chiếu" : "Sắp chiếu") + "</small></span></span>"; }},
             {label: "Rạp", key: "cinema"}, {label: "Phòng", key: "room"},
             {label: "Giờ chiếu", render: function (r) { return Admin.fmtTime(String(r.time).slice(0, 16)); }},
             {label: "Giá vé", align: "num", render: function (r) { return Admin.money(r.price); }}],

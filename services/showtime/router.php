@@ -3,7 +3,7 @@
  * Showtime Service (TV2 – PHP core + PDO) — cổng 5002, CSDL showtime_db
  * Chạy:  php -S 0.0.0.0:5002 router.php
  *
- *   GET    /api/showtimes[?movieId=1]   danh sách (lọc theo phim, tùy chọn)
+ *   GET    /api/showtimes[?movieId=1&upcoming=1]   danh sách (lọc theo phim; upcoming=1: chỉ suất chưa chiếu)
  *   GET    /api/showtimes/{id}          chi tiết
  *   POST   /api/showtimes               thêm
  *   PUT    /api/showtimes/{id}          sửa
@@ -14,6 +14,7 @@ require __DIR__ . '/src/config.php';
 require __DIR__ . '/src/response.php';
 require __DIR__ . '/src/db.php';
 require __DIR__ . '/src/validate.php';
+require __DIR__ . '/src/schedule.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $path   = rtrim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/', '/') ?: '/';
@@ -42,7 +43,9 @@ try {
         if ($mid !== null && (!is_int_like($mid) || (int) $mid <= 0)) {
             send_error('movieId phải là số nguyên dương', 400);
         }
-        send_success(find_showtimes($mid !== null ? (int) $mid : null));
+        $upcoming = in_array(strtolower((string) ($_GET['upcoming'] ?? '')), ['1', 'true'], true);
+        ensure_schedule();                   // lịch chiếu cuốn chiếu cho các ngày tới (xem src/schedule.php)
+        send_success(find_showtimes($mid !== null ? (int) $mid : null, $upcoming));
     }
 
     if ($isItem && $method === 'GET') {

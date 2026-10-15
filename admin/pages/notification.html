@@ -4,7 +4,7 @@
 <div id="app"><div id="stats"></div><div class="card" id="list"></div></div>
 <script src="../js/config.js"></script><script src="../js/common.js"></script>
 <script>
-Admin.shell("notification", "Nhật ký thông báo", "Notification Service · cổng 5006 · notification_db (TV6)");
+Admin.shell("notification", "Nhật ký thông báo", "Email / SMS xác nhận đã gửi cho khách sau khi thanh toán");
 document.getElementById("page-actions").innerHTML = '<button class="secondary" id="btn-reload">Làm mới</button><button id="btn-send">Gửi thông báo thử</button>';
 async function load() {
   Admin.clearError();
@@ -24,7 +24,7 @@ async function load() {
 }
 document.getElementById("btn-reload").onclick = load;
 document.getElementById("btn-send").onclick = function () {
-  Admin.openForm({title: "Gửi thông báo thử", subtitle: "Gửi giả lập — chỉ ghi vào nhật ký, không gửi thật.", submitLabel: "Gửi", fields: [{name: "username", label: "Username", required: true, value: "user1"},
+  Admin.openForm({title: "Gửi thông báo thử", subtitle: "Gửi thử — chỉ ghi vào nhật ký, không gửi tới khách thật.", submitLabel: "Gửi", fields: [{name: "username", label: "Username", required: true, value: "user1"},
     {name: "bookingId", label: "Mã đơn", type: "number", required: true, min: 1, value: 1}, {name: "channel", label: "Kênh", type: "select", options: ["EMAIL", "SMS"]}],
     onSubmit: async function (d) { await Admin.api("notification", "POST", "/api/notify", {username: d.username.trim(), bookingId: Number(d.bookingId), channel: d.channel}); Admin.toast("Đã ghi nhận thông báo"); load(); }});
 };

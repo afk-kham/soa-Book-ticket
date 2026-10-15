@@ -43,4 +43,7 @@ public static class Config
     public static string NotificationUrl => Get("NOTIFICATION_SERVICE_URL", "http://localhost:5006").TrimEnd('/');
 
     public static int UpstreamTimeoutSeconds => int.Parse(Get("UPSTREAM_TIMEOUT_SECONDS", "5"));
+
+    /// <summary>Số phút giữ ghế cho đơn PENDING chờ thanh toán; quá hạn -> tự CANCELLED và nhả ghế.</summary>
+    public static int HoldMinutes => int.Parse(Get("HOLD_MINUTES", "10"));
 }

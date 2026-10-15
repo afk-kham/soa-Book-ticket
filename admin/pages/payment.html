@@ -6,7 +6,7 @@
 <div class="card" id="list"></div></div>
 <script src="../js/config.js"></script><script src="../js/common.js"></script>
 <script>
-Admin.shell("payment", "Lịch sử thanh toán", "Payment Service · cổng 5005 · payment_db / MongoDB (TV5) — chỉ xem; giao dịch được tạo bởi Booking");
+Admin.shell("payment", "Lịch sử thanh toán", "Giao dịch phát sinh khi khách thanh toán vé — chỉ xem");
 document.getElementById("page-actions").innerHTML = '<button class="secondary" id="btn-reload">Làm mới</button>';
 async function load() {
   Admin.clearError();
@@ -20,11 +20,11 @@ async function load() {
     Admin.stats(document.getElementById("stats"), [{label: "Giao dịch" + (b ? " (đang lọc)" : ""), value: rows.length},
       {label: "Thành công", value: paid.length, hint: rows.length ? Math.round(paid.length / rows.length * 100) + "% tổng giao dịch" : ""},
       {label: "Thất bại", value: rows.length - paid.length},
-      {label: "Tổng tiền thu", value: Admin.money(paid.reduce(function (t, r) { return t + r.amount; }, 0)), hint: top ? "Phổ biến nhất: " + top : ""}]);
+      {label: "Tổng tiền thu", value: Admin.money(paid.reduce(function (t, r) { return t + r.amount; }, 0)), hint: top ? "Phổ biến nhất: " + Admin.methodLabel(top) : ""}]);
     Admin.table(list, [{label: "Mã giao dịch", render: function (r) { return '<span class="mono">' + Admin.esc(r.id) + "</span>"; }},
       {label: "Mã đơn", render: function (r) { return '<span class="id">#' + Admin.esc(r.bookingId) + "</span>"; }},
-      {label: "Số tiền", align: "num", render: function (r) { return Admin.money(r.amount); }}, {label: "Phương thức", render: function (r) { return Admin.badge(r.method); }},
-      {label: "Trạng thái", render: function (r) { return Admin.badge(r.status); }}, {label: "Thời điểm", render: function (r) { return Admin.fmtTime(r.paidAt); }}],
+      {label: "Số tiền", align: "num", render: function (r) { return Admin.money(r.amount); }}, {label: "Phương thức", render: function (r) { return Admin.badge(r.method, Admin.methodLabel(r.method)); }},
+      {label: "Trạng thái", render: function (r) { return Admin.payStatus(r.status); }}, {label: "Thời điểm", render: function (r) { return Admin.fmtTime(r.paidAt); }}],
       rows, null, {search: "Tìm theo mã giao dịch, mã đơn...", empty: "Chưa có giao dịch nào"});
   } catch (e) { Admin.showError(e); list.innerHTML = ""; document.getElementById("stats").innerHTML = ""; }
 }

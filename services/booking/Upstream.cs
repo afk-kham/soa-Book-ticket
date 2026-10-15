@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
@@ -15,7 +17,26 @@ public record Reply(int Status, JsonElement? Data, string? Message)
 /// </summary>
 public static class Upstream
 {
-    static readonly HttpClient Http = new() { Timeout = Timeout.InfiniteTimeSpan };   // timeout đặt theo từng request
+    // timeout đặt theo từng request. Kết nối thử IPv4 trước: "localhost" trên Windows phân giải ra ::1 trước,
+    // mà Movie/Showtime/Payment chỉ nghe 0.0.0.0 (IPv4) nên mỗi lời gọi phải chờ ~1 giây mới chuyển sang 127.0.0.1.
+    static readonly HttpClient Http = new(new SocketsHttpHandler { ConnectCallback = ConnectIPv4FirstAsync }) { Timeout = Timeout.InfiniteTimeSpan };
+
+    static async ValueTask<Stream> ConnectIPv4FirstAsync(SocketsHttpConnectionContext ctx, CancellationToken ct)
+    {
+        var addresses = await Dns.GetHostAddressesAsync(ctx.DnsEndPoint.Host, ct);
+        Exception? last = null;
+        foreach (var a in addresses.OrderBy(a => a.AddressFamily == AddressFamily.InterNetworkV6))
+        {
+            var socket = new Socket(a.AddressFamily, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+            try
+            {
+                await socket.ConnectAsync(new IPEndPoint(a, ctx.DnsEndPoint.Port), ct);
+                return new NetworkStream(socket, ownsSocket: true);
+            }
+            catch (SocketException e) { socket.Dispose(); last = e; }
+        }
+        throw last ?? new SocketException((int)SocketError.HostNotFound);
+    }
 
     public static async Task<Reply> SendAsync(HttpMethod method, string url, object? body, string serviceName,
         string unavailableCode, int? timeoutSeconds = null)

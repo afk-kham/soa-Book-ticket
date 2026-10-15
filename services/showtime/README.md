@@ -19,3 +19,7 @@ Movie Service tắt → 503 `MOVIE_SERVICE_UNAVAILABLE`. Chạy riêng lẻ đ�
 | `src/response.php` | Envelope + CORS |
 
 Tên cũ `movie_id` (query/body) vẫn được nhận; response luôn là `movieId`.
+
+## Lịch chiếu tự xếp (`src/schedule.php`)
+Mỗi lần `GET /api/showtimes`, service kiểm tra `AUTO_SCHEDULE_DAYS` ngày tới (mặc định 7); ngày nào **chưa có suất nào** thì xếp lịch: mỗi phim (lấy qua API Movie) chiếu ở 3 rạp, 2 suất/rạp, mỗi phim một phòng riêng; giá 75.000đ (trước 12h −10.000đ, từ 17h +10.000đ, cuối tuần +15.000đ). Không đụng suất đã có; xóa lẻ một suất cũng không bị sinh lại. Tắt: `AUTO_SCHEDULE_DAYS=0`. Múi giờ: `APP_TIMEZONE` (mặc định `Asia/Ho_Chi_Minh`).
+`?upcoming=1` chỉ trả suất chưa bắt đầu.

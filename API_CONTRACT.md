@@ -56,7 +56,7 @@ Phim: `{ "id": 1, "title": "Avengers: Endgame", "genre": "Hành động", "durat
 ## 3. Showtime Service — `:5002`
 | Method | Đường dẫn | Mô tả |
 |---|---|---|
-| GET | `/api/showtimes` | Danh sách; lọc `?movieId=1` |
+| GET | `/api/showtimes` | Danh sách; lọc `?movieId=1`, `?upcoming=1` (chỉ suất chưa bắt đầu). Mỗi lần gọi, service tự xếp lịch cho các ngày trong `AUTO_SCHEDULE_DAYS` (mặc định 7) **chưa có suất nào** — không đụng suất đã có. |
 | GET | `/api/showtimes/{id}` | Chi tiết |
 | POST | `/api/showtimes` | Thêm `{movieId, cinema, room, time, price}` → 201. Showtime gọi `GET {Movie}/api/movies/{movieId}` để kiểm tra phim có thật. |
 | PUT | `/api/showtimes/{id}` | Sửa một phần (chỉ gửi trường cần đổi) |
@@ -81,9 +81,12 @@ Mật khẩu băm BCrypt; `passwordHash` **không bao giờ** xuất hiện tron
 | Method | Đường dẫn | Mô tả |
 |---|---|---|
 | POST | `/api/booking` | Đặt vé (xem dưới) → 201 |
+| POST | `/api/booking/{id}/pay` | Thanh toán đơn đang giữ ghế `{username, paymentMethod}` → 200. Thất bại / Payment tạm sập: đơn **vẫn PENDING** để thử lại. Đơn đã trả → 409 `ALREADY_PAID`; đã hủy/hết hạn → 409 `BOOKING_CANCELLED`; không phải chủ đơn → 403 `FORBIDDEN`. |
+| POST | `/api/booking/{id}/cancel` | Hủy đơn đang giữ ghế `{username}` → 200 (nhả ghế). Đơn đã trả → 409 `PAID_NOT_CANCELLABLE`. |
 | GET | `/api/booking` | Danh sách; lọc `?username=&status=&showtimeId=` |
 | GET | `/api/booking/{id}` | Chi tiết |
 | GET | `/api/booking/seats?showtimeId=1` | Ghế đang bị giữ (PENDING/PAID) — Client vẽ sơ đồ ghế |
+| GET | `/api/booking/availability?showtimeIds=1,2,3` | `[{showtimeId, taken}]` — số ghế đã bị giữ của nhiều suất (Client hiện "còn N ghế") |
 | GET | `/health` | Kiểm tra sống (có ping DB) |
 
 **Request**
@@ -91,6 +94,8 @@ Mật khẩu băm BCrypt; `passwordHash` **không bao giờ** xuất hiện tron
 { "username": "user1", "movieId": 1, "showtimeId": 1, "seats": ["A5", "A6"], "paymentMethod": "MOMO" }
 ```
 Ghế dạng chữ hoa + 1–2 chữ số (`A1`, `B12`), 1–10 ghế, không trùng. `paymentMethod` mặc định `MOMO`.
+`"payNow": false` → chỉ **giữ ghế**: trả đơn `PENDING` kèm `expiresAt` (= `createdAt` + `HOLD_MINUTES`, mặc định 10 phút), chưa gọi Payment; người dùng thanh toán qua `/pay`. Quá hạn, Booking tự chuyển đơn sang `CANCELLED` và nhả ghế.
+Suất chiếu đã bắt đầu → 400 `SHOWTIME_CLOSED`.
 Giá **luôn lấy từ Showtime**; Booking không tin giá do client gửi.
 
 **Response 201**
@@ -101,12 +106,13 @@ Giá **luôn lấy từ Showtime**; Booking không tin giá do client gửi.
   "payment": { "status": "PAID", "method": "MOMO", "transactionId": "665f..." },
   "notification": "SENT" } }
 ```
-`status` ∈ `PENDING | PAID | CANCELLED`. `notification` ∈ `SENT | FAILED | SKIPPED` (SKIPPED khi thanh toán thất bại).
+`status` ∈ `PENDING | PAID | CANCELLED`. `notification` ∈ `SENT | FAILED | SKIPPED` (SKIPPED khi thanh toán thất bại hoặc chỉ giữ ghế).
+Mọi đơn (kể cả `GET`) có thêm `expiresAt`: hạn giữ ghế của đơn `PENDING`, `null` với đơn khác.
 
 ## 6. Payment Service — `:5005`
 | Method | Đường dẫn | Mô tả |
 |---|---|---|
-| POST | `/api/payment` | `{bookingId, amount, method}` → 201 `{id, bookingId, amount, method, status, paidAt}`. `status` = `PAID` hoặc `FAILED` (vẫn lưu). Đơn đã `PAID` mà gọi lại → **409 `ALREADY_PAID`**. |
+| POST | `/api/payment` | `{bookingId, amount, method}` (`method` ∈ `BANK_TRANSFER`, `MOMO`, `VNPAY`, `CASH`) → 201 `{id, bookingId, amount, method, status, paidAt}`. `status` = `PAID` hoặc `FAILED` (vẫn lưu). Đơn đã `PAID` mà gọi lại → **409 `ALREADY_PAID`**. |
 | GET | `/api/payment` | Danh sách; lọc `?bookingId=` |
 | GET | `/health` | Kiểm tra sống |
 

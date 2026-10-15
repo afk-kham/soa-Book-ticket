@@ -18,7 +18,8 @@ const PORT = Number(process.env.PORT || 5005);
 const HOST = process.env.HOST || "0.0.0.0";
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017";
 const DB_NAME = process.env.MONGO_DB || "payment_db";
-const ALLOWED_METHODS = new Set(["MOMO", "VNPAY", "CASH"]);
+// BANK_TRANSFER: chuyển khoản ngân hàng qua mã VietQR; CASH giữ lại để tương thích (Admin bán tại quầy)
+const ALLOWED_METHODS = new Set(["BANK_TRANSFER", "MOMO", "VNPAY", "CASH"]);
 const MAX_BODY_BYTES = 1024 * 1024;
 function corsHeaders() { return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,POST,OPTIONS", "Access-Control-Allow-Headers": "Content-Type,Authorization", "Access-Control-Max-Age": "86400" }; }
 function sendJson(res, statusCode, payload) { const body = JSON.stringify(payload); res.writeHead(statusCode, { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8", "Content-Length": Buffer.byteLength(body) }); res.end(body); }

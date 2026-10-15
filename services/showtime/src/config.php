@@ -23,6 +23,9 @@ function load_dotenv(string $path): void
 
 load_dotenv(__DIR__ . '/../.env');
 
+// Giờ chiếu lưu theo giờ địa phương; PHP mặc định UTC nên phải đặt múi giờ để so 'đã chiếu chưa' cho đúng
+date_default_timezone_set(getenv('APP_TIMEZONE') ?: 'Asia/Ho_Chi_Minh');
+
 function env(string $key, string $default = ''): string
 {
     $v = getenv($key);

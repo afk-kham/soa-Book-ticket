@@ -1,6 +1,10 @@
 # Booking Service (TV4) — C# · cổng 5004 · `booking_db`
 
 **Service điều phối** luồng đặt vé: User → Movie → Showtime → lưu PENDING → Payment → PAID/CANCELLED → Notification.
+
+Hai cách đặt:
+- **Đặt và trả ngay** (`POST /api/booking`, mặc định — Admin bán tại quầy): Payment lỗi thì đơn bị hủy, ghế được nhả.
+- **Giữ ghế rồi trả** (`"payNow": false` — Client dùng): đơn PENDING giữ ghế `HOLD_MINUTES` phút (mặc định 10); khách trả qua `POST /api/booking/{id}/pay` (thất bại vẫn giữ ghế để thử lại) hoặc hủy qua `/cancel`. Quá hạn, đơn tự CANCELLED (quét mỗi 30 giây và trước mỗi yêu cầu).
 .NET 8, `HttpListener`, ADO.NET (MySqlConnector). Không dùng ASP.NET.
 
 ```bash
@@ -11,6 +15,7 @@ dotnet run                        # http://localhost:5004
 - Windows mặc định nghe `http://localhost:5004/` (không cần Administrator). Muốn máy khác gọi được: `BOOKING_PREFIX=http://+:5004/` và chạy bằng quyền Administrator.
 - Booking **không bao giờ đọc DB của service khác**; chỉ gọi API (`Upstream.cs`).
 - `BOOKING_STORE=memory` chỉ dùng để thử nhanh không cần MySQL.
+- `created_at` ghi theo giờ máy chạy Booking (không dùng giờ của MySQL — MySQL trong Docker thường chạy UTC), để hạn giữ ghế khớp giờ chiếu.
 
 | Tệp | Vai trò |
 |---|---|

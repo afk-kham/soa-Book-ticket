@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## Poster, thanh toán chuyển khoản, xử lý đơn chờ, vé điện tử, lịch chiếu cập nhật liên tục
+Chi tiết và lý do từng thay đổi: [`docs/REVIEW_CAI_TIEN_DAT_VE.md`](docs/REVIEW_CAI_TIEN_DAT_VE.md).
+
+- **Client**: poster thật (`client/img/posters/`), luồng *chọn ghế → giữ ghế 10 phút → trang thanh toán (VietQR / MoMo / VNPAY) → vé điện tử có mã QR*; "Vé của tôi" có đếm ngược, nút Thanh toán/Hủy cho đơn chờ, nút Xem vé cho đơn đã trả; lịch chiếu và sơ đồ ghế tự cập nhật; bỏ thuật ngữ kỹ thuật khỏi giao diện và thông báo lỗi. Mã QR sinh ngay trên trình duyệt (`js/qr.js`, không cần mạng).
+- **Booking**: `payNow:false` (giữ ghế), `POST /api/booking/{id}/pay`, `POST /api/booking/{id}/cancel`, `GET /api/booking/availability`, trường `expiresAt`, tự hủy đơn quá hạn (`HOLD_MINUTES`), từ chối suất đã chiếu (`SHOWTIME_CLOSED`); gọi service khác ưu tiên IPv4 (mỗi lời gọi nhanh hơn ~1 giây trên Windows); `created_at` ghi theo giờ máy Booking.
+- **Showtime**: tự xếp lịch 7 ngày tới (`AUTO_SCHEDULE_DAYS`), lọc `?upcoming=1`, đặt múi giờ `APP_TIMEZONE`.
+- **Payment**: thêm phương thức `BANK_TRANSFER`.
+- **Admin**: bỏ cổng / tên CSDL / công nghệ / mã thành viên khỏi giao diện; poster thật ở trang Phim; nhãn tiếng Việt cho phương thức và kết quả thanh toán; "Đặt vé thử" thành "Bán vé tại quầy".
+- **Test tích hợp**: chọn suất sắp chiếu thay vì `shows[0]`; thêm nhóm [7] cho luồng giữ ghế / thanh toán sau / hủy (54 kiểm tra).
+
 ## Sửa script chạy User Service
 - `mvn exec:java` chạy app trong classloader riêng nên JDBC báo `No suitable driver` (gặp với Maven 3.10 + JDK 21). `start-all.bat` gọi `scripts/run-user.bat` (Maven chỉ build classpath, chạy bằng `java`); `start-all.sh` làm tương tự. Không đổi code `services/user/`.
 

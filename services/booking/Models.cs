@@ -13,7 +13,14 @@ public static class BookingStatus
 
 public record Booking(
     int Id, int MovieId, int ShowtimeId, string Username,
-    List<string> Seats, int TotalPrice, string Status, string CreatedAt);
+    List<string> Seats, int TotalPrice, string Status, string CreatedAt)
+{
+    /// <summary>Hạn giữ ghế của đơn PENDING (= createdAt + HOLD_MINUTES); đơn đã PAID/CANCELLED trả null.</summary>
+    public string? ExpiresAt => Status == BookingStatus.Pending && DateTime.TryParseExact(CreatedAt, "yyyy-MM-dd HH:mm:ss",
+        System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var t)
+        ? t.AddMinutes(Config.HoldMinutes).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)
+        : null;
+}
 
 public static class Json
 {

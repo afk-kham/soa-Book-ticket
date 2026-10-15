@@ -4,10 +4,10 @@
 <div id="app"><div id="stats"></div><div class="card" id="list"></div></div>
 <script src="../js/config.js"></script><script src="../js/common.js"></script>
 <script>
-Admin.shell("movie", "Quản lý phim", "Movie Service · cổng 5001 · movie_db (TV1)");
+Admin.shell("movie", "Quản lý phim", "Danh mục phim đang chiếu và sắp chiếu tại rạp");
 Admin.crudPage({
   service: "movie", path: "/api/movies", noun: "phim", search: "Tìm theo tên, thể loại...",
-  formHint: "Dữ liệu được lưu trong movie_db qua Movie Service.",
+  formHint: "Phim mới sẽ được tự xếp lịch chiếu cho các ngày còn trống.",
   afterLoad: function (rows) {
     var genres = {}; rows.forEach(function (r) { genres[r.genre] = 1; });
     var avg = rows.length ? Math.round(rows.reduce(function (t, r) { return t + Number(r.duration || 0); }, 0) / rows.length) : 0;
@@ -15,14 +15,14 @@ Admin.crudPage({
       {label: "Thời lượng trung bình", value: avg + " phút"}]);
   },
   columns: [{label: "ID", render: function (r) { return '<span class="id">#' + r.id + "</span>"; }},
-            {label: "Tên phim", render: function (r) { return '<span class="cell-movie">' + Admin.thumb(r.title) + "<b>" + Admin.esc(r.title) + "</b></span>"; }},
+            {label: "Tên phim", render: function (r) { return '<span class="cell-movie">' + Admin.poster(r) + "<b>" + Admin.esc(r.title) + "</b></span>"; }},
             {label: "Thể loại", render: function (r) { return Admin.badge("", r.genre); }},
             {label: "Thời lượng", align: "num", render: function (r) { return r.duration + " phút"; }},
             {label: "Poster", render: function (r) { return '<span class="mono">' + Admin.esc(r.poster || "—") + "</span>"; }},
             {label: "Ngày tạo", render: function (r) { return Admin.fmtTime(r.createdAt); }}],
   fields: function () { return [
     {name: "title", label: "Tên phim", required: true, placeholder: "VD: Inception"}, {name: "genre", label: "Thể loại", required: true, placeholder: "VD: Hành động"},
-    {name: "duration", label: "Thời lượng (phút)", type: "number", required: true, min: 1}, {name: "poster", label: "Poster", placeholder: "poster6.jpg hoặc URL ảnh", hint: "Client hiển thị ảnh nếu là URL; nếu là tên file thì dùng ảnh bìa tự sinh."}]; },
+    {name: "duration", label: "Thời lượng (phút)", type: "number", required: true, min: 1}, {name: "poster", label: "Poster", placeholder: "poster6.jpg hoặc URL ảnh", hint: "Tên file ảnh đặt trong client/img/posters (jpg, png hoặc svg), hoặc đường dẫn ảnh đầy đủ. Không có ảnh thì dùng ảnh bìa tự sinh."}]; },
   toForm: function (r) { return r; },
   toPayload: function (d) { return {title: d.title.trim(), genre: d.genre.trim(), duration: Number(d.duration), poster: d.poster.trim()}; }
 });

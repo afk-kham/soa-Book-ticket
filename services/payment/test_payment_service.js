@@ -60,3 +60,7 @@ test("GET /api/payment?bookingId= lọc đúng và lỗi trả code", () => with
   assert.equal(bad.status, 400); assert.equal((await bad.json()).code, "VALIDATION_ERROR");
   assert.equal((await fetch(base + "/api/nope")).status, 404);
 }));
+
+test("chuyển khoản ngân hàng (BANK_TRANSFER) là phương thức hợp lệ", () => {
+  assert.equal(normalizeTransaction({ bookingId: 10, amount: 90000, method: "bank_transfer" }).status, "PAID");
+});

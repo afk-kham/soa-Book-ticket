@@ -61,6 +61,12 @@ def free_seats(showtime_id, n=2):
     return out
 
 
+def upcoming_showtime(shows, after_minutes=30):
+    """Suất chiếu bắt đầu sau ít nhất after_minutes phút (Booking từ chối suất đã/đang chiếu)."""
+    limit = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() + after_minutes * 60))
+    return next((s for s in shows if s["time"] > limit), None)
+
+
 def normal():
     print("\n[1] Hợp đồng chung: envelope + camelCase cho từng service")
     for svc, path in [("movie", "/api/movies"), ("showtime", "/api/showtimes"), ("user", "/api/users"),
@@ -92,7 +98,10 @@ def normal():
     uname = f"it_{int(time.time())}"
     check("đăng ký tài khoản mới -> 201", is_ok(call("user", "POST", "/api/register", {"username": uname, "password": "Test@123", "email": f"{uname}@x.vn"}), 201))
     check("đăng ký trùng username -> 409", is_err(call("user", "POST", "/api/register", {"username": uname, "password": "Test@123"}), 409, "CONFLICT"))
-    st = shows[0]
+    st = upcoming_showtime(shows)
+    check("có suất chiếu sắp tới (lịch chiếu tự sinh cho các ngày tới)", st is not None)
+    if st is None:
+        return
     seats = free_seats(st["id"])
     r = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": seats, "paymentMethod": "MOMO"})
     check("đặt vé -> 201", is_ok(r, 201), r[1])
@@ -126,10 +135,39 @@ def normal():
     again = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": s2, "paymentMethod": "MOMO"})
     check("đặt lại đúng ghế đó với phương thức hợp lệ -> PAID", is_ok(again, 201) and again[1]["data"]["status"] == "PAID")
 
+    print("\n[7] Giữ ghế rồi thanh toán sau (payNow=false) / hủy giữ chỗ")
+    past = next((s for s in shows if s["time"] < time.strftime("%Y-%m-%d %H:%M:%S")), None)
+    if past:
+        check("đặt suất đã chiếu -> 400 SHOWTIME_CLOSED", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": past["movieId"], "showtimeId": past["id"], "seats": ["Z1"]}), 400, "SHOWTIME_CLOSED"))
+    s3 = free_seats(st["id"], 2)
+    r = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": s3, "payNow": False})
+    d = r[1]["data"] if r[1] and r[1].get("data") else {}
+    hid = d.get("id")
+    check("giữ ghế -> 201, đơn PENDING có expiresAt, chưa gọi Payment", is_ok(r, 201) and d.get("status") == "PENDING" and d.get("expiresAt") and d.get("payment") is None, d)
+    check("ghế đang giữ hiện trong danh sách ghế đã giữ", set(s3) <= set(call("booking", "GET", f"/api/booking/seats?showtimeId={st['id']}")[1]["data"]["seats"]))
+    av = call("booking", "GET", f"/api/booking/availability?showtimeIds={st['id']}")
+    check("availability trả số ghế đã giữ của suất", is_ok(av, 200) and av[1]["data"][0]["showtimeId"] == st["id"] and av[1]["data"][0]["taken"] >= len(s3), av[1])
+    check("người khác không thanh toán được đơn này -> 403", is_err(call("booking", "POST", f"/api/booking/{hid}/pay", {"username": "user2", "paymentMethod": "MOMO"}), 403, "FORBIDDEN"))
+    bad = call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "KHONGHOPLE"})
+    check("thanh toán thất bại -> đơn VẪN PENDING (giữ ghế để thử lại)", is_ok(bad, 200) and bad[1]["data"]["status"] == "PENDING" and bad[1]["data"]["payment"]["status"] == "FAILED", bad[1])
+    ok = call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "BANK_TRANSFER"})
+    d = ok[1]["data"] if ok[1] and ok[1].get("data") else {}
+    check("thanh toán chuyển khoản -> PAID, gửi thông báo", is_ok(ok, 200) and d.get("status") == "PAID" and d.get("expiresAt") is None and d.get("notification") == "SENT", d)
+    check("thanh toán lại đơn đã PAID -> 409 ALREADY_PAID", is_err(call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "MOMO"}), 409, "ALREADY_PAID"))
+    check("không hủy được vé đã thanh toán -> 409", is_err(call("booking", "POST", f"/api/booking/{hid}/cancel", {"username": uname}), 409, "PAID_NOT_CANCELLABLE"))
+    s4 = free_seats(st["id"], 1)
+    h2 = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": s4, "payNow": False})[1]["data"]["id"]
+    c = call("booking", "POST", f"/api/booking/{h2}/cancel", {"username": uname})
+    check("hủy đơn đang giữ -> CANCELLED, ghế được nhả", is_ok(c, 200) and c[1]["data"]["status"] == "CANCELLED"
+          and s4[0] not in call("booking", "GET", f"/api/booking/seats?showtimeId={st['id']}")[1]["data"]["seats"])
+    check("thanh toán đơn đã hủy -> 409 BOOKING_CANCELLED", is_err(call("booking", "POST", f"/api/booking/{h2}/pay", {"username": uname, "paymentMethod": "MOMO"}), 409, "BOOKING_CANCELLED"))
+    up = call("showtime", "GET", "/api/showtimes?upcoming=1")[1]["data"]
+    check("showtime ?upcoming=1 chỉ trả suất chưa chiếu", up and all(x["time"] > time.strftime("%Y-%m-%d %H:%M:%S") for x in up))
+
 
 def down(service):
     print(f"\n[Kịch bản] {service.upper()} đang TẮT — Booking phải xử lý êm, không treo, không sai dữ liệu")
-    st = call("showtime", "GET", "/api/showtimes")[1]["data"][0] if service != "showtime" else {"id": 1, "movieId": 1}
+    st = upcoming_showtime(call("showtime", "GET", "/api/showtimes")[1]["data"]) if service != "showtime" else {"id": 1, "movieId": 1}
     uname = "user1"
     seat = [f"U{random.randint(1, 99)}"]
     t0 = time.time()

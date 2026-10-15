@@ -20,9 +20,24 @@
   function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
   function money(n) { return Number(n || 0).toLocaleString("vi-VN") + " đ"; }
   function badge(v, label) { return '<span class="badge ' + esc(v) + '">' + esc(label || v) + "</span>"; }
+  /** Nhãn tiếng Việt cho phương thức / trạng thái thanh toán. */
+  function methodLabel(v) { var m = (window.SOA.paymentMethods || []).filter(function (x) { return x.value === v; })[0]; return m ? m.label : v; }
+  var PAY_ST = { PAID: "Thành công", FAILED: "Thất bại" };
+  function payStatus(v) { return badge(v, PAY_ST[v] || v); }
+  /** Ảnh poster phim (lấy từ trang khách: img/posters/<tên file>, thiếu .jpg thì thử .svg); lỗi thì dùng ô chữ cái. */
+  function poster(m) {
+    var p = String((m && m.poster) || "").trim(), f = p.replace(/^.*[\\/]/, ""), src = "", alt = "";
+    if (/^(https?:)?\/\//.test(p)) src = p;
+    else if (/^[\w.-]+$/.test(f)) { src = window.SOA.clientBase + "/img/posters/" + f; alt = src.replace(/\.(jpe?g|png|webp)$/i, ".svg"); if (alt === src) alt = ""; }
+    var t = thumb(m && m.title);
+    if (!src) return t;
+    return t.replace('class="thumb"', 'class="thumb poster-thumb"').replace(/<\/span>$/, '<img src="' + esc(src) + '" data-alt="' + esc(alt) +
+      '" alt="" loading="lazy" onerror="Admin.posterFail(this)"></span>');
+  }
+  function posterFail(img) { var a = img.getAttribute("data-alt"); if (a) { img.setAttribute("data-alt", ""); img.src = a; } else img.remove(); }
   function seats(list) { return (list || []).map(function (s) { return '<span class="seat-tag">' + esc(s) + "</span>"; }).join(""); }
 
-  /** Ảnh đại diện phim sinh từ tên (poster trong CSDL chỉ là tên file, chưa có ảnh thật). */
+  /** Ô màu + chữ cái đầu sinh từ tên (dùng khi phim chưa có ảnh poster). */
   var PAL = [["#7c2d12", "#f97316"], ["#1e3a8a", "#6366f1"], ["#4c1d95", "#db2777"], ["#064e3b", "#14b8a6"], ["#7f1d1d", "#f43f5e"], ["#713f12", "#eab308"], ["#0c4a6e", "#06b6d4"], ["#3b0764", "#a855f7"]];
   function thumb(title, cls) {
     var h = 0, s = String(title || ""); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
@@ -36,7 +51,7 @@
     try {
       res = await fetch(svc.base + path, { method: method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
     } catch (e) {
-      var err = new Error(svc.name + " Service đang không chạy hoặc không truy cập được (cổng " + svc.port + ")");
+      var err = new Error("Hệ thống " + svc.label.toLowerCase() + " đang tạm ngưng hoặc không truy cập được. Vui lòng thử lại sau.");
       err.code = "SERVICE_DOWN"; throw err;
     }
     try { json = await res.json(); } catch (e) { json = null; }
@@ -86,16 +101,16 @@
     }
     var links = NAV.map(function (n, i) {
       var svc = S[n[0]];
-      return (i === 1 ? '<div class="group">Dịch vụ</div>' : "") +
+      return (i === 1 ? '<div class="group">Quản lý</div>' : "") +
         '<a class="' + (n[0] === active ? "active" : "") + '" href="' + href(n[0]) + '">' + icon(n[0]) + '<span class="lbl">' + n[1] + "</span>" +
-        (svc ? "<small>:" + svc.port + '</small><span class="dot" data-dot="' + n[0] + '"></span>' : "") + "</a>";
+        (svc ? '<span class="dot" data-dot="' + n[0] + '"></span>' : "") + "</a>";
     }).join("");
     var svc = S[active];
     var app = document.getElementById("app"), content = app.innerHTML;
     app.outerHTML = '<div class="layout"><div class="mobilebar"><b>🎬 Admin SOA</b><button class="small" id="nav-toggle" aria-label="Mở menu">' + icon("menu") + "</button></div>" +
       '<nav class="sidebar" id="sidebar"><h1><span class="logo">▶</span><span>SOA Đặt vé phim<small>Bảng quản trị</small></span></h1><div class="group">Hệ thống</div>' + links +
-      '<div class="side-foot">6 service · 6 CSDL · HTTP + JSON<br><a href="http://' + (location.hostname || "localhost") + ':8080" target="_blank" rel="noopener">Mở trang Client ↗</a></div></nav>' +
-      '<main class="main"><div class="page-title"><div>' + (svc ? '<div class="crumb">' + esc(svc.name) + " Service · " + esc(svc.owner) + "</div>" : '<div class="crumb">Admin</div>') +
+      '<div class="side-foot">SOA Cinema · Quản trị rạp<br><a href="' + window.SOA.clientBase + '" target="_blank" rel="noopener">Mở trang đặt vé ↗</a></div></nav>' +
+      '<main class="main"><div class="page-title"><div><div class="crumb">' + (svc ? "Quản lý · " + esc(svc.label) : "Quản trị") + "</div>" +
       "<h2>" + esc(title) + '</h2><div class="sub">' + esc(subtitle || "") + '</div></div><div id="page-actions"></div></div>' +
       '<div id="page-error"></div><div id="content">' + content + '</div></main></div><div id="toasts"></div>' +
       '<div class="modal-bg" id="modal-bg"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>' +
@@ -112,7 +127,7 @@
   }
 
   function showError(e) {
-    document.getElementById("page-error").innerHTML = '<div class="alert"><span>⚠</span><div><b>' + (e.code === "SERVICE_DOWN" ? "Không kết nối được service" : "Có lỗi xảy ra") + "</b>" + esc(e.message) + "</div></div>";
+    document.getElementById("page-error").innerHTML = '<div class="alert"><span>⚠</span><div><b>' + (e.code === "SERVICE_DOWN" ? "Mất kết nối" : "Có lỗi xảy ra") + "</b>" + esc(e.message) + "</div></div>";
   }
   function clearError() { document.getElementById("page-error").innerHTML = ""; }
   /** Khung xương trong lúc tải dữ liệu. */
@@ -244,6 +259,6 @@
 
   window.Admin = { api: api, tryApi: tryApi, ping: ping, sidebarHealth: sidebarHealth, setHealthDots: setHealthDots, toast: toast, shell: shell, table: table,
                    openForm: openForm, closeForm: closeForm, confirmBox: confirmBox, drawer: drawer, closeDrawer: closeDrawer, dl: dl, stats: stats,
-                   loading: loading, crudPage: crudPage, icon: icon, thumb: thumb, seats: seats,
+                   loading: loading, crudPage: crudPage, icon: icon, thumb: thumb, poster: poster, posterFail: posterFail, seats: seats, methodLabel: methodLabel, payStatus: payStatus,
                    esc: esc, money: money, badge: badge, fmtTime: fmtTime, showError: showError, clearError: clearError };
 })();

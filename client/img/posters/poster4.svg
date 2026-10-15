@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600">
+  <title>Mai</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7a0f1d"/><stop offset=".6" stop-color="#b3192c"/><stop offset="1" stop-color="#3d0610"/></linearGradient>
+    <radialGradient id="sun" cx=".7" cy=".3" r=".5"><stop offset="0" stop-color="#ffd166" stop-opacity=".55"/><stop offset="1" stop-color="#ffd166" stop-opacity="0"/></radialGradient>
+    <radialGradient id="petal" cx=".5" cy=".4" r=".6"><stop offset="0" stop-color="#fff5c2"/><stop offset=".6" stop-color="#ffd23f"/><stop offset="1" stop-color="#f2a900"/></radialGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#1a0005" stop-opacity=".85"/></linearGradient>
+    <g id="flower">
+      <g fill="url(#petal)">
+        <ellipse cx="0" cy="-13" rx="9" ry="13"/><ellipse cx="0" cy="-13" rx="9" ry="13" transform="rotate(72)"/><ellipse cx="0" cy="-13" rx="9" ry="13" transform="rotate(144)"/>
+        <ellipse cx="0" cy="-13" rx="9" ry="13" transform="rotate(216)"/><ellipse cx="0" cy="-13" rx="9" ry="13" transform="rotate(288)"/>
+      </g>
+      <circle r="5" fill="#c2410c"/><g stroke="#9a3412" stroke-width="1.2"><line x1="0" y1="0" x2="0" y2="-9"/><line x1="0" y1="0" x2="8" y2="-4"/><line x1="0" y1="0" x2="-8" y2="-4"/></g>
+    </g>
+  </defs>
+  <rect width="400" height="600" fill="url(#bg)"/>
+  <rect width="400" height="600" fill="url(#sun)"/>
+  <!-- Cành mai -->
+  <g fill="none" stroke="#3b1f12" stroke-linecap="round">
+    <path d="M410 40 C330 90 300 140 250 170 C200 200 150 210 90 270" stroke-width="9"/>
+    <path d="M300 136 C290 100 300 70 320 50" stroke-width="5"/>
+    <path d="M200 196 C190 240 200 270 230 300" stroke-width="5"/>
+    <path d="M130 236 C110 210 80 200 50 205" stroke-width="4"/>
+  </g>
+  <g>
+    <use href="#flower" transform="translate(320 52) scale(1.1)"/><use href="#flower" transform="translate(268 160) scale(1.25)"/><use href="#flower" transform="translate(228 296) scale(.9)"/>
+    <use href="#flower" transform="translate(150 222) scale(1.15)"/><use href="#flower" transform="translate(54 204) scale(.85)"/><use href="#flower" transform="translate(96 268) scale(1)"/>
+    <use href="#flower" transform="translate(360 96) scale(.8)"/><use href="#flower" transform="translate(200 196) scale(.75)"/>
+  </g>
+  <g fill="#ffd23f" opacity=".85">
+    <ellipse cx="120" cy="380" rx="5" ry="8" transform="rotate(30 120 380)"/><ellipse cx="300" cy="410" rx="5" ry="8" transform="rotate(-40 300 410)"/>
+    <ellipse cx="60" cy="440" rx="4" ry="7" transform="rotate(60 60 440)"/><ellipse cx="250" cy="360" rx="4" ry="7" transform="rotate(10 250 360)"/>
+  </g>
+  <rect width="400" height="600" fill="url(#fade)"/>
+  <g font-family="'Segoe UI', Arial, sans-serif" text-anchor="middle" fill="#fff8e1">
+    <text x="200" y="510" font-size="96" font-weight="300" font-style="italic" letter-spacing="4">Mai</text>
+    <text x="200" y="556" font-size="13" letter-spacing="5" opacity=".85">MỘT ĐỜI NGƯỜI, MỘT LẦN THƯƠNG</text>
+  </g>
+  <g font-family="'Segoe UI', Arial, sans-serif" font-weight="800">
+    <rect x="16" y="16" width="44" height="26" rx="5" fill="#ef4444" stroke="#fff8e1" stroke-width="1"/><text x="38" y="35" font-size="14" text-anchor="middle" fill="#fff">T18</text>
+  </g>
+</svg>

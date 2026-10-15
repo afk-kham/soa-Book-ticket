@@ -1,4 +1,6 @@
 -- showtime_db — DỮ LIỆU MẪU DÙNG CHUNG (KHÔNG đổi id/giá trị các dòng có sẵn)
+-- 6 suất dưới đây là lịch sử (các đơn mẫu trỏ tới). Lịch chiếu cho 7 ngày tới do Showtime Service tự sinh
+-- ở lần gọi GET /api/showtimes đầu tiên mỗi ngày (src/schedule.php, biến AUTO_SCHEDULE_DAYS).
 SET NAMES utf8mb4;
 USE showtime_db;
 DELETE FROM showtimes;
