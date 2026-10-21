@@ -120,7 +120,11 @@ Mọi đơn (kể cả `GET`) có thêm `expiresAt`: hạn giữ ghế của đ�
 | Method | Đường dẫn | Mô tả |
 |---|---|---|
 | POST | `/api/notify` | `{username, bookingId, channel}` → `{notificationId, bookingId, username, channel, deliveryStatus, message, sentAt}`. Gửi giả lập, có ghi log. |
-| GET | `/api/notify/logs` | Nhật ký gửi (mới nhất trước) |
+| GET | `/api/notify/logs` | Danh sách nhật ký gửi (mới nhất trước). Hỗ trợ lọc `?bookingId=&username=&channel=` |
+| POST | `/api/notify/logs` | `{username, bookingId, channel, message?}` → Tạo bản ghi nhật ký thông báo mới |
+| GET | `/api/notify/logs/{id}` | Chi tiết một bản ghi nhật ký thông báo theo ID |
+| PUT / PATCH | `/api/notify/logs/{id}` | `{username?, bookingId?, channel?, message?}` → Cập nhật bản ghi nhật ký thông báo |
+| DELETE | `/api/notify/logs/{id}` | Xóa một bản ghi nhật ký thông báo theo ID |
 
 ## 8. Thay đổi hợp đồng
 Sửa file này → PR → ít nhất **2 thành viên** (gồm người sở hữu service bị ảnh hưởng) duyệt → cập nhật `CHANGELOG.md`.

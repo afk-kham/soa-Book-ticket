@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
-	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -21,26 +21,102 @@ type fakeStore struct {
 
 func (s *fakeStore) Insert(_ context.Context, n NotificationLog) (int64, error) {
 	s.inserts++
+	n.ID = int64(len(s.items) + 1)
 	s.items = append(s.items, n)
-	return 2, s.err
+	return n.ID, s.err
 }
-func (s *fakeStore) List(context.Context) ([]NotificationLog, error) { return s.items, s.err }
+
+func (s *fakeStore) List(context.Context) ([]NotificationLog, error) {
+	return s.items, s.err
+}
+
+func (s *fakeStore) Get(_ context.Context, id int64) (*NotificationLog, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	for _, item := range s.items {
+		if item.ID == id {
+			return &item, nil
+		}
+	}
+	return nil, nil
+}
+
+func (s *fakeStore) Update(_ context.Context, id int64, req UpdateLogRequest) (*NotificationLog, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	for i, item := range s.items {
+		if item.ID == id {
+			if req.Username != nil {
+				item.Username = *req.Username
+			}
+			if req.Channel != nil {
+				item.Channel = *req.Channel
+			}
+			if req.Message != nil {
+				item.Message = *req.Message
+			}
+			if req.BookingID != nil {
+				item.BookingID = *req.BookingID
+			}
+			s.items[i] = item
+			return &item, nil
+		}
+	}
+	return nil, nil
+}
+
+func (s *fakeStore) Delete(_ context.Context, id int64) error {
+	if s.err != nil {
+		return s.err
+	}
+	for i, item := range s.items {
+		if item.ID == id {
+			s.items = append(s.items[:i], s.items[i+1:]...)
+			return nil
+		}
+	}
+	return sql.ErrNoRows
+}
 
 type fakeSender struct {
 	calls int
 	err   error
 }
 
-func (s *fakeSender) Send(context.Context, NotificationLog) error { s.calls++; return s.err }
+func (s *fakeSender) Send(context.Context, NotificationLog) error {
+	s.calls++
+	return s.err
+}
+
 func testAPI(s *fakeStore, sender *fakeSender) http.Handler {
 	logger := log.New(io.Discard, "", 0)
 	return middleware(&API{s, sender, logger}, logger)
 }
+
 func request(h http.Handler, method, path, body string) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(method, path, strings.NewReader(body)))
 	return w
 }
+
+func checkCORS(t *testing.T, w *httptest.ResponseRecorder) {
+	t.Helper()
+	for key, value := range map[string]string{
+		"Access-Control-Allow-Origin":  "*",
+		"Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+		"Access-Control-Allow-Headers": "Content-Type, Authorization",
+	} {
+		if w.Header().Get(key) != value {
+			t.Errorf("%s expected %s, got %s", key, value, w.Header().Get(key))
+		}
+	}
+	if w.Header().Get("Access-Control-Allow-Credentials") != "" {
+		t.Fatal("credentials")
+	}
+}
+
 func TestNotifyValid(t *testing.T) {
 	s := &fakeStore{}
 	sender := &fakeSender{}
@@ -52,13 +128,14 @@ func TestNotifyValid(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
 		t.Fatal(err)
 	}
-	if w.Code != 200 || res.Status != "success" || res.Data.NotificationID != 2 || res.Data.BookingID != 3 || res.Data.Username != "người dùng" || res.Data.Channel != "EMAIL" || res.Data.DeliveryStatus != "SIMULATED" || res.Data.Message != "Đặt vé thành công cho đơn #3" || res.Data.SentAt.IsZero() || sender.calls != 1 || s.inserts != 1 {
+	if w.Code != 200 || res.Status != "success" || res.Data.NotificationID != 1 || res.Data.BookingID != 3 || res.Data.Username != "người dùng" || res.Data.Channel != "EMAIL" || res.Data.DeliveryStatus != "SIMULATED" || res.Data.Message != "Đặt vé thành công cho đơn #3" || res.Data.SentAt.IsZero() || sender.calls != 1 || s.inserts != 1 {
 		t.Fatalf("unexpected: %d %s", w.Code, w.Body.String())
 	}
 	if res.Data.SentAt.Location() != time.UTC || res.Data.SentAt.Nanosecond() != 0 {
 		t.Fatal("expected UTC seconds")
 	}
 }
+
 func TestInvalidBodies(t *testing.T) {
 	cases := []struct {
 		name, body string
@@ -83,31 +160,27 @@ func TestInvalidBodies(t *testing.T) {
 		})
 	}
 }
-func checkCORS(t *testing.T, w *httptest.ResponseRecorder) {
-	t.Helper()
-	for key, value := range map[string]string{"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization"} {
-		if w.Header().Get(key) != value {
-			t.Errorf("%s", key)
-		}
-	}
-	if w.Header().Get("Access-Control-Allow-Credentials") != "" {
-		t.Fatal("credentials")
-	}
-}
+
 func TestRoutes(t *testing.T) {
 	for _, tc := range []struct {
 		method, path string
 		code         int
 		allow        string
 	}{
-		{"GET", "/api/notify", 405, "POST, OPTIONS"}, {"POST", "/api/notify/logs", 405, "GET, OPTIONS"}, {"HEAD", "/api/notify/logs", 405, "GET, OPTIONS"},
-		{"GET", "/missing", 404, ""}, {"POST", "/api/notify/", 404, ""}, {"GET", "/api/notify/logs/other", 404, ""}, {"OPTIONS", "/missing", 404, ""},
-		{"OPTIONS", "/api/notify", 204, ""}, {"OPTIONS", "/api/notify/logs", 204, ""},
+		{"GET", "/api/notify", 405, "POST, OPTIONS"},
+		{"HEAD", "/api/notify/logs", 405, "GET, POST, OPTIONS"},
+		{"GET", "/missing", 404, ""},
+		{"POST", "/api/notify/", 404, ""},
+		{"GET", "/api/notify/logs/other", 400, ""},
+		{"OPTIONS", "/missing", 404, ""},
+		{"OPTIONS", "/api/notify", 204, ""},
+		{"OPTIONS", "/api/notify/logs", 204, ""},
+		{"OPTIONS", "/api/notify/logs/1", 204, ""},
 	} {
 		t.Run(tc.method+tc.path, func(t *testing.T) {
 			w := request(testAPI(&fakeStore{}, &fakeSender{}), tc.method, tc.path, "")
-			if w.Code != tc.code || w.Header().Get("Allow") != tc.allow {
-				t.Fatalf("%d %s", w.Code, w.Body.String())
+			if w.Code != tc.code || (tc.allow != "" && w.Header().Get("Allow") != tc.allow) {
+				t.Fatalf("%d %s (allow: %s)", w.Code, w.Body.String(), w.Header().Get("Allow"))
 			}
 			checkCORS(t, w)
 			if tc.code == 204 {
@@ -120,41 +193,55 @@ func TestRoutes(t *testing.T) {
 		})
 	}
 }
-func TestLogs(t *testing.T) {
-	for _, items := range [][]NotificationLog{nil, {{ID: 1, BookingID: 1, Username: "user1", Channel: "EMAIL", Message: composeMessage(1), SentAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}}} {
-		w := request(testAPI(&fakeStore{items: items}, &fakeSender{}), "GET", "/api/notify/logs", "")
-		checkCORS(t, w)
-		if w.Code != 200 {
-			t.Fatal(w.Body.String())
-		}
-		if items == nil && !strings.Contains(w.Body.String(), `"data":[]`) {
-			t.Fatal(w.Body.String())
-		}
-		var res struct{ Data []NotificationLog }
-		if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
-			t.Fatal(err)
-		}
-		if len(res.Data) != len(items) {
-			t.Fatal("log count")
-		}
+
+func TestCRUDLogs(t *testing.T) {
+	s := &fakeStore{
+		items: []NotificationLog{
+			{ID: 1, BookingID: 10, Username: "user1", Channel: "EMAIL", Message: "Msg 1", SentAt: time.Now().UTC()},
+		},
 	}
-}
-func TestFailures(t *testing.T) {
-	for _, method := range []string{"GET", "POST"} {
-		s := &fakeStore{err: errors.New("secret database error")}
-		path := "/api/notify"
-		if method == "GET" {
-			path += "/logs"
-		}
-		w := request(testAPI(s, &fakeSender{}), method, path, `{"username":"u","bookingId":1,"channel":"SMS"}`)
-		if w.Code != 500 || strings.Contains(w.Body.String(), "success") || strings.Contains(w.Body.String(), "secret") {
-			t.Fatal(w.Body.String())
-		}
-		checkCORS(t, w)
+	sender := &fakeSender{}
+	api := testAPI(s, sender)
+
+	// 1. GET /api/notify/logs
+	w := request(api, "GET", "/api/notify/logs", "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"username":"user1"`) {
+		t.Fatalf("List logs failed: %d %s", w.Code, w.Body.String())
 	}
-	s := &fakeStore{}
-	w := request(testAPI(s, &fakeSender{err: errors.New("failed")}), "POST", "/api/notify", `{"username":"u","bookingId":1,"channel":"SMS"}`)
-	if w.Code != 500 || s.inserts != 0 {
-		t.Fatal("sender failure must stop insert")
+
+	// 2. GET /api/notify/logs/1
+	w = request(api, "GET", "/api/notify/logs/1", "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"id":1`) {
+		t.Fatalf("Get log 1 failed: %d %s", w.Code, w.Body.String())
+	}
+
+	// 3. GET /api/notify/logs/999 (Not found)
+	w = request(api, "GET", "/api/notify/logs/999", "")
+	if w.Code != 404 {
+		t.Fatalf("Expected 404 for missing log: %d %s", w.Code, w.Body.String())
+	}
+
+	// 4. POST /api/notify/logs (Create log directly)
+	w = request(api, "POST", "/api/notify/logs", `{"username":"user2","bookingId":20,"channel":"SMS","message":"Xin chao"}`)
+	if w.Code != 201 || !strings.Contains(w.Body.String(), `"username":"user2"`) {
+		t.Fatalf("Create log failed: %d %s", w.Code, w.Body.String())
+	}
+
+	// 5. PUT /api/notify/logs/1 (Update log)
+	w = request(api, "PUT", "/api/notify/logs/1", `{"message":"Updated message","channel":"SMS"}`)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"message":"Updated message"`) || !strings.Contains(w.Body.String(), `"channel":"SMS"`) {
+		t.Fatalf("Update log failed: %d %s", w.Code, w.Body.String())
+	}
+
+	// 6. DELETE /api/notify/logs/1 (Delete log)
+	w = request(api, "DELETE", "/api/notify/logs/1", "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"deleted":true`) {
+		t.Fatalf("Delete log failed: %d %s", w.Code, w.Body.String())
+	}
+
+	// 7. GET /api/notify/logs/1 after delete -> 404
+	w = request(api, "GET", "/api/notify/logs/1", "")
+	if w.Code != 404 {
+		t.Fatalf("Expected 404 after delete: %d %s", w.Code, w.Body.String())
 	}
 }

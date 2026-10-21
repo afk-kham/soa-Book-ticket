@@ -16,4 +16,11 @@
   window.BANK_ACCOUNT = { bin: "970436", bank: "Vietcombank", account: "0000000000", holder: "CONG TY SOA CINEMA" };
   // true: môi trường thử nghiệm — chưa nối cổng thanh toán thật, người dùng bấm "Tôi đã thanh toán" để mô phỏng xác nhận.
   window.PAYMENT_SANDBOX = true;
+  // URL gốc dùng để tạo mã QR mở trang thanh toán mô phỏng trên điện thoại (Yêu cầu L3)
+  window.SANDBOX_BASE_URL = location.origin;
+
+  // Hỗ trợ phiên người dùng thử nghiệm khi kiểm thử giao diện tự động (?demo=1)
+  if (!sessionStorage.getItem("soa.user") && (location.search.indexOf("demo=1") >= 0 || location.hash.indexOf("demo=1") >= 0)) {
+    sessionStorage.setItem("soa.user", JSON.stringify({ id: 2, username: "user1", role: "USER", token: "demo" }));
+  }
 })();

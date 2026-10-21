@@ -51,12 +51,28 @@ Demo chịu lỗi (cho buổi bảo vệ): tắt một service rồi chạy
 services/<tên>/   mã nguồn từng service (+ .env.example, README)
 database/<tên>/   schema.sql + seed.sql (Payment: seed.js)
 admin/            khung chung css/ js/ + pages/ cho 6 service
-client/           ứng dụng người dùng cuối
+client/           ứng dụng người dùng cuối (+ assets/posters, assets/backdrops)
+ui-seed/          script nạp 10 phim mới & suất chiếu qua HTTP API
 tests/integration bộ kiểm thử tích hợp (Python, không cần cài thêm)
 docs/             ERD, Use Case, DFD, báo cáo của từng thành viên
 scripts/          init-db, start-all, stop-all, setup-git
 ```
 
+## Nạp thêm dữ liệu & tài nguyên (UI Seed)
+Để làm phong phú danh mục phim cho giao diện người dùng (từ 5 phim gốc lên 15 phim đa dạng thể loại cùng suất chiếu 7 ngày tới):
+```bash
+# Đảm bảo Movie Service (cổng 5001) và Showtime Service (cổng 5002) đang chạy
+python ui-seed/seed-movies.py
+```
+*Script có tính lũy thừa (idempotent), chạy lặp lại an toàn không sinh phim hay suất chiếu trùng lặp.*
+
+## Nguồn poster & trailer
+Toàn bộ dữ liệu hình ảnh và video trailer đều được xác thực từ các nguồn công khai chính thức:
+- **Poster phim**: Khai thác từ [The Movie Database (TMDB)](https://www.themoviedb.org/) và [Wikimedia Commons](https://commons.wikimedia.org/). Ảnh được tải về cục bộ tại `client/assets/posters/` (tỉ lệ 2:3) và `client/assets/backdrops/` (hero banner) để hệ thống hoạt động hoàn toàn offline.
+- **Trailer YouTube**: Sử dụng mã nhúng video chính thức từ các kênh phân phối của hãng phim (Marvel Entertainment, Warner Bros. Pictures, Universal Pictures, Pixar, Sony Pictures, Illumination, Ly Hai Production, Trấn Thành Town, Galaxy Cinema, CJ ENM Vietnam, NEON, Well Go USA). Đã xác thực thành công qua YouTube oEmbed API.
+- **Metadata mở rộng**: Quản lý độc lập tại `client/js/movie-extras.js` (không can thiệp CSDL backend của Movie Service), cung cấp nhãn tuổi (P, T13, T16, T18), thể loại chi tiết, tóm tắt tiếng Việt và liên kết trailer.
+
 ## Tạo repository GitHub
 Tạo repo **rỗng**, rồi nhóm trưởng chạy một lần: `bash scripts/setup-git.sh https://github.com/<tài-khoản>/soa-datve.git`
 (tạo `main`, `develop` và 6 nhánh `feature/tvN-*`). Sau đó bật bảo vệ nhánh `main`/`develop` (bắt buộc Pull Request).
+

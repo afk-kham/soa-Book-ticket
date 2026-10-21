@@ -1,32 +1,179 @@
 <!DOCTYPE html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Thông báo — Admin SOA Đặt vé</title><link rel="stylesheet" href="../css/admin.css"></head><body>
-<div id="app"><div id="stats"></div><div class="card" id="list"></div></div>
-<script src="../js/config.js"></script><script src="../js/common.js"></script>
+<html lang="vi" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thông báo — Admin SOA Cinema</title>
+  <link rel="stylesheet" href="../vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../vendor/bootstrap/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div id="app">
+  <div id="stats"></div>
+  <div class="card" id="list"></div>
+</div>
+
+<script src="../vendor/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/common.js"></script>
 <script>
-Admin.shell("notification", "Nhật ký thông báo", "Email / SMS xác nhận đã gửi cho khách sau khi thanh toán");
-document.getElementById("page-actions").innerHTML = '<button class="secondary" id="btn-reload">Làm mới</button><button id="btn-send">Gửi thông báo thử</button>';
+Admin.shell("notification", "Nhật ký thông báo", "Quản lý và theo dõi nhật ký email, tin nhắn xác nhận gửi cho khách hàng");
+
+document.getElementById("page-actions").innerHTML =
+  '<button class="secondary" id="btn-reload"><i class="bi bi-arrow-clockwise me-1"></i> Làm mới</button>' +
+  '<button class="secondary" id="btn-send"><i class="bi bi-send me-1"></i> Gửi thử nghiệm</button>' +
+  '<button id="btn-create" class="btn btn-primary d-inline-flex align-items-center gap-1"><i class="bi bi-plus-lg"></i> Thêm nhật ký</button>';
+
+var currentLogs = [];
+
 async function load() {
   Admin.clearError();
   var list = document.getElementById("list");
   Admin.loading(list);
   try {
-    var rows = await Admin.api("notification", "GET", "/api/notify/logs"), ch = {}, people = {};
-    rows.forEach(function (r) { ch[r.channel] = (ch[r.channel] || 0) + 1; people[r.username] = 1; });
-    Admin.stats(document.getElementById("stats"), [{label: "Thông báo đã gửi", value: rows.length}, {label: "Qua Email", value: ch.EMAIL || 0},
-      {label: "Qua SMS", value: ch.SMS || 0}, {label: "Người nhận", value: Object.keys(people).length}]);
-    Admin.table(list, [{label: "ID", render: function (r) { return '<span class="id">#' + r.id + "</span>"; }},
-      {label: "Mã đơn", render: function (r) { return '<span class="id">#' + Admin.esc(r.bookingId) + "</span>"; }}, {label: "Người nhận", key: "username"},
-      {label: "Kênh", render: function (r) { return Admin.badge(r.channel); }}, {label: "Nội dung", key: "message", wrap: true},
-      {label: "Gửi lúc", render: function (r) { return Admin.fmtTime(r.sentAt); }}],
-      rows, null, {search: "Tìm theo người nhận, mã đơn, nội dung...", empty: "Chưa có thông báo nào"});
-  } catch (e) { Admin.showError(e); list.innerHTML = ""; document.getElementById("stats").innerHTML = ""; }
+    currentLogs = await Admin.api("notification", "GET", "/api/notify/logs");
+    var ch = {}, people = {};
+    currentLogs.forEach(function (r) {
+      ch[r.channel] = (ch[r.channel] || 0) + 1;
+      people[r.username] = 1;
+    });
+
+    Admin.stats(document.getElementById("stats"), [
+      { label: "Tổng thông báo", value: currentLogs.length },
+      { label: "Qua Email", value: ch.EMAIL || 0, hint: "Thư điện tử xác nhận" },
+      { label: "Qua SMS", value: ch.SMS || 0, hint: "Tin nhắn điện thoại" },
+      { label: "Khách nhận", value: Object.keys(people).length }
+    ]);
+
+    Admin.table(list, [
+      { label: "ID", render: function (r) { return '<span class="id">#' + r.id + "</span>"; } },
+      { label: "Mã đơn hàng", render: function (r) { return '<span class="id">#' + Admin.esc(r.bookingId) + "</span>"; } },
+      { label: "Người nhận", key: "username" },
+      { label: "Kênh gửi", render: function (r) { return Admin.badge(r.channel); } },
+      { label: "Nội dung thông báo", key: "message", wrap: true },
+      { label: "Thời điểm gửi", render: function (r) { return Admin.fmtTime(r.sentAt); } }
+    ], currentLogs, function (r) {
+      return '<button class="small secondary" data-edit-log="' + r.id + '">Sửa</button>' +
+             '<button class="small ghost" data-del-log="' + r.id + '" style="color:var(--cinema-red)">Xóa</button>';
+    }, { search: "Tìm theo người nhận, mã đơn, nội dung...", empty: "Chưa có thông báo nào được ghi nhận" });
+  } catch (e) {
+    Admin.showError(e);
+    list.innerHTML = "";
+    document.getElementById("stats").innerHTML = "";
+  }
 }
+
+// Bắt sự kiện Sửa / Xóa trên bảng nhật ký thông báo
+document.getElementById("list").addEventListener("click", async function (ev) {
+  var eb = ev.target.closest("[data-edit-log]");
+  var db = ev.target.closest("[data-del-log]");
+
+  if (eb) {
+    var logId = eb.getAttribute("data-edit-log");
+    var target = currentLogs.find(function (l) { return String(l.id) === String(logId); });
+    if (!target) return;
+
+    Admin.openForm({
+      title: "Chỉnh sửa nhật ký thông báo #" + target.id,
+      subtitle: "Cập nhật nội dung hoặc thông tin của nhật ký thông báo đã lưu.",
+      submitLabel: "Lưu thay đổi",
+      fields: [
+        { name: "username", label: "Tài khoản nhận", required: true, value: target.username, placeholder: "VD: user1" },
+        { name: "bookingId", label: "Mã đơn đặt vé", type: "number", required: true, min: 1, value: target.bookingId },
+        {
+          name: "channel",
+          label: "Kênh gửi",
+          type: "select",
+          value: target.channel,
+          options: [
+            { value: "EMAIL", label: "EMAIL" },
+            { value: "SMS", label: "SMS" }
+          ]
+        },
+        { name: "message", label: "Nội dung thông báo", value: target.message, required: true, placeholder: "Nội dung gửi cho khách..." }
+      ],
+      onSubmit: async function (d) {
+        await Admin.api("notification", "PUT", "/api/notify/logs/" + target.id, {
+          username: d.username.trim(),
+          bookingId: Number(d.bookingId),
+          channel: d.channel,
+          message: d.message.trim()
+        });
+        Admin.toast("Đã cập nhật nhật ký #" + target.id + " thành công");
+        load();
+      }
+    });
+  }
+
+  if (db) {
+    var delId = db.getAttribute("data-del-log");
+    if (confirm("Xóa nhật ký thông báo #" + delId + "? Thao tác này không hoàn tác được.")) {
+      try {
+        await Admin.api("notification", "DELETE", "/api/notify/logs/" + delId);
+        Admin.toast("Đã xóa nhật ký thông báo #" + delId);
+        load();
+      } catch (err) {
+        Admin.toast("Xóa thất bại: " + err.message, "error");
+      }
+    }
+  }
+});
+
 document.getElementById("btn-reload").onclick = load;
+
+// Gửi thông báo mô phỏng
 document.getElementById("btn-send").onclick = function () {
-  Admin.openForm({title: "Gửi thông báo thử", subtitle: "Gửi thử — chỉ ghi vào nhật ký, không gửi tới khách thật.", submitLabel: "Gửi", fields: [{name: "username", label: "Username", required: true, value: "user1"},
-    {name: "bookingId", label: "Mã đơn", type: "number", required: true, min: 1, value: 1}, {name: "channel", label: "Kênh", type: "select", options: ["EMAIL", "SMS"]}],
-    onSubmit: async function (d) { await Admin.api("notification", "POST", "/api/notify", {username: d.username.trim(), bookingId: Number(d.bookingId), channel: d.channel}); Admin.toast("Đã ghi nhận thông báo"); load(); }});
+  Admin.openForm({
+    title: "Gửi thông báo mô phỏng",
+    subtitle: "Gửi thử nghiệm — chỉ ghi vào nhật ký mô phỏng, không gửi email/SMS thật.",
+    submitLabel: "Gửi thông báo",
+    fields: [
+      { name: "username", label: "Tài khoản nhận", required: true, value: "user1", placeholder: "user1" },
+      { name: "bookingId", label: "Mã đơn đặt vé", type: "number", required: true, min: 1, value: 1 },
+      { name: "channel", label: "Kênh gửi", type: "select", options: ["EMAIL", "SMS"] }
+    ],
+    onSubmit: async function (d) {
+      await Admin.api("notification", "POST", "/api/notify", {
+        username: d.username.trim(),
+        bookingId: Number(d.bookingId),
+        channel: d.channel
+      });
+      Admin.toast("Đã ghi nhận thông báo mô phỏng");
+      load();
+    }
+  });
 };
+
+// Thêm trực tiếp bản ghi nhật ký mới
+document.getElementById("btn-create").onclick = function () {
+  Admin.openForm({
+    title: "Thêm nhật ký thông báo mới",
+    subtitle: "Tạo trực tiếp bản ghi nhật ký vào hệ thống thông báo.",
+    submitLabel: "Tạo nhật ký",
+    fields: [
+      { name: "username", label: "Tài khoản nhận", required: true, placeholder: "VD: user1" },
+      { name: "bookingId", label: "Mã đơn đặt vé", type: "number", required: true, min: 1, placeholder: "VD: 1" },
+      { name: "channel", label: "Kênh gửi", type: "select", options: ["EMAIL", "SMS"] },
+      { name: "message", label: "Nội dung thông báo (để trống để dùng mẫu mặc định)", placeholder: "Nhập nội dung tùy chỉnh..." }
+    ],
+    onSubmit: async function (d) {
+      var payload = {
+        username: d.username.trim(),
+        bookingId: Number(d.bookingId),
+        channel: d.channel
+      };
+      if (d.message && d.message.trim()) {
+        payload.message = d.message.trim();
+      }
+      await Admin.api("notification", "POST", "/api/notify/logs", payload);
+      Admin.toast("Đã thêm bản ghi nhật ký thông báo mới");
+      load();
+    }
+  });
+};
+
 load();
-</script></body></html>
+</script>
+</body>
+</html>

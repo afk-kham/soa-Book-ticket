@@ -7,6 +7,7 @@ type NotifyRequest struct {
 	BookingID int64  `json:"bookingId"`
 	Channel   string `json:"channel"`
 }
+
 type NotificationLog struct {
 	ID        int64     `json:"id"`
 	BookingID int64     `json:"bookingId"`
@@ -15,6 +16,7 @@ type NotificationLog struct {
 	Message   string    `json:"message"`
 	SentAt    time.Time `json:"sentAt"`
 }
+
 type NotifyResponse struct {
 	NotificationID int64     `json:"notificationId"`
 	BookingID      int64     `json:"bookingId"`
@@ -23,4 +25,18 @@ type NotifyResponse struct {
 	DeliveryStatus string    `json:"deliveryStatus"`
 	Message        string    `json:"message"`
 	SentAt         time.Time `json:"sentAt"`
+}
+
+type UpdateLogRequest struct {
+	Username  *string `json:"username,omitempty"`
+	BookingID *int64  `json:"bookingId,omitempty"`
+	Channel   *string `json:"channel,omitempty"`
+	Message   *string `json:"message,omitempty"`
+}
+
+type CreateLogRequest struct {
+	Username  string `json:"username"`
+	BookingID int64  `json:"bookingId"`
+	Channel   string `json:"channel"`
+	Message   string `json:"message,omitempty"`
 }

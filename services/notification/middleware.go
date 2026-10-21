@@ -28,7 +28,7 @@ func middleware(next http.Handler, logger *log.Logger) http.Handler {
 		start := time.Now()
 		sw := &statusWriter{ResponseWriter: w}
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		defer func() {
 			if recover() != nil {
