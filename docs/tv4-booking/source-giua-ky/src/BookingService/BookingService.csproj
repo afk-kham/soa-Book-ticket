@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Booking Service (TV4) - giữa kỳ: code thuần, KHÔNG dùng framework web.
+      - HTTP:  System.Net.HttpListener (có sẵn trong .NET)
+      - JSON:  System.Text.Json (có sẵn trong .NET)
+      - CSDL:  ADO.NET + driver (MySqlConnector cho MySQL, Microsoft.Data.SqlClient cho SQL Server)
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>BookingService</RootNamespace>
+    <AssemblyName>BookingService</AssemblyName>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Driver ADO.NET, chỉ dùng để kết nối CSDL (được phép theo Phụ lục C) -->
+    <PackageReference Include="MySqlConnector" Version="2.3.7" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+  </ItemGroup>
+
+</Project>

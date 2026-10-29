@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="vi" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SOA Cinema — Đặt vé xem phim trực tuyến</title>
+  <meta name="theme-color" content="#0a0c13">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="vendor/bootstrap/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/client.css">
+</head>
+<body data-bs-theme="dark">
+  <header class="topbar">
+    <div class="topbar-in">
+      <a class="brand" href="#/">
+        <span class="brand-mark">▶</span>
+        <span>SOA<b>Cinema</b></span>
+      </a>
+      <nav class="mainnav" id="mainnav"></nav>
+      <div class="account" id="account"></div>
+    </div>
+  </header>
+
+  <main id="view" tabindex="-1"></main>
+
+  <footer class="cinema-footer">
+    <div class="cinema-footer-in">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div class="brand mb-3">
+            <span class="brand-mark">▶</span>
+            <span>SOA<b>Cinema</b></span>
+          </div>
+          <p class="text-secondary small mb-3">
+            Hệ thống rạp chiếu phim hiện đại hàng đầu với chất lượng hình ảnh sắc nét, âm thanh vòm sống động và trải nghiệm đặt vé trực tuyến tiện lợi.
+          </p>
+          <div class="text-secondary small">© 2026 SOA Cinema. All rights reserved.</div>
+        </div>
+
+        <div class="footer-col">
+          <h5>Khám phá &amp; Dịch vụ</h5>
+          <ul class="footer-links">
+            <li><a href="#/"><i class="bi bi-chevron-right small me-1"></i>Phim đang chiếu</a></li>
+            <li><a href="#showtimes"><i class="bi bi-chevron-right small me-1"></i>Lịch chiếu toàn quốc</a></li>
+            <li><a href="#/my"><i class="bi bi-chevron-right small me-1"></i>Quản lý vé của tôi</a></li>
+            <li><a href="javascript:void(0)"><i class="bi bi-chevron-right small me-1"></i>Quy chế rạp chiếu</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h5>Chăm sóc khách hàng</h5>
+          <ul class="footer-links">
+            <li><span class="text-light fw-bold"><i class="bi bi-telephone-fill text-warning me-2"></i>1900 8888</span> <small class="text-secondary">(1.000đ/phút)</small></li>
+            <li><span class="text-light"><i class="bi bi-envelope-fill text-warning me-2"></i>hotro@soacinema.vn</span></li>
+            <li><span class="text-secondary"><i class="bi bi-clock-fill text-warning me-2"></i>08:00 – 22:00 hàng ngày</span></li>
+            <li class="mt-2"><a href="javascript:void(0)" class="small text-secondary">Chính sách bảo mật · Điều khoản sử dụng</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h5>Kết nối với chúng tôi</h5>
+          <p class="text-secondary small mb-3">Theo dõi các tin tức điện ảnh và ưu đãi vé mới nhất:</p>
+          <div class="footer-socials">
+            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" class="footer-social-btn" title="Facebook"><i class="bi bi-facebook"></i></a>
+            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" class="footer-social-btn" title="YouTube"><i class="bi bi-youtube"></i></a>
+            <a href="https://tiktok.com" target="_blank" rel="noopener noreferrer" class="footer-social-btn" title="TikTok"><i class="bi bi-tiktok"></i></a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <div>Hệ thống cụm rạp tiêu chuẩn quốc tế tại Hà Nội, TP. Hồ Chí Minh, Đà Nẵng, Cần Thơ.</div>
+        <div>Trải nghiệm điện ảnh đỉnh cao tại SOA Cinema</div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Modal xem trailer YouTube -->
+  <div class="modal fade" id="trailerModal" tabindex="-1" aria-labelledby="trailerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content bg-dark border-secondary">
+        <div class="modal-header border-secondary py-2">
+          <h5 class="modal-title fs-6 text-truncate d-flex align-items-center gap-2" id="trailerModalLabel">
+            <i class="bi bi-play-circle-fill text-danger"></i>
+            <span id="trailerTitle">Trailer chính thức</span>
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        </div>
+        <div class="modal-body p-0 ratio ratio-16x9 bg-black position-relative" id="trailerModalBody">
+          <iframe id="trailerIframe" src="" title="Trailer" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal xác nhận thao tác -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content bg-dark border-secondary">
+        <div class="modal-body text-center p-4">
+          <i class="bi bi-exclamation-triangle-fill text-warning fs-1 mb-3 d-block"></i>
+          <h5 class="modal-title fs-6 mb-2" id="confirmTitle">Xác nhận</h5>
+          <p class="text-secondary small mb-4" id="confirmMessage">Bạn có chắc chắn muốn thực hiện?</p>
+          <div class="d-flex justify-content-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary px-3" data-bs-dismiss="modal">Hủy</button>
+            <button type="button" class="btn btn-sm btn-danger px-3" id="confirmOkBtn">Đồng ý</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer" style="z-index: 1090;"></div>
+  <div id="toasts" aria-live="polite"></div>
+
+  <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/qr.js"></script>
+  <script src="js/barcode.js"></script>
+  <script src="js/movie-extras.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

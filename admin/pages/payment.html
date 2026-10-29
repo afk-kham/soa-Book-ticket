@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="vi" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thanh toán — Admin SOA Cinema</title>
+  <link rel="stylesheet" href="../vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../vendor/bootstrap/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div id="app">
+  <div id="stats"></div>
+  <div class="card toolbar d-flex flex-wrap gap-2 align-items-center">
+    <input id="f-booking" class="form-control w-auto" type="number" min="1" placeholder="Nhập mã đơn đặt vé">
+    <button id="btn-filter" class="btn btn-secondary"><i class="bi bi-funnel me-1"></i>Lọc</button>
+    <button id="btn-clear" class="btn btn-ghost">Xóa lọc</button>
+  </div>
+  <div class="card" id="list"></div>
+</div>
+
+<script src="../vendor/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/common.js"></script>
+<script>
+Admin.shell("payment", "Lịch sử thanh toán", "Nhật ký các giao dịch phát sinh qua VietQR, MoMo, VNPAY hoặc Tiền mặt");
+document.getElementById("page-actions").innerHTML = '<button class="secondary" id="btn-reload"><i class="bi bi-arrow-clockwise me-1"></i> Làm mới</button>';
+
+async function load() {
+  Admin.clearError();
+  var list = document.getElementById("list"), b = document.getElementById("f-booking").value.trim();
+  Admin.loading(list);
+  try {
+    var rows = await Admin.api("payment", "GET", "/api/payment" + (b ? "?bookingId=" + encodeURIComponent(b) : ""));
+    var paid = rows.filter(function (r) { return r.status === "PAID"; }), by = {};
+    paid.forEach(function (r) { by[r.method] = (by[r.method] || 0) + 1; });
+    var top = Object.keys(by).sort(function (x, y) { return by[y] - by[x]; })[0];
+
+    Admin.stats(document.getElementById("stats"), [
+      { label: "Tổng giao dịch" + (b ? " (đang lọc)" : ""), value: rows.length },
+      { label: "Thành công", value: paid.length, hint: rows.length ? Math.round(paid.length / rows.length * 100) + "% tổng số" : "" },
+      { label: "Thất bại", value: rows.length - paid.length },
+      { label: "Tổng tiền thu", value: Admin.money(paid.reduce(function (t, r) { return t + r.amount; }, 0)), hint: top ? "Ưa chuộng: " + Admin.methodLabel(top) : "" }
+    ]);
+
+    Admin.table(list, [
+      { label: "Mã giao dịch", render: function (r) { return '<span class="mono">' + Admin.esc(r.id) + "</span>"; } },
+      { label: "Mã đơn hàng", render: function (r) { return '<span class="id">#' + Admin.esc(r.bookingId) + "</span>"; } },
+      { label: "Số tiền", align: "num", render: function (r) { return Admin.money(r.amount); } },
+      { label: "Phương thức", render: function (r) { return Admin.badge(r.method, Admin.methodLabel(r.method)); } },
+      { label: "Trạng thái", render: function (r) { return Admin.payStatus(r.status); } },
+      { label: "Thời điểm", render: function (r) { return Admin.fmtTime(r.paidAt); } }
+    ], rows, null, { search: "Tìm theo mã giao dịch, mã đơn...", empty: "Chưa có giao dịch thanh toán nào" });
+  } catch (e) {
+    Admin.showError(e);
+    list.innerHTML = "";
+    document.getElementById("stats").innerHTML = "";
+  }
+}
+
+document.getElementById("btn-filter").onclick = load;
+document.getElementById("f-booking").onkeydown = function (e) { if (e.key === "Enter") load(); };
+document.getElementById("btn-clear").onclick = function () { document.getElementById("f-booking").value = ""; load(); };
+document.getElementById("btn-reload").onclick = load;
+
+load();
+</script>
+</body>
+</html>

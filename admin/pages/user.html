@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Người dùng — Admin SOA Cinema</title>
+  <link rel="stylesheet" href="../vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../vendor/bootstrap/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div id="app">
+  <div id="stats"></div>
+  <div class="card" id="list"></div>
+</div>
+
+<script src="../vendor/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/common.js"></script>
+<script>
+Admin.shell("user", "Quản lý người dùng", "Tài khoản khách hàng và quản trị viên — mật khẩu được mã hóa an toàn");
+document.getElementById("page-actions").innerHTML = '<button class="secondary" id="btn-login"><i class="bi bi-shield-lock me-1"></i>Thử đăng nhập</button><button id="btn-reg"><i class="bi bi-person-plus me-1"></i>+ Đăng ký tài khoản</button>';
+
+async function load() {
+  Admin.clearError();
+  var list = document.getElementById("list");
+  Admin.loading(list);
+  try {
+    var rows = await Admin.api("user", "GET", "/api/users");
+    var admins = rows.filter(function (r) { return r.role === "ADMIN"; }).length;
+    Admin.stats(document.getElementById("stats"), [
+      { label: "Tổng tài khoản", value: rows.length },
+      { label: "Quản trị viên", value: admins },
+      { label: "Khách hàng", value: rows.length - admins },
+      { label: "Đã có email", value: rows.filter(function (r) { return r.email; }).length }
+    ]);
+    Admin.table(list, [
+      { label: "ID", render: function (r) { return '<span class="id">#' + r.id + "</span>"; } },
+      {
+        label: "Tên đăng nhập",
+        render: function (r) {
+          return '<span class="cell-movie">' + Admin.thumb(r.username, "round") + "<b>" + Admin.esc(r.username) + "</b></span>";
+        }
+      },
+      { label: "Email liên hệ", render: function (r) { return r.email ? Admin.esc(r.email) : '<small class="text-secondary">—</small>'; } },
+      { label: "Vai trò", render: function (r) { return Admin.badge(r.role, r.role === "ADMIN" ? "Quản trị" : "Người dùng"); } }
+    ], rows, null, { search: "Tìm theo tên đăng nhập, email...", empty: "Chưa có tài khoản nào" });
+  } catch (e) {
+    Admin.showError(e);
+    list.innerHTML = "";
+    document.getElementById("stats").innerHTML = "";
+  }
+}
+
+document.getElementById("btn-reg").onclick = function () {
+  Admin.openForm({
+    title: "Đăng ký tài khoản mới",
+    subtitle: "Tài khoản tạo tại đây sẽ mặc định vai trò Khách hàng.",
+    submitLabel: "Tạo tài khoản",
+    fields: [
+      { name: "username", label: "Tên đăng nhập", required: true, placeholder: "VD: huynhat" },
+      { name: "email", label: "Email", type: "email", placeholder: "email@domain.com" },
+      { name: "password", label: "Mật khẩu", type: "password", required: true, hint: "Tối thiểu 6 ký tự; được băm an toàn." }
+    ],
+    onSubmit: async function (d) {
+      await Admin.api("user", "POST", "/api/register", d);
+      Admin.toast("Đã tạo tài khoản " + d.username + " thành công");
+      load();
+    }
+  });
+};
+
+document.getElementById("btn-login").onclick = function () {
+  Admin.openForm({
+    title: "Kiểm tra xác thực tài khoản",
+    subtitle: "Kiểm tra thông tin đăng nhập và phân quyền của tài khoản.",
+    submitLabel: "Đăng nhập",
+    fields: [
+      { name: "username", label: "Tên đăng nhập", required: true, placeholder: "VD: user1" },
+      { name: "password", label: "Mật khẩu", type: "password", required: true }
+    ],
+    onSubmit: async function (d) {
+      var r = await Admin.api("user", "POST", "/api/login", d);
+      Admin.toast("Đăng nhập thành công — " + r.username + " (vai trò " + r.role + ")");
+    }
+  });
+};
+
+load();
+</script>
+</body>
+</html>

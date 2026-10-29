@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="vi" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tổng quan — Admin SOA Cinema</title>
+  <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="vendor/bootstrap/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+<div id="app">
+  <div id="kpi"></div>
+<div class="card"><div class="card-head"><h3>Tình trạng hệ thống</h3><small id="health-at">Tự làm mới mỗi 10 giây</small></div>
+<div class="grid" id="health"></div></div>
+  <div class="cols">
+  <div class="card"><div class="card-head"><h3>Đơn đặt vé gần đây</h3><a href="pages/booking.html">Xem tất cả →</a></div><div id="recent"></div></div>
+    <div>
+      <div class="card">
+        <div class="card-head">
+          <h3><i class="bi bi-pie-chart text-warning me-2"></i>Tình trạng đơn đặt vé</h3>
+        </div>
+        <div id="status"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h3><i class="bi bi-diagram-3 text-warning me-2"></i>Luồng nghiệp vụ đặt vé</h3>
+        </div>
+        <div class="flow">
+          <span class="node">Chọn suất</span><span class="arr">→</span>
+          <span class="node">Chọn ghế</span><span class="arr">→</span>
+          <span class="node main">Giữ ghế (10p)</span>
+        </div>
+        <div class="flow" style="margin-top:8px">
+          <span class="arr">→</span>
+          <span class="node main">Thanh toán</span><span class="arr">→</span>
+          <span class="node">Xuất vé mã vạch</span><span class="arr">→</span>
+          <span class="node">Gửi xác nhận</span>
+        </div>
+        <p style="color:var(--cinema-text-muted);margin:14px 0 0;font-size:13px">Quá 10 phút chưa thanh toán, đơn tự hủy và ghế được nhả cho khách khác.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/movie-extras.js"></script>
+<script src="js/common.js"></script>
+<script>
+Admin.shell("index", "Tổng quan hệ thống", "Tình hình bán vé và trạng thái hoạt động của 6 service SOA Cinema");
+var esc = Admin.esc, ST = { PAID: "Đã thanh toán", PENDING: "Chờ thanh toán", CANCELLED: "Đã hủy" };
+
+async function health() {
+  var keys = Object.keys(SOA.services), res = await Promise.all(keys.map(Admin.ping)), up = {}, n = 0;
+  document.getElementById("health").innerHTML = keys.map(function (k, i) {
+    var s = SOA.services[k], r = res[i];
+    up[k] = r.ok;
+    if (r.ok) n++;
+    return '<div class="stat svc' + (r.ok ? "" : " down") + '">' +
+      '<div class="svc-top">' +
+        '<div class="svc-name">' +
+          '<span class="svc-ic">' + Admin.icon(k) + "</span>" +
+          "<div>" +
+            "<b>" + esc(s.label) + "</b>" +
+            "<span>" + (r.ok ? "Phản hồi " + r.ms + " ms" : "Không phản hồi") + "</span>" +
+          "</div>" +
+        "</div>" +
+        Admin.badge(r.ok ? "up" : "down", r.ok ? "Hoạt động" : "Gián đoạn") +
+      "</div>" +
+    "</div>";
+  }).join("");
+
+  Admin.setHealthDots(up);
+  try { sessionStorage.setItem("soa.health", JSON.stringify({ at: Date.now(), up: up })); } catch (e) {}
+  document.getElementById("health-at").textContent =
+    (n === keys.length ? "Tất cả chức năng hoạt động bình thường" : (keys.length - n) + " chức năng đang gián đoạn") +
+    " · cập nhật " + new Date().toLocaleTimeString("vi-VN");
+  return n;
+}
+
+async function data() {
+  var all = await Promise.all([
+    Admin.tryApi("movie", "/api/movies", null),
+    Admin.tryApi("showtime", "/api/showtimes", null),
+    Admin.tryApi("user", "/api/users", null),
+    Admin.tryApi("booking", "/api/booking", null)
+  ]);
+  var movies = all[0], sts = all[1], users = all[2], bks = all[3];
+  var na = '<span style="color:var(--cinema-text-muted)">—</span>', off = function () { return "Tạm thời không tải được"; };
+  var paid = (bks || []).filter(function (b) { return b.status === "PAID"; });
+  var revenue = paid.reduce(function (t, b) { return t + b.totalPrice; }, 0);
+  var soon = (sts || []).filter(function (s) { return new Date(String(s.time).replace(" ", "T")) > new Date(); }).length;
+
+  Admin.stats(document.getElementById("kpi"), [
+    { label: "Phim trong rạp", value: movies ? movies.length : na, hint: movies ? "Tổng danh mục phim" : off("Movie") },
+    { label: "Suất chiếu sắp tới", value: sts ? soon : na, hint: sts ? "Suất chiếu 7 ngày tới" : off("Showtime") },
+    { label: "Người dùng", value: users ? users.length : na, hint: users ? users.filter(function (u) { return u.role === "ADMIN"; }).length + " quản trị viên" : off("User") },
+    { label: "Đơn đặt vé", value: bks ? bks.length : na, hint: bks ? paid.length + " đơn đã thanh toán" : off("Booking") },
+    { label: "Doanh thu", value: bks ? Admin.money(revenue) : na, hint: bks ? "Tổng doanh thu vé đã bán" : off("Booking") }
+  ]);
+
+  var movieMap = {};
+  (movies || []).forEach(function (m) { movieMap[m.id] = m; });
+  var recent = document.getElementById("recent"), status = document.getElementById("status");
+  if (!bks) { recent.innerHTML = '<div class="alert">⚠ ' + off("Booking") + "</div>"; status.innerHTML = ""; return; }
+
+  Admin.table(recent, [
+    { label: "Mã", render: function (r) { return '<span class="id">#' + r.id + "</span>"; } },
+    {
+      label: "Phim",
+      render: function (r) {
+        var m = movieMap[r.movieId] || { title: "Phim #" + r.movieId };
+        return '<span class="cell-movie">' + Admin.poster(m) + "<div><b>" + esc(m.title) + "</b><br><small class='text-secondary'>" + esc(r.username) + "</small></div></span>";
+      }
+    },
+    { label: "Ghế", render: function (r) { return Admin.seats(r.seats); } },
+    { label: "Tổng tiền", align: "num", render: function (r) { return Admin.money(r.totalPrice); } },
+    { label: "Trạng thái", render: function (r) { return Admin.badge(r.status, ST[r.status]); } }
+  ], bks.slice().sort(function (a, b) { return b.id - a.id; }).slice(0, 6), null, { empty: "Chưa có đơn đặt vé nào" });
+
+  var order = ["PAID", "PENDING", "CANCELLED"], cnt = { PAID: 0, PENDING: 0, CANCELLED: 0 };
+  bks.forEach(function (b) { if (cnt[b.status] != null) cnt[b.status]++; });
+  var total = bks.length || 1;
+  status.innerHTML = (bks.length ? '<div class="meter" role="img" aria-label="Tỉ lệ trạng thái đơn">' + order.filter(function (k) { return cnt[k]; }).map(function (k) {
+      return '<i class="' + k + '" style="width:' + (cnt[k] / total * 100) + '%" title="' + ST[k] + ': ' + cnt[k] + ' đơn (' + Math.round(cnt[k] / total * 100) + '%)"></i>';
+    }).join("") + "</div>" : "") +
+    '<div class="legend">' + order.map(function (k) {
+      return '<span><i class="' + k + '"></i>' + ST[k] + " <b>" + cnt[k] + "</b><small>" + Math.round(cnt[k] / total * 100) + "%</small></span>";
+    }).join("") + "</div>";
+}
+
+Admin.loading(document.getElementById("recent"), 6);
+Admin.stats(document.getElementById("kpi"), [1, 2, 3, 4, 5].map(function () { return { label: "Đang tải", value: '<div class="skel" style="height:26px;width:60%"></div>' }; }));
+document.getElementById("page-actions").innerHTML = '<button class="secondary" id="btn-reload"><i class="bi bi-arrow-clockwise me-1"></i> Làm mới</button>';
+document.getElementById("btn-reload").onclick = function () { health(); data(); };
+
+health();
+data();
+setInterval(health, 10000);
+</script>
+</body>
+</html>

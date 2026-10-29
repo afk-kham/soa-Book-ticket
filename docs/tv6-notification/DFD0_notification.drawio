@@ -1,0 +1,54 @@
+<mxfile host="65bd71144e">
+    <diagram name="DFD0_notification" id="0">
+        <mxGraphModel dx="243" dy="242" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="2" parent="1" style="whiteSpace=wrap;html=1;" value="Booking Service" vertex="1">
+                    <mxGeometry height="70" width="170" x="10" y="150.5" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" parent="1" style="ellipse;whiteSpace=wrap;html=1;" value="Notification Service" vertex="1">
+                    <mxGeometry height="90" width="200" x="338" y="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="4" parent="1" style="whiteSpace=wrap;html=1;" value="Quản trị viên" vertex="1">
+                    <mxGeometry height="70" width="170" x="731" y="149.91" as="geometry"/>
+                </mxCell>
+                <mxCell id="5" edge="1" parent="1" source="2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;curved=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5056;" target="3" value="yêu cầu thông báo">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint as="offset"/>
+                        <Array as="points">
+                            <mxPoint x="258.5" y="185.5"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="6" edge="1" parent="1" source="3" style="exitX=0.028;exitY=0.673;exitDx=0;exitDy=0;exitPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=1;curved=0;" value="kết quả gửi">
+                    <mxGeometry relative="1" y="15" as="geometry">
+                        <mxPoint as="offset"/>
+                        <mxPoint x="390" y="200" as="sourcePoint"/>
+                        <mxPoint x="180" y="200" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="7" edge="1" parent="1" source="4" style="entryX=0.993;entryY=0.401;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.001;exitY=0.374;exitDx=0;exitDy=0;exitPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=1;curved=0;" target="3" value="yêu cầu xem nhật ký">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="0.62" as="offset"/>
+                        <Array as="points">
+                            <mxPoint x="720" y="176.09"/>
+                            <mxPoint x="549" y="176.09"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="8" edge="1" parent="1" source="3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;curved=0;exitX=1;exitY=0.5056;entryX=0;entryY=0.5071;" target="4" value="danh sách nhật ký">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="-0.04" as="offset"/>
+                        <Array as="points">
+                            <mxPoint x="565" y="185.5"/>
+                            <mxPoint x="565" y="216.59"/>
+                            <mxPoint x="704" y="216.59"/>
+                            <mxPoint x="704" y="185.41"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

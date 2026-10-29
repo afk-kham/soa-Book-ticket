@@ -1,0 +1,1990 @@
+/* =============================================================================
+   SOA CINEMA — CLIENT STYLESHEET (DARK CINEMA + BOOTSTRAP 5.3 TOKENS)
+   Thiết kế giao diện rạp chiếu phim hiện đại: Dark Cinema theme, Gold/Red accent,
+   hiệu ứng mờ backdrop, card hover nâng, vé điện tử răng cưa có mã vạch.
+============================================================================= */
+
+:root,
+[data-bs-theme="dark"] {
+  --cinema-bg: #0a0c13;
+  --cinema-surface-1: #111520;
+  --cinema-surface-2: #181e2d;
+  --cinema-surface-3: #22293c;
+  --cinema-border: #262e43;
+  --cinema-border-light: #343e59;
+  
+  --cinema-text: #f3f4f6;
+  --cinema-text-muted: #94a3b8;
+  --cinema-text-dim: #64748b;
+
+  --cinema-gold: #f5b301;
+  --cinema-gold-hover: #ffcf4d;
+  --cinema-gold-glow: rgba(245, 179, 1, 0.28);
+  --cinema-red: #e50914;
+  --cinema-red-hover: #ff2d38;
+
+  --cinema-ok: #10b981;
+  --cinema-warn: #f59e0b;
+  --cinema-err: #ef4444;
+  --cinema-info: #38bdf8;
+
+  --bs-body-bg: var(--cinema-bg);
+  --bs-body-color: var(--cinema-text);
+  --bs-primary: var(--cinema-gold);
+  --bs-primary-rgb: 245, 179, 1;
+  --bs-secondary: #475569;
+  --bs-border-color: var(--cinema-border);
+
+  --cinema-radius: 14px;
+  --cinema-radius-sm: 8px;
+  --cinema-radius-lg: 20px;
+  --cinema-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.75);
+  --cinema-font: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  font-family: var(--cinema-font);
+  background-color: var(--cinema-bg);
+  color: var(--cinema-text);
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-image: 
+    radial-gradient(1200px 600px at 85% -10%, rgba(245, 179, 1, 0.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 20%, rgba(229, 9, 20, 0.07), transparent 60%);
+  background-attachment: fixed;
+}
+
+a { color: var(--cinema-gold); text-decoration: none; transition: color 0.15s ease; }
+a:hover { color: var(--cinema-gold-hover); }
+
+main#view {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 20px max(64px, calc(48px + env(safe-area-inset-bottom, 20px)));
+  min-height: 0;
+  outline: none;
+}
+
+/* =============================================================================
+   1. TOPBAR & NAVBAR (BOOTSTRAP ADAPTATION)
+============================================================================= */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  background: rgba(10, 12, 19, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--cinema-border);
+  transition: all 0.25s ease;
+}
+
+.topbar-in {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.brand b { color: var(--cinema-gold); }
+.brand:hover { color: #fff; }
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  color: #0b0d12;
+  background: linear-gradient(135deg, var(--cinema-gold-hover), var(--cinema-gold));
+  box-shadow: 0 6px 18px -4px rgba(245, 179, 1, 0.6);
+}
+
+.mainnav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mainnav a {
+  color: var(--cinema-text-muted);
+  font-weight: 500;
+  font-size: 14px;
+  padding: 8px 18px;
+  border-radius: 99px;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+.mainnav a:hover {
+  color: #fff;
+  background: var(--cinema-surface-2);
+}
+.mainnav a.active {
+  color: #0b0d12;
+  background: var(--cinema-gold);
+  font-weight: 700;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-link-custom {
+  color: var(--cinema-text-muted) !important;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 8px 16px !important;
+  border-radius: 99px;
+  transition: all 0.15s ease;
+}
+.nav-link-custom:hover {
+  color: #fff !important;
+  background: var(--cinema-surface-2);
+}
+.nav-link-custom.active {
+  color: #fff !important;
+  background: var(--cinema-surface-3);
+  font-weight: 600;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 14px 4px 5px;
+  border: 1px solid var(--cinema-border);
+  border-radius: 99px;
+  background: var(--cinema-surface-1);
+}
+.user-chip .avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: #0b0d12;
+  background: linear-gradient(135deg, var(--cinema-gold-hover), #f97316);
+}
+.user-chip .name {
+  font-weight: 600;
+  font-size: 14px;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =============================================================================
+   SOA STEPPER (4 BƯỚC TIẾN TRÌNH ĐẶT VÉ)
+============================================================================= */
+.soa-stepper {
+  margin: 0 0 28px;
+  width: 100%;
+}
+.soa-stepper-list {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  margin: 0;
+  list-style: none;
+  background: var(--cinema-surface-1);
+  border: 1px solid var(--cinema-border);
+  border-radius: var(--cinema-radius);
+  gap: 8px;
+}
+.soa-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--cinema-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.soa-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cinema-surface-3);
+  color: var(--cinema-text-muted);
+  font-weight: 700;
+  font-size: 13px;
+  border: 1px solid var(--cinema-border-light);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+.soa-step-label {
+  font-size: 13px;
+}
+.soa-step-line {
+  flex: 1;
+  height: 2px;
+  background: var(--cinema-border);
+  min-width: 16px;
+  margin: 0 4px;
+  transition: background-color 0.2s ease;
+}
+.soa-step.active {
+  color: #fff;
+  font-weight: 700;
+}
+.soa-step.active .soa-step-num {
+  background: var(--cinema-gold);
+  color: #0b0d12;
+  border-color: var(--cinema-gold);
+  box-shadow: 0 0 14px var(--cinema-gold-glow);
+  transform: scale(1.08);
+}
+.soa-step.done {
+  color: var(--cinema-ok);
+}
+.soa-step.done .soa-step-num {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--cinema-ok);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+.soa-step-line.done {
+  background: var(--cinema-ok);
+}
+
+/* Fallback/Legacy .steps / .step */
+.steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  margin: 0 0 28px;
+  background: var(--cinema-surface-1);
+  border: 1px solid var(--cinema-border);
+  border-radius: var(--cinema-radius);
+  gap: 8px;
+}
+.steps .step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--cinema-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.steps .step i {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cinema-surface-3);
+  color: var(--cinema-text-muted);
+  font-style: normal;
+  font-weight: 700;
+  font-size: 13px;
+  border: 1px solid var(--cinema-border-light);
+  flex-shrink: 0;
+}
+.steps .sep {
+  flex: 1;
+  height: 2px;
+  background: var(--cinema-border);
+  min-width: 16px;
+  margin: 0 4px;
+}
+.steps .step.on {
+  color: #fff;
+  font-weight: 700;
+}
+.steps .step.on i {
+  background: var(--cinema-gold);
+  color: #0b0d12;
+  border-color: var(--cinema-gold);
+  box-shadow: 0 0 14px var(--cinema-gold-glow);
+}
+.steps .step.done {
+  color: var(--cinema-ok);
+}
+.steps .step.done i {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--cinema-ok);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+@media (max-width: 640px) {
+  .soa-stepper-list, .steps {
+    padding: 10px 14px;
+  }
+  .soa-step-label, .steps .step:not(.on):not(.active) span {
+    display: none;
+  }
+  .soa-step.active .soa-step-label, .steps .step.on span {
+    display: inline;
+    font-size: 12px;
+  }
+}
+
+/* =============================================================================
+   SOA INFO ROW (LABEL - VALUE COMPONENT)
+============================================================================= */
+.soa-info-row,
+.kv,
+.t-cell {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+  gap: 12px !important;
+  padding: 8px 0 !important;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.08) !important;
+  font-size: 14px;
+}
+.soa-info-row:last-child,
+.kv:last-child,
+.t-cell:last-child {
+  border-bottom: none !important;
+}
+.soa-info-label,
+.kv > span:first-child,
+.t-cell .t-lbl {
+  color: var(--cinema-text-muted) !important;
+  font-weight: 500 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+.soa-info-value,
+.kv > b:last-child,
+.kv > span:last-child,
+.t-cell .t-val {
+  color: #fff !important;
+  font-weight: 600 !important;
+  text-align: right !important;
+  word-break: break-word !important;
+  margin-left: auto !important;
+}
+
+/* =============================================================================
+   2. HERO CAROUSEL BANNER (YÊU CẦU 3)
+============================================================================= */
+.hero-carousel,
+.hero-carousel-wrapper {
+  position: relative;
+  border-radius: var(--cinema-radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--cinema-border);
+  margin-bottom: 40px;
+  background: var(--cinema-surface-1);
+  box-shadow: var(--cinema-shadow);
+  min-height: 480px;
+}
+
+.carousel-track {
+  position: relative;
+  width: 100%;
+  min-height: 480px;
+}
+
+.hero-slide,
+.carousel-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.6s ease, visibility 0.6s ease;
+  min-height: 480px;
+  display: flex;
+  align-items: center;
+  padding: 48px;
+  overflow: hidden;
+  isolation: isolate;
+  z-index: 1;
+}
+
+.hero-slide.active,
+.carousel-slide.active {
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-bg,
+.hero-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(28px) brightness(0.38) saturate(1.4);
+  transform: scale(1.1);
+  transition: background-image 0.6s ease;
+  pointer-events: none;
+}
+
+.hero-slide-in {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 40px;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+.slide-content {
+  position: relative;
+  z-index: 3;
+}
+
+.slide-poster-wrap {
+  position: relative;
+  width: 280px;
+  max-width: 100%;
+}
+.hero-poster {
+  border-radius: var(--cinema-radius-lg);
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: transform 0.3s ease;
+}
+.hero-poster:hover {
+  transform: scale(1.03);
+}
+
+.slide-content .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cinema-gold);
+  margin-bottom: 12px;
+}
+
+.slide-content h1,
+.slide-content .slide-title {
+  color: #ffffff;
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.85);
+}
+
+.slide-content .meta,
+.slide-content .slide-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.slide-content .desc,
+.slide-content .slide-desc {
+  color: #cbd5e1;
+  font-size: 15px;
+  line-height: 1.6;
+  max-width: 620px;
+  margin-bottom: 24px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.slide-content .actions,
+.slide-content .slide-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+
+/* Stagger animation cho chữ trong slide */
+.carousel-slide.active .slide-content .slide-tags,
+.carousel-item.active .slide-content .eyebrow { animation: slideUp 0.4s ease 0.05s both; }
+.carousel-slide.active .slide-content h1,
+.carousel-item.active .slide-content h1 { animation: slideUp 0.4s ease 0.1s both; }
+.carousel-slide.active .slide-content .slide-meta,
+.carousel-item.active .slide-content .meta { animation: slideUp 0.4s ease 0.15s both; }
+.carousel-slide.active .slide-content .slide-desc,
+.carousel-item.active .slide-content .desc { animation: slideUp 0.4s ease 0.2s both; }
+.carousel-slide.active .slide-content .slide-actions,
+.carousel-item.active .slide-content .actions { animation: slideUp 0.4s ease 0.25s both; }
+.carousel-slide.active .slide-poster-wrap,
+.carousel-item.active .slide-poster { animation: fadeIn 0.5s ease 0.15s both; }
+
+@keyframes slideUp {
+  from { opacity: 0.4; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0.5; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.carousel-slide .slide-content {
+  position: relative;
+  z-index: 3;
+}
+.carousel-slide .slide-content h1,
+.carousel-slide .slide-content .slide-title {
+  color: #ffffff !important;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 8px;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.9);
+}
+.carousel-slide .slide-content .slide-subtitle {
+  color: var(--cinema-gold) !important;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.carousel-slide .slide-content .slide-desc {
+  color: #e2e8f0 !important;
+  font-size: 15px;
+  line-height: 1.6;
+  max-width: 650px;
+  margin-bottom: 24px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--cinema-border);
+  padding: 5px 12px;
+  border-radius: 99px;
+  font-size: 13px;
+  color: #e2e8f0;
+}
+
+.age-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.age-p { background: #10b981; color: #fff; }
+.age-t13 { background: #f59e0b; color: #000; }
+.age-t16 { background: #f97316; color: #fff; }
+.age-t18 { background: #ef4444; color: #fff; }
+
+.poster .age-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+}
+
+/* Indicators có thanh chạy tiến độ */
+.carousel-indicators-bar,
+.carousel-indicators-progress {
+  position: absolute;
+  bottom: 20px;
+  left: 48px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
+.indicator-bar {
+  width: 44px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.22);
+  border: none;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  transition: width 0.3s ease, background-color 0.3s ease;
+  position: relative;
+}
+.indicator-bar.active {
+  width: 72px;
+  background: rgba(255, 255, 255, 0.3);
+}
+.indicator-progress {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--cinema-gold);
+}
+@keyframes fillProgress {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+.indicator-bar.active .indicator-progress {
+  width: 100%;
+}
+
+.carousel-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(18, 22, 34, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--cinema-border-light);
+  color: #fff;
+  font-size: 20px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+.carousel-nav-btn:hover {
+  background: var(--cinema-gold);
+  color: #0a0c13;
+  transform: translateY(-50%) scale(1.08);
+}
+.carousel-nav-btn.prev { left: 16px; }
+.carousel-nav-btn.next { right: 16px; }
+
+
+/* =============================================================================
+   3. POSTER THẬT & MOVIE CARD (YÊU CẦU 2)
+============================================================================= */
+.poster {
+  position: relative;
+  aspect-ratio: 2/3;
+  border-radius: var(--cinema-radius);
+  overflow: hidden;
+  background: var(--cinema-surface-2);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 16px;
+  isolation: isolate;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.poster img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+  transition: transform 0.35s ease;
+}
+
+.poster::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.8) 100%);
+  pointer-events: none;
+}
+
+.poster.has-img .poster-fallback-info { display: none; }
+.poster-fallback-info {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  text-align: center;
+  z-index: 1;
+}
+.poster-fallback-info .poster-emoji { font-size: 36px; margin-bottom: 8px; }
+.poster-fallback-info .poster-title { font-size: 14px; font-weight: 700; color: #fff; }
+
+.poster.sm {
+  width: 72px;
+  min-width: 72px;
+  border-radius: 8px;
+  padding: 0;
+}
+.poster.sm::after { display: none; }
+
+
+/* Thẻ phim lưới (Movie Card Redesign - M3) */
+.mcard {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--cinema-radius);
+  background: var(--cinema-surface-1);
+  border: 1px solid var(--cinema-border);
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.2s ease;
+  color: var(--cinema-text);
+  text-decoration: none;
+  position: relative;
+  height: 100%;
+}
+.mcard:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.9), 0 0 0 1px var(--cinema-accent);
+  border-color: var(--cinema-accent);
+  color: var(--cinema-text);
+}
+.mcard-poster-wrap {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  width: 100%;
+  overflow: hidden;
+  background: #07090e;
+  border-radius: var(--cinema-radius) var(--cinema-radius) 0 0;
+}
+.mcard-poster-wrap .poster {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.mcard-poster-wrap .poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.mcard:hover .mcard-poster-wrap .poster img {
+  transform: scale(1.04);
+}
+.mcard-age {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+.mcard-hover-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 12, 19, 0.82);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.mcard:hover .mcard-hover-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+.mcard-info {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.mcard-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 0 0 6px;
+  color: #fff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.7em;
+}
+.mcard-sub {
+  font-size: 12.5px;
+  color: var(--cinema-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.mcard-showtimes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.04);
+  width: fit-content;
+  margin-bottom: 12px;
+}
+.mcard-showtimes .showtime-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mcard-showtimes.today {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+.mcard-showtimes.today .showtime-dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+}
+.mcard-showtimes.soon {
+  color: #facc15;
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.2);
+}
+.mcard-showtimes.soon .showtime-dot {
+  background: #eab308;
+}
+.mcard-showtimes.none {
+  color: var(--cinema-text-dim);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.mcard-showtimes.none .showtime-dot {
+  background: #64748b;
+}
+.mcard-footer {
+  margin-top: auto;
+  padding-top: 4px;
+}
+.mcard-btn {
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+.mcard:hover .mcard-btn {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
+}
+
+/* Nhãn độ tuổi chuẩn Việt Nam */
+.badge-age {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: inline-block;
+  line-height: 1;
+}
+.badge-age-P { background: #10b981; color: #fff; }
+.badge-age-T13 { background: #eab308; color: #0b0d12; }
+.badge-age-T16 { background: #f97316; color: #fff; }
+.badge-age-T18 { background: #ef4444; color: #fff; }
+
+.badge-tag-show {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  background: rgba(10, 12, 19, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--cinema-border-light);
+  color: var(--cinema-gold);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 99px;
+}
+
+/* =============================================================================
+   SOA SEARCH COMPONENT (M1)
+============================================================================= */
+.soa-search {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  max-width: 320px;
+  height: 38px;
+}
+.soa-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cinema-text-dim);
+  font-size: 0.9rem;
+  pointer-events: none;
+  z-index: 2;
+  transition: color 0.15s ease;
+}
+.soa-search-input {
+  width: 100%;
+  height: 100%;
+  padding-left: 38px !important;
+  padding-right: 32px !important;
+  background: rgba(18, 22, 34, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 9999px !important;
+  color: #fff !important;
+  font-size: 0.875rem !important;
+  transition: all 0.2s ease !important;
+}
+.soa-search-input::placeholder {
+  color: var(--cinema-text-dim) !important;
+  opacity: 0.85;
+}
+.soa-search-input:hover {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  background: rgba(24, 28, 42, 0.85);
+}
+.soa-search-input:focus {
+  outline: none !important;
+  border-color: var(--cinema-accent) !important;
+  background: rgba(24, 28, 42, 0.95);
+  box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.25) !important;
+}
+.soa-search-input:focus + .soa-search-icon,
+.soa-search:focus-within .soa-search-icon {
+  color: var(--cinema-accent);
+}
+.soa-search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: var(--cinema-text-muted);
+  font-size: 14px;
+  line-height: 1;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+  z-index: 3;
+}
+.soa-search-clear:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+.soa-search-clear.visible {
+  display: inline-flex;
+}
+
+/* =============================================================================
+   SOA TABS & SEGMENTED CONTROLS (M5)
+============================================================================= */
+.soa-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(18, 22, 34, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  isolation: isolate;
+  position: relative;
+}
+.soa-tabs::-webkit-scrollbar {
+  display: none;
+}
+.soa-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 9999px;
+  background: transparent;
+  border: none;
+  color: var(--cinema-text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  user-select: none;
+}
+.soa-tab:hover:not(.active):not(.on) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+.soa-tab.active,
+.soa-tab.on {
+  background: var(--cinema-surface-3);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+.soa-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--cinema-accent);
+}
+.soa-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.soa-tab-badge-all {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+.soa-tab-badge-pending {
+  background: rgba(234, 179, 8, 0.2);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+.soa-tab-badge-paid {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.soa-tab-badge-cancelled {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Date tabs in movie detail */
+.soa-date-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 12px;
+  scrollbar-width: none;
+}
+.soa-date-tabs::-webkit-scrollbar {
+  display: none;
+}
+.soa-date-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  min-width: 84px;
+  border-radius: 14px;
+  background: var(--cinema-surface-1);
+  border: 1px solid var(--cinema-border);
+  color: var(--cinema-text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.soa-date-tab:hover:not(.active):not(.on) {
+  background: var(--cinema-surface-2);
+  border-color: var(--cinema-border-light);
+  color: #fff;
+}
+.soa-date-tab.active,
+.soa-date-tab.on {
+  background: var(--cinema-gold);
+  border-color: var(--cinema-gold);
+  color: #0b0d12;
+  box-shadow: 0 6px 18px -4px rgba(245, 179, 1, 0.5);
+  transform: translateY(-2px);
+}
+.soa-date-tab.active b,
+.soa-date-tab.active small,
+.soa-date-tab.on b,
+.soa-date-tab.on small {
+  color: #0b0d12;
+}
+.soa-date-tab small {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+.soa-date-tab b {
+  font-size: 16px;
+  color: #fff;
+}
+
+/* Bộ lọc & tìm kiếm */
+.filters-bar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.search-input-wrap {
+  position: relative;
+  min-width: 260px;
+  flex: 1;
+  max-width: 380px;
+}
+.search-input-wrap i {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cinema-text-dim);
+}
+.search-input-wrap input {
+  padding-left: 40px !important;
+}
+
+/* =============================================================================
+   GENRE PILL CHIPS (YÊU CẦU L6)
+============================================================================= */
+.genres-wrapper {
+  position: relative;
+  margin-bottom: 24px;
+}
+.genres-scroll-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.genres-scroll,
+.genre-pills {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 4px 2px 8px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+}
+.genres-scroll::-webkit-scrollbar,
+.genre-pills::-webkit-scrollbar {
+  display: none;
+}
+.genre,
+.genre-pill {
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cinema-text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--cinema-border);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  user-select: none;
+  outline: none;
+}
+.genre:hover,
+.genre-pill:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--cinema-border-light);
+  transform: translateY(-1px);
+}
+.genre.on,
+.genre.active,
+.genre-pill.on,
+.genre-pill.active {
+  color: #0b0d12 !important;
+  background: var(--cinema-gold) !important;
+  border-color: var(--cinema-gold) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px -2px rgba(245, 179, 1, 0.45) !important;
+}
+.genre-arrow-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--cinema-surface-2);
+  border: 1px solid var(--cinema-border-light);
+  color: var(--cinema-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  z-index: 2;
+  transition: all 0.15s ease;
+}
+.genre-arrow-btn:hover {
+  background: var(--cinema-gold);
+  color: #0b0d12;
+}
+
+.movies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 24px;
+}
+
+/* =============================================================================
+   4. TRANG CHI TIẾT PHIM (#/movie/{id})
+============================================================================= */
+.detail-hero {
+  position: relative;
+  border-radius: var(--cinema-radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--cinema-border);
+  margin-bottom: 36px;
+  background: var(--cinema-surface-1);
+  isolation: isolate;
+  padding: 40px;
+}
+.detail-hero-in {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 40px;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+
+.detail-content {
+  position: relative;
+  z-index: 3;
+}
+.detail-content h1,
+.detail-content .detail-title {
+  color: #ffffff !important;
+  font-size: 36px;
+  font-weight: 800;
+  margin: 6px 0 12px;
+  line-height: 1.2;
+}
+.detail-content .detail-desc {
+  color: #cbd5e1 !important;
+  font-size: 15px;
+  line-height: 1.6;
+  max-width: 680px;
+}
+
+.facts {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+  padding: 14px 18px;
+  background: rgba(10, 12, 19, 0.6);
+  border: 1px solid var(--cinema-border);
+  border-radius: var(--cinema-radius);
+}
+.fact-item {
+  display: flex;
+  flex-direction: column;
+}
+.fact-label {
+  font-size: 12px;
+  color: var(--cinema-text-muted);
+  margin-bottom: 2px;
+}
+.fact-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.dates {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: var(--cinema-surface-2);
+  border: 1px solid var(--cinema-border);
+  color: var(--cinema-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 90px;
+}
+.date small { font-size: 11px; text-transform: uppercase; font-weight: 600; margin-bottom: 2px; }
+.date b { font-size: 16px; color: #fff; }
+.date.on {
+  background: var(--cinema-gold);
+  border-color: var(--cinema-gold);
+  color: #0b0d12;
+  box-shadow: 0 6px 18px -4px rgba(245, 179, 1, 0.6);
+}
+.date.on b, .date.on small { color: #0b0d12; }
+
+.cinema-card {
+  background: var(--cinema-surface-1);
+  border: 1px solid var(--cinema-border);
+  border-radius: var(--cinema-radius);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.cinema-card h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+}
+
+.times-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.time-btn {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--cinema-surface-2);
+  border: 1px solid var(--cinema-border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+.time-btn:hover:not(:disabled) {
+  border-color: var(--cinema-gold);
+  background: var(--cinema-surface-3);
+  transform: translateY(-2px);
+}
+.time-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.show-hm { font-size: 18px; font-weight: 800; color: #fff; }
+.show-sub { font-size: 12px; color: var(--cinema-text-muted); margin: 2px 0 4px; }
+.time-btn .seats { font-size: 11px; font-style: normal; font-weight: 600; color: var(--cinema-ok); }
+.time-btn .seats.low { color: var(--cinema-warn); }
+.time-btn .seats.out { color: var(--cinema-err); }
+
+  gap: 12px;
+}
+.time-btn {
+  background: var(--cinema-surface-2);
+  border: 1px solid var(--cinema-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  color: var(--cinema-text);
+}
+.time-btn:hover:not(:disabled) {
+  border-color: var(--cinema-gold);
+  background: var(--cinema-surface-3);
+  transform: translateY(-2px);
+}
+.time-btn b { font-size: 17px; color: #fff; }
+.time-btn span { font-size: 12px; color: var(--cinema-text-muted); }
+.time-btn .seats-tag { font-size: 11px; font-weight: 600; color: var(--cinema-ok); }
+.time-btn .seats-tag.low { color: var(--cinema-warn); }
+.time-btn .seats-tag.out { color: var(--cinema-err); }
+.time-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* =============================================================================
+   5. SƠ ĐỒ CHỌN GHẾ (#/book/{movieId}/{showtimeId})
+============================================================================= */
+.booking-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 28px;
+  align-items: start;
+}
+.hall-screen {
+  text-align: center;
+  margin: 20px 0 40px;
+  position: relative;
+}
+.hall-screen .screen-line {
+  height: 5px;
+  background: linear-gradient(90deg, transparent, var(--cinema-gold), transparent);
+  border-radius: 50%;
+  box-shadow: 0 8px 30px rgba(245, 179, 1, 0.45);
+  margin-bottom: 8px;
+}
+.hall-screen span {
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  color: var(--cinema-text-dim);
+  font-weight: 700;
+}
+
+.seat-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.seat-row .row-label {
+  width: 24px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cinema-text-dim);
+  text-align: center;
+}
+.seat-row .aisle {
+  width: 20px;
+}
+.seat-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border: 1px solid var(--cinema-border-light);
+  background: var(--cinema-surface-2);
+  color: var(--cinema-text-muted);
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+.seat-btn:hover:not(:disabled) {
+  transform: scale(1.15);
+  border-color: var(--cinema-gold);
+  color: #fff;
+  background: var(--cinema-surface-3);
+  z-index: 2;
+}
+.seat-btn.sel {
+  background: var(--cinema-gold) !important;
+  border-color: var(--cinema-gold) !important;
+  color: #0b0d12 !important;
+  box-shadow: 0 0 16px rgba(245, 179, 1, 0.7);
+  transform: scale(1.1);
+  font-weight: 800;
+}
+.seat-btn.taken {
+  background: #1e2433 !important;
+  border-color: transparent !important;
+  color: #475569 !important;
+  cursor: not-allowed;
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.seat-legend {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cinema-border);
+}
+.seat-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--cinema-text-muted);
+}
+.seat-legend-item i {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: inline-block;
+}
+
+/* =============================================================================
+   6. THANH TOÁN (#/pay/{bookingId})
+============================================================================= */
+.countdown-box {
+  background: var(--cinema-surface-2);
+  border: 1px solid var(--cinema-border);
+  border-radius: var(--cinema-radius);
+  padding: 16px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.countdown-box b {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--cinema-gold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.countdown-box.urgent b {
+  color: var(--cinema-err);
+  animation: pulse 1s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.payment-method-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--cinema-surface-2);
+  border: 2px solid var(--cinema-border);
+  border-radius: var(--cinema-radius);
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.payment-method-card:hover {
+  border-color: var(--cinema-border-light);
+  background: var(--cinema-surface-3);
+}
+.payment-method-card.active {
+  border-color: var(--cinema-gold);
+  background: rgba(245, 179, 1, 0.08);
+}
+
+/* QR Container Size Fix (Yêu cầu L3) */
+.qr-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+.qr-wrap .qr,
+.qr-box-wrap .qr,
+.qr-box-wrap {
+  width: 220px !important;
+  height: 220px !important;
+  min-width: 220px !important;
+  min-height: 220px !important;
+  max-width: 220px !important;
+  max-height: 220px !important;
+  background: #ffffff !important;
+  padding: 12px !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+}
+.qr-wrap .qr svg,
+.qr-box-wrap .qr svg,
+.qr-box-wrap svg {
+  width: 196px !important;
+  height: 196px !important;
+  max-width: 196px !important;
+  max-height: 196px !important;
+  display: block !important;
+  flex-shrink: 0 !important;
+}
+.qr-mode-tabs {
+  display: inline-flex;
+  background: var(--cinema-surface-2);
+  border: 1px solid var(--cinema-border);
+  border-radius: 99px;
+  padding: 4px;
+  margin-bottom: 16px;
+  gap: 4px;
+}
+.qr-mode-btn {
+  border: none;
+  background: transparent;
+  color: var(--cinema-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 99px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.qr-mode-btn.active {
+  background: var(--cinema-gold);
+  color: #0b0d12;
+  box-shadow: 0 2px 8px rgba(245, 179, 1, 0.4);
+}
+
+/* =============================================================================
+   7. VÉ ĐIỆN TỬ DÙNG MÃ VẠCH (YÊU CẦU L5)
+============================================================================= */
+.eticket-wrapper {
+  max-width: 820px;
+  margin: 0 auto;
+  perspective: 1000px;
+}
+
+.eticket-card {
+  background: var(--cinema-surface-1);
+  border: 1px solid var(--cinema-border);
+  border-radius: var(--cinema-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--cinema-shadow);
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 300px);
+  position: relative;
+  isolation: isolate;
+  animation: ticketReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ticketReveal {
+  from { opacity: 0; transform: translateY(30px) rotateX(8deg); }
+  to { opacity: 1; transform: translateY(0) rotateX(0); }
+}
+
+/* Hiệu ứng đục lỗ răng cưa / vết xé giữa 2 phần vé */
+.eticket-main {
+  padding: 28px;
+  position: relative;
+  min-width: 0;
+}
+.eticket-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.eticket-stub {
+  background: var(--cinema-surface-2);
+  border-left: 2px dashed var(--cinema-border);
+  padding: 28px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  text-align: center;
+  position: relative;
+  min-width: 0;
+}
+
+.eticket-stub::before,
+.eticket-stub::after {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background-color: var(--cinema-bg);
+  border-radius: 50%;
+  left: -14px;
+  z-index: 10;
+}
+.eticket-stub::before { top: -14px; }
+.eticket-stub::after { bottom: -14px; }
+
+.eticket-barcode-box {
+  width: 100%;
+  max-width: 260px;
+  background: #ffffff;
+  padding: 12px 14px;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  margin: 16px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.eticket-barcode-box svg {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 64px !important;
+  display: block;
+}
+
+/* =============================================================================
+   8. VÉ CỦA TÔI (#/my) (YÊU CẦU L5)
+============================================================================= */
+.ticket-row {
+  background: var(--cinema-surface-1);
+  border: 1px solid var(--cinema-border);
+  border-radius: var(--cinema-radius);
+  padding: 18px 24px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.ticket-row:hover {
+  border-color: var(--cinema-border-light);
+  transform: translateY(-2px);
+}
+.ticket-row.PENDING {
+  border-color: rgba(245, 179, 1, 0.45);
+  background: linear-gradient(90deg, rgba(245, 179, 1, 0.05), var(--cinema-surface-1));
+}
+
+/* =============================================================================
+   FOOTER (CHUẨN RẠP CHIẾU PHIM - YÊU CẦU L4)
+============================================================================= */
+.cinema-footer {
+  background: rgba(10, 12, 19, 0.98);
+  border-top: 1px solid var(--cinema-border);
+  margin-top: auto;
+  padding: 48px 0 24px;
+  color: var(--cinema-text-muted);
+  font-size: 14px;
+}
+.cinema-footer-in {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1.5fr 1fr;
+  gap: 36px;
+  margin-bottom: 36px;
+}
+.footer-col h5 {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  letter-spacing: -0.01em;
+}
+.footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.footer-links a {
+  color: var(--cinema-text-muted);
+  transition: color 0.15s ease;
+  text-decoration: none;
+}
+.footer-links a:hover {
+  color: var(--cinema-gold);
+}
+.footer-socials {
+  display: flex;
+  gap: 12px;
+}
+.footer-social-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--cinema-surface-2);
+  border: 1px solid var(--cinema-border);
+  color: var(--cinema-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+.footer-social-btn:hover {
+  background: var(--cinema-gold);
+  color: #0b0d12;
+  border-color: var(--cinema-gold);
+  transform: translateY(-2px);
+}
+.footer-bottom {
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--cinema-text-dim);
+}
+
+/* =============================================================================
+   9. TIỆN ÍCH, SKELETON & ANIMATIONS
+============================================================================= */
+.skel-loader {
+  background: linear-gradient(90deg, var(--cinema-surface-2) 25%, var(--cinema-surface-3) 50%, var(--cinema-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: skelShimmer 1.5s infinite;
+  border-radius: var(--cinema-radius-sm);
+}
+@keyframes skelShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =============================================================================
+   10. RESPONSIVE BREAKPOINTS (390 / 768 / 1440)
+============================================================================= */
+@media (max-width: 900px) {
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-slide {
+    padding: 24px;
+    min-height: auto;
+  }
+  .hero-slide-in {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .hero-slide-in .slide-poster {
+    display: none;
+  }
+  .slide-content h1 {
+    font-size: 28px;
+  }
+  .booking-layout {
+    grid-template-columns: 1fr;
+  }
+  .detail-hero-in {
+    grid-template-columns: 1fr;
+  }
+  .eticket-card {
+    grid-template-columns: 1fr;
+  }
+  .eticket-stub {
+    border-left: 0;
+    border-top: 2px dashed var(--cinema-border);
+    padding: 24px;
+  }
+  .eticket-stub::before, .eticket-stub::after {
+    left: auto;
+  }
+  .eticket-stub::before { top: -14px; left: -14px; }
+  .eticket-stub::after { top: -14px; right: -14px; left: auto; }
+
+  .ticket-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+  }
+  .ticket-row .trow-right {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--cinema-border);
+    padding-top: 12px;
+    margin-top: 4px;
+  }
+}
+
+@media (max-width: 600px) {
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  main#view { padding: 16px 12px 48px; }
+  .seat-row { gap: 4px; }
+  .seat-btn { width: 28px; height: 28px; font-size: 10px; border-radius: 6px; }
+  .seat-row .row-label { width: 16px; font-size: 11px; }
+  .movies-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .mcard .info { padding: 10px; }
+  .mcard h3 { font-size: 14px; }
+}
+
+/* =============================================================================
+   11. BẢN IN (@media print) CHO VÉ ĐIỆN TỬ
+============================================================================= */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .topbar, footer, .cinema-footer, .ticket-actions, .steps, .soa-stepper, #toasts, .btn {
+    display: none !important;
+  }
+  main#view {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .eticket-wrapper {
+    max-width: 100% !important;
+  }
+  .eticket-card {
+    border: 2px solid #000000 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    animation: none !important;
+    page-break-inside: avoid;
+  }
+  .eticket-stub {
+    background: #f8fafc !important;
+    border-left: 2px dashed #000000 !important;
+  }
+  .eticket-barcode-box {
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+  }
+  .soa-info-row, .kv, .t-cell {
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+  .soa-info-label, .t-cell .t-lbl {
+    color: #475569 !important;
+  }
+  .soa-info-value, .t-cell .t-val {
+    color: #0f172a !important;
+  }
+}

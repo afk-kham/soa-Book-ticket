@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600">
+  <title>Parasite</title>
+  <defs>
+    <linearGradient id="lawn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fa86a"/><stop offset="1" stop-color="#2f5a35"/></linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8efe6"/><stop offset="1" stop-color="#c9d8c5"/></linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset=".62" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".88"/></linearGradient>
+  </defs>
+  <rect width="400" height="600" fill="url(#sky)"/>
+  <!-- Ngôi nhà hiện đại -->
+  <g>
+    <rect x="70" y="120" width="300" height="70" fill="#f5f5f0"/>
+    <rect x="70" y="190" width="300" height="12" fill="#1f2937"/>
+    <rect x="96" y="132" width="250" height="48" fill="#94a3b8" opacity=".55"/>
+    <rect x="40" y="202" width="360" height="90" fill="#e7e5e4"/>
+    <rect x="60" y="216" width="320" height="64" fill="#64748b" opacity=".45"/>
+    <g stroke="#f5f5f0" stroke-width="3"><line x1="140" y1="216" x2="140" y2="280"/><line x1="220" y1="216" x2="220" y2="280"/><line x1="300" y1="216" x2="300" y2="280"/></g>
+  </g>
+  <rect x="0" y="292" width="400" height="308" fill="url(#lawn)"/>
+  <!-- Bậc thang đi xuống tầng hầm -->
+  <g fill="#1c1917">
+    <path d="M0 600 L0 470 L40 470 L40 500 L80 500 L80 530 L120 530 L120 560 L160 560 L160 600 Z"/>
+  </g>
+  <!-- Những người ngồi trên cỏ, mắt bị che -->
+  <g>
+    <g transform="translate(130 360)"><circle r="16" fill="#e7c9a9"/><rect x="-18" y="-6" width="36" height="9" fill="#111"/><path d="M-22 16 Q0 8 22 16 L26 60 L-26 60 Z" fill="#334155"/></g>
+    <g transform="translate(205 352)"><circle r="17" fill="#f1d3b3"/><rect x="-19" y="-7" width="38" height="9" fill="#111"/><path d="M-24 17 Q0 8 24 17 L28 66 L-28 66 Z" fill="#f8fafc"/></g>
+    <g transform="translate(280 362)"><circle r="15" fill="#e7c9a9"/><rect x="-17" y="-6" width="34" height="9" fill="#111"/><path d="M-21 15 Q0 7 21 15 L25 58 L-25 58 Z" fill="#7f1d1d"/></g>
+  </g>
+  <!-- Đôi chân thò ra ở góc -->
+  <g fill="#e7c9a9"><rect x="318" y="438" width="12" height="40" rx="5" transform="rotate(-20 324 458)"/><rect x="336" y="436" width="12" height="40" rx="5" transform="rotate(-14 342 456)"/></g>
+  <rect width="400" height="600" fill="url(#fade)"/>
+  <g font-family="'Segoe UI', Arial, sans-serif" text-anchor="middle" fill="#fff">
+    <text x="200" y="526" font-size="50" font-weight="800" letter-spacing="8">PARASITE</text>
+    <text x="200" y="558" font-size="13" letter-spacing="5" opacity=".8">KÝ SINH TRÙNG</text>
+  </g>
+  <g font-family="'Segoe UI', Arial, sans-serif" font-weight="800">
+    <rect x="16" y="16" width="44" height="26" rx="5" fill="#ef4444"/><text x="38" y="35" font-size="14" text-anchor="middle" fill="#fff">T18</text>
+  </g>
+</svg>

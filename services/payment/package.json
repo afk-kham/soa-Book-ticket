@@ -1,0 +1,9 @@
+{
+  "name": "tv5-payment-service",
+  "version": "1.0.0",
+  "description": "TV5 Payment Service – Node.js core http + MongoDB driver",
+  "main": "payment_service.js",
+  "scripts": { "start": "node payment_service.js", "test": "node --test test_payment_service.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "mongodb": "^6.10.0" }
+}

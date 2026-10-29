@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="vi" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đặt vé — Admin SOA Cinema</title>
+  <link rel="stylesheet" href="../vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../vendor/bootstrap/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../css/admin.css">
+  <style>
+    .pos-seat-grid {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(28px, 1fr));
+      gap: 6px;
+      max-width: 420px;
+      margin: 12px auto;
+      padding: 12px;
+      background: var(--cinema-surface-1);
+      border: 1px solid var(--cinema-border);
+      border-radius: 12px;
+    }
+    .pos-seat-btn {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      border: 1px solid var(--cinema-border);
+      background: var(--cinema-surface-2);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: all 0.15s ease;
+      padding: 0;
+    }
+    .pos-seat-btn:hover:not(:disabled):not(.selected) {
+      background: rgba(245, 179, 1, 0.2);
+      border-color: var(--cinema-gold);
+    }
+    .pos-seat-btn.selected {
+      background: var(--cinema-gold);
+      color: #0b0d12;
+      border-color: var(--cinema-gold);
+      box-shadow: 0 0 10px rgba(245, 179, 1, 0.5);
+    }
+    .pos-seat-btn:disabled, .pos-seat-btn.taken {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #f87171;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    .pos-screen-bar {
+      height: 4px;
+      background: linear-gradient(90deg, transparent, var(--cinema-gold), transparent);
+      border-radius: 2px;
+      margin: 8px auto 14px;
+      max-width: 320px;
+      box-shadow: 0 0 12px rgba(245, 179, 1, 0.4);
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="stats"></div>
+
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div class="soa-tabs" id="status-tabs" role="tablist" aria-label="Bộ lọc trạng thái">
+      <button type="button" class="soa-tab active" data-status="" role="tab" aria-selected="true">
+        <span>Tất cả</span><span class="soa-tab-badge soa-tab-badge-all" id="badge-all">0</span>
+      </button>
+      <button type="button" class="soa-tab" data-status="PAID" role="tab" aria-selected="false">
+        <span>Đã thanh toán</span><span class="soa-tab-badge soa-tab-badge-paid" id="badge-paid">0</span>
+      </button>
+      <button type="button" class="soa-tab" data-status="PENDING" role="tab" aria-selected="false">
+        <span>Chờ thanh toán</span><span class="soa-tab-badge soa-tab-badge-pending" id="badge-pending">0</span>
+      </button>
+      <button type="button" class="soa-tab" data-status="CANCELLED" role="tab" aria-selected="false">
+        <span>Đã hủy</span><span class="soa-tab-badge soa-tab-badge-cancelled" id="badge-cancelled">0</span>
+      </button>
+    </div>
+
+    <div class="soa-search" style="max-width: 280px;">
+      <i class="bi bi-person soa-search-icon"></i>
+      <input type="text" class="soa-search-input" id="f-user" placeholder="Lọc theo khách…" aria-label="Tài khoản khách hàng">
+      <button type="button" class="soa-search-clear" id="f-user-clear" aria-label="Xóa">&times;</button>
+    </div>
+  </div>
+
+  <div class="card" id="list"></div>
+</div>
+
+<script src="../vendor/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/movie-extras.js"></script>
+<script src="../js/common.js"></script>
+<script>
+Admin.shell("booking", "Quản lý đặt vé", "Đơn đặt vé của khách: giữ ghế 10 phút, thanh toán, hủy và nhả ghế");
+var esc = Admin.esc, ST = { PAID: "Đã thanh toán", PENDING: "Chờ thanh toán", CANCELLED: "Đã hủy" };
+var movies = {}, shows = {}, currentStatusFilter = "", currentUserFilter = "";
+
+document.getElementById("page-actions").innerHTML =
+  '<button class="secondary" id="btn-reload"><i class="bi bi-arrow-clockwise me-1"></i> Làm mới</button>' +
+  '<button id="btn-new" class="btn btn-primary d-inline-flex align-items-center gap-1"><i class="bi bi-plus-lg"></i> Bán vé tại quầy</button>';
+
+async function lookups() {
+  var r = await Promise.all([Admin.tryApi("movie", "/api/movies", []), Admin.tryApi("showtime", "/api/showtimes", [])]);
+  movies = {}; shows = {};
+  (r[0] || []).forEach(function (m) { movies[m.id] = m; });
+  (r[1] || []).forEach(function (s) { shows[s.id] = s; });
+}
+
+async function load() {
+  Admin.clearError();
+  var list = document.getElementById("list"), q = [];
+  if (currentStatusFilter) q.push("status=" + currentStatusFilter);
+  if (currentUserFilter) q.push("username=" + encodeURIComponent(currentUserFilter));
+  Admin.loading(list);
+
+  try {
+    var allRows = (await Admin.api("booking", "GET", "/api/booking")).sort(function (a, b) { return b.id - a.id; });
+    var cnt = { PAID: 0, PENDING: 0, CANCELLED: 0 };
+    allRows.forEach(function (r) { if (cnt[r.status] != null) cnt[r.status]++; });
+
+    // Cập nhật số lượng trên các tab badge
+    var bAll = document.getElementById("badge-all");
+    var bPaid = document.getElementById("badge-paid");
+    var bPend = document.getElementById("badge-pending");
+    var bCanc = document.getElementById("badge-cancelled");
+    if (bAll) bAll.textContent = allRows.length;
+    if (bPaid) bPaid.textContent = cnt.PAID;
+    if (bPend) bPend.textContent = cnt.PENDING;
+    if (bCanc) bCanc.textContent = cnt.CANCELLED;
+
+    // Lọc danh sách theo status & username
+    var rows = allRows.filter(function (r) {
+      var matchStatus = !currentStatusFilter || r.status === currentStatusFilter;
+      var matchUser = !currentUserFilter || String(r.username || "").toLowerCase().indexOf(currentUserFilter.toLowerCase()) >= 0;
+      return matchStatus && matchUser;
+    });
+
+    Admin.stats(document.getElementById("stats"), [
+      { label: "Số đơn" + (currentStatusFilter || currentUserFilter ? " (đang lọc)" : ""), value: rows.length },
+      { label: "Đã thanh toán", value: cnt.PAID, hint: Admin.money(allRows.filter(function (r) { return r.status === "PAID"; }).reduce(function (t, r) { return t + r.totalPrice; }, 0)) },
+      { label: "Chờ thanh toán", value: cnt.PENDING, hint: "Đang giữ ghế 10 phút" },
+      { label: "Đã hủy", value: cnt.CANCELLED, hint: "Khách hủy / hết hạn giữ ghế" }
+    ]);
+
+    Admin.table(list, [
+      { label: "Mã đơn", render: function (r) { return '<span class="id">#' + r.id + "</span>"; } },
+      { label: "Người đặt", key: "username" },
+      {
+        label: "Phim",
+        render: function (r) {
+          var m = movies[r.movieId] || { title: "Phim #" + r.movieId };
+          return '<span class="cell-movie">' + Admin.poster(m) +
+            "<div><b>" + esc(m.title) + "</b><br><small class='text-secondary'>" +
+            (shows[r.showtimeId] ? esc(shows[r.showtimeId].cinema) + " · P" + esc(shows[r.showtimeId].room) : "") + "</small></div></span>";
+        }
+      },
+      {
+        label: "Ghế",
+        render: function (r) {
+          return '<span class="text-warning fw-semibold">' + (Array.isArray(r.seats) ? r.seats.join(", ") : r.seats) + "</span>";
+        }
+      },
+      { label: "Tổng tiền", align: "num", render: function (r) { return Admin.money(r.totalPrice); } },
+      {
+        label: "Trạng thái",
+        render: function (r) {
+          return Admin.badge(r.status, ST[r.status]) + (r.expiresAt && r.status === "PENDING" ? "<br><small class='text-warning'>Giữ ghế đến " + Admin.fmtTime(r.expiresAt).slice(11, 16) + "</small>" : "");
+        }
+      },
+      { label: "Tạo lúc", render: function (r) { return Admin.fmtTime(r.createdAt); } }
+    ], rows, null, { search: "Tìm theo mã, người đặt, phim, ghế...", onRowClick: detail, empty: "Không có đơn đặt vé phù hợp" });
+  } catch (e) {
+    Admin.showError(e);
+    list.innerHTML = "";
+    document.getElementById("stats").innerHTML = "";
+  }
+}
+
+function detail(b) {
+  Admin.drawer("Đơn đặt vé #" + b.id, (async function () {
+    var r = await Promise.all([
+      Admin.tryApi("payment", "/api/payment?bookingId=" + b.id, null),
+      Admin.tryApi("notification", "/api/notify/logs", null)
+    ]);
+    var pays = r[0], logs = r[1] && r[1].filter(function (l) { return String(l.bookingId) === String(b.id); });
+    var m = movies[b.movieId] || { title: "Phim #" + b.movieId };
+    var s = shows[b.showtimeId];
+    var tl = [['ok', "Tạo đơn, giữ ghế", Admin.fmtTime(b.createdAt)]];
+    (pays || []).slice().reverse().forEach(function (p) {
+      tl.push([p.status === "PAID" ? "ok" : "bad", "Thanh toán " + Admin.methodLabel(p.method) + ": " + (p.status === "PAID" ? "thành công" : "thất bại"), Admin.fmtTime(p.paidAt) + " · " + Admin.money(p.amount)]);
+    });
+    tl.push([b.status === "PAID" ? "ok" : b.status === "CANCELLED" ? "bad" : "warn", "Trạng thái đơn: " + ST[b.status], ""]);
+    (logs || []).forEach(function (l) { tl.push(["ok", "Gửi thông báo " + l.channel, Admin.fmtTime(l.sentAt)]); });
+
+    var cancelBtnHtml = "";
+    if (b.status === "PENDING") {
+      cancelBtnHtml =
+        '<div class="mt-4 pt-3 border-top border-secondary">' +
+          '<button class="btn btn-outline-danger w-100 py-2 d-flex align-items-center justify-content-center gap-2" id="drawer-cancel-btn">' +
+            '<i class="bi bi-x-circle-fill"></i> Hủy đơn và nhả ghế ngay' +
+          '</button>' +
+        '</div>';
+    }
+
+    // Gắn sự kiện hủy đơn sau khi render xong
+    setTimeout(function () {
+      var cBtn = document.getElementById("drawer-cancel-btn");
+      if (cBtn) {
+        cBtn.onclick = async function () {
+          if (confirm("Bạn có chắc chắn muốn hủy đơn đặt vé #" + b.id + " và giải phóng ghế cho khách khác?")) {
+            cBtn.disabled = true;
+            cBtn.textContent = "Đang xử lý...";
+            try {
+              await Admin.api("booking", "POST", "/api/booking/" + b.id + "/cancel", { username: b.username });
+              Admin.toast("Đã hủy đơn #" + b.id + " và nhả ghế thành công");
+              var bg = document.getElementById("drawer-bg");
+              if (bg) bg.classList.remove("open");
+              load();
+            } catch (err) {
+              Admin.toast(err.message, "error");
+              cBtn.disabled = false;
+              cBtn.textContent = "Hủy đơn và nhả ghế ngay";
+            }
+          }
+        };
+      }
+    }, 100);
+
+    return "<h4>Thông tin đơn đặt</h4>" + Admin.dl([
+      ["Trạng thái", Admin.badge(b.status, ST[b.status])],
+      ["Người đặt", esc(b.username)],
+      ["Ghế", Admin.seats(b.seats)],
+      ["Tổng tiền", "<b>" + Admin.money(b.totalPrice) + "</b>"],
+      ["Tạo lúc", Admin.fmtTime(b.createdAt)]
+    ].concat(b.expiresAt ? [["Giữ ghế đến", Admin.fmtTime(b.expiresAt)]] : [])) +
+
+    "<h4>Phim &amp; suất chiếu</h4>" +
+    '<div class="d-flex gap-3 align-items-center mb-3 p-2 rounded border border-secondary">' +
+      Admin.poster(m) +
+      "<div><b class='fs-6 text-white'>" + esc(m.title) + "</b><div class='text-secondary small'>Mã phim #" + b.movieId + "</div></div>" +
+    "</div>" +
+    Admin.dl([
+      ["Rạp chiếu", s ? esc(s.cinema) + " · " + esc(s.room) : "Suất #" + b.showtimeId],
+      ["Giờ chiếu", s ? Admin.fmtTime(s.time) : ""],
+      ["Giá / ghế", s ? Admin.money(s.price) : ""]
+    ]) +
+
+    "<h4>Giao dịch thanh toán</h4>" +
+    (pays === null ? '<div class="alert">⚠ Không tải được dữ liệu thanh toán</div>' : pays.length ? pays.map(function (p) {
+      return Admin.dl([
+        ["Mã giao dịch", '<span class="mono">' + esc(p.id) + "</span>"],
+        ["Số tiền", Admin.money(p.amount)],
+        ["Phương thức", Admin.badge(p.method, Admin.methodLabel(p.method))],
+        ["Kết quả", Admin.payStatus(p.status)],
+        ["Thời điểm", Admin.fmtTime(p.paidAt)]
+      ]);
+    }).join("<hr style='border:0;border-top:1px solid var(--cinema-border);margin:12px 0'>") : '<small class="text-secondary">Chưa có giao dịch thanh toán.</small>') +
+
+    "<h4>Tiến trình xử lý</h4><ul class=\"timeline\">" +
+    tl.map(function (t) {
+      return '<li><span class="tl-dot ' + t[0] + '"></span><div><b>' + esc(t[1]) + "</b><span>" + t[2] + "</span></div></li>";
+    }).join("") + "</ul>" +
+    (logs === null ? '<p><small class="text-secondary">Không tải được nhật ký thông báo.</small></p>' : "") +
+    cancelBtnHtml;
+  })());
+}
+
+// Bắt sự kiện chuyển tab trạng thái
+document.querySelectorAll("#status-tabs .soa-tab").forEach(function (tab) {
+  tab.onclick = function () {
+    currentStatusFilter = tab.getAttribute("data-status");
+    document.querySelectorAll("#status-tabs .soa-tab").forEach(function (t) {
+      var on = t === tab;
+      t.classList.toggle("active", on);
+      t.setAttribute("aria-selected", on);
+    });
+    load();
+  };
+});
+
+// Ô tìm kiếm tài khoản khách hàng
+var uInp = document.getElementById("f-user");
+var uClr = document.getElementById("f-user-clear");
+var uTimer = null;
+function updateUClear() {
+  if (uClr) uClr.classList.toggle("visible", !!uInp.value);
+}
+if (uInp) {
+  uInp.oninput = function () {
+    updateUClear();
+    if (uTimer) clearTimeout(uTimer);
+    uTimer = setTimeout(function () {
+      currentUserFilter = uInp.value.trim();
+      load();
+    }, 220);
+  };
+  uInp.onkeydown = function (e) {
+    if (e.key === "Escape") {
+      uInp.value = "";
+      updateUClear();
+      currentUserFilter = "";
+      load();
+    }
+  };
+}
+if (uClr) {
+  uClr.onclick = function () {
+    uInp.value = "";
+    updateUClear();
+    currentUserFilter = "";
+    load();
+    uInp.focus();
+  };
+}
+
+document.getElementById("btn-reload").onclick = load;
+
+// =============================================================================
+// MODAL BÁN VÉ TẠI QUẦY (POS) HOÀN CHỈNH VỚI SƠ ĐỒ GHẾ
+// =============================================================================
+document.getElementById("btn-new").onclick = async function () {
+  await lookups();
+  var mIds = Object.keys(movies);
+  if (!mIds.length) {
+    Admin.toast("Không tìm thấy phim nào trong hệ thống", "error");
+    return;
+  }
+
+  var defaultMovieId = mIds[0];
+  var selectedSeats = [];
+  var currentShowtimes = [];
+  var bookedSeats = {};
+
+  var bg = document.getElementById("modal-bg"), m = document.getElementById("modal");
+  m.className = "modal pos-modal";
+  m.style.maxWidth = "560px";
+
+  function getShowtimesForMovie(mId) {
+    return Object.values(shows).filter(function (s) {
+      return String(s.movieId) === String(mId);
+    });
+  }
+
+  async function updateSeatGrid() {
+    var stSelect = document.getElementById("pos-showtime");
+    var gridHost = document.getElementById("pos-seat-grid-host");
+    var priceEl = document.getElementById("pos-total-price");
+    if (!stSelect || !gridHost) return;
+
+    var stId = stSelect.value;
+    if (!stId) {
+      gridHost.innerHTML = '<div class="text-secondary small p-3 text-center">Vui lòng chọn suất chiếu để tải sơ đồ ghế</div>';
+      return;
+    }
+
+    gridHost.innerHTML = '<div class="text-secondary small p-3 text-center"><span class="spinner-border spinner-border-sm me-2"></span>Đang kiểm tra tình trạng ghế...</div>';
+    selectedSeats = [];
+    if (priceEl) priceEl.textContent = "0 đ";
+
+    // Lấy danh sách ghế đã giữ
+    try {
+      var bkList = await Admin.api("booking", "GET", "/api/booking?showtimeId=" + stId);
+      bookedSeats = {};
+      (bkList || []).forEach(function (b) {
+        if (b.status === "PAID" || b.status === "PENDING") {
+          (b.seats || []).forEach(function (seat) { bookedSeats[seat] = true; });
+        }
+      });
+    } catch (e) {
+      bookedSeats = {};
+    }
+
+    var rowsLabels = ["A", "B", "C", "D", "E"];
+    var gridHtml = '<div class="pos-screen-bar"></div><div class="pos-seat-grid">';
+    rowsLabels.forEach(function (rLabel) {
+      for (var col = 1; col <= 8; col++) {
+        var sCode = rLabel + col;
+        var isTaken = !!bookedSeats[sCode];
+        gridHtml += '<button type="button" class="pos-seat-btn' + (isTaken ? ' taken' : '') + '" data-seat="' + sCode + '"' + (isTaken ? ' disabled title="Đã có người đặt"' : '') + '>' + sCode + '</button>';
+      }
+    });
+    gridHtml += '</div>';
+    gridHtml += '<div class="d-flex justify-content-center gap-3 mt-2 text-secondary small">' +
+      '<span><span class="d-inline-block rounded me-1" style="width:12px;height:12px;background:var(--cinema-surface-2);border:1px solid var(--cinema-border)"></span>Trống</span>' +
+      '<span><span class="d-inline-block rounded me-1" style="width:12px;height:12px;background:var(--cinema-gold)"></span>Đang chọn</span>' +
+      '<span><span class="d-inline-block rounded me-1" style="width:12px;height:12px;background:rgba(239,68,68,0.4)"></span>Đã bán</span>' +
+    '</div>';
+
+    gridHost.innerHTML = gridHtml;
+
+    // Gắn sự kiện chọn ghế
+    gridHost.querySelectorAll(".pos-seat-btn:not([disabled])").forEach(function (btn) {
+      btn.onclick = function () {
+        var seat = btn.getAttribute("data-seat");
+        var idx = selectedSeats.indexOf(seat);
+        if (idx >= 0) {
+          selectedSeats.splice(idx, 1);
+          btn.classList.remove("selected");
+        } else {
+          selectedSeats.push(seat);
+          btn.classList.add("selected");
+        }
+        var curSt = shows[stId];
+        var unitPrice = curSt ? curSt.price : 0;
+        if (priceEl) priceEl.textContent = Admin.money(selectedSeats.length * unitPrice);
+      };
+    });
+  }
+
+  function renderPosModal() {
+    var movieOptions = mIds.map(function (id) {
+      return '<option value="' + id + '"' + (id === defaultMovieId ? " selected" : "") + ">" + esc(movies[id].title) + "</option>";
+    }).join("");
+
+    currentShowtimes = getShowtimesForMovie(defaultMovieId);
+    var stOptions = currentShowtimes.length
+      ? currentShowtimes.map(function (s) {
+          return '<option value="' + s.id + '">' + esc(s.cinema) + " · P" + esc(s.room) + " · " + Admin.fmtTime(s.time).slice(11, 16) + " (" + Admin.money(s.price) + ")</option>";
+        }).join("")
+      : '<option value="">(Phim này chưa có suất chiếu)</option>';
+
+    m.innerHTML =
+      '<h3>Bán vé tại quầy (POS)</h3>' +
+      '<p class="modal-sub">Tạo đơn đặt vé trực tiếp và xác nhận thanh toán tiền mặt ngay lập tức.</p>' +
+      '<form id="pos-form">' +
+        '<div class="mb-3">' +
+          '<label class="form-label small text-secondary">Chọn phim chiếu</label>' +
+          '<select class="form-select" id="pos-movie">' + movieOptions + '</select>' +
+        '</div>' +
+        '<div class="mb-3">' +
+          '<label class="form-label small text-secondary">Chọn suất chiếu</label>' +
+          '<select class="form-select" id="pos-showtime">' + stOptions + '</select>' +
+        '</div>' +
+        '<div class="mb-3">' +
+          '<label class="form-label small text-secondary d-flex justify-content-between">' +
+            '<span>Sơ đồ chọn ghế</span>' +
+            '<span class="text-warning fw-bold" id="pos-total-price">0 đ</span>' +
+          '</label>' +
+          '<div id="pos-seat-grid-host"></div>' +
+        '</div>' +
+        '<div class="mb-3">' +
+          '<label class="form-label small text-secondary">Tên khách hàng</label>' +
+          '<input type="text" class="form-control" id="pos-username" value="guest" required placeholder="Tên khách hoặc số điện thoại">' +
+        '</div>' +
+        '<div class="actions mt-4">' +
+          '<button type="button" class="secondary" id="pos-cancel">Đóng</button>' +
+          '<button type="button" class="btn btn-primary px-4" id="pos-submit"><i class="bi bi-cash me-1"></i> Thu tiền & Xuất vé</button>' +
+        '</div>' +
+      '</form>';
+
+    bg.classList.add("open");
+
+    // Lắng nghe đổi phim
+    document.getElementById("pos-movie").onchange = function () {
+      defaultMovieId = this.value;
+      currentShowtimes = getShowtimesForMovie(defaultMovieId);
+      var stSelect = document.getElementById("pos-showtime");
+      stSelect.innerHTML = currentShowtimes.length
+        ? currentShowtimes.map(function (s) {
+            return '<option value="' + s.id + '">' + esc(s.cinema) + " · P" + esc(s.room) + " · " + Admin.fmtTime(s.time).slice(11, 16) + " (" + Admin.money(s.price) + ")</option>";
+          }).join("")
+        : '<option value="">(Phim này chưa có suất chiếu)</option>';
+      updateSeatGrid();
+    };
+
+    // Lắng nghe đổi suất
+    document.getElementById("pos-showtime").onchange = updateSeatGrid;
+
+    // Đóng modal
+    document.getElementById("pos-cancel").onclick = function () {
+      bg.classList.remove("open");
+    };
+
+    // Xác nhận bán vé
+    document.getElementById("pos-submit").onclick = async function () {
+      var stId = document.getElementById("pos-showtime").value;
+      var uname = document.getElementById("pos-username").value.trim() || "guest";
+
+      if (!stId) {
+        Admin.toast("Vui lòng chọn một suất chiếu hợp lệ", "error");
+        return;
+      }
+      if (!selectedSeats.length) {
+        Admin.toast("Vui lòng chọn ít nhất 1 ghế trên sơ đồ", "error");
+        return;
+      }
+
+      var btn = document.getElementById("pos-submit");
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang tạo vé...';
+
+      try {
+        await Admin.api("booking", "POST", "/api/booking", {
+          username: uname,
+          movieId: Number(defaultMovieId),
+          showtimeId: Number(stId),
+          seats: selectedSeats,
+          payNow: true,
+          paymentMethod: "CASH"
+        });
+        Admin.toast("Bán vé thành công: " + selectedSeats.join(", ") + " (" + uname + ")");
+        bg.classList.remove("open");
+        load();
+      } catch (err) {
+        Admin.toast("Không thể bán vé: " + err.message, "error");
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cash me-1"></i> Thu tiền & Xuất vé';
+      }
+    };
+
+    updateSeatGrid();
+  }
+
+  renderPosModal();
+};
+
+(async function () {
+  await lookups();
+  load();
+})();
+</script>
+</body>
+</html>

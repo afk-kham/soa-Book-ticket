@@ -1,0 +1,11 @@
+flowchart LR
+  IN[2.0 Yêu cầu thanh toán] --> V[2.1 Kiểm tra bookingId, amount, method]
+  V -->|Sai JSON / thiếu trường| E[HTTP 400 - Không ghi]
+  V -->|Hợp lệ về cấu trúc| S[2.2 Giả lập thanh toán]
+  S -->|amount > 0 và method hợp lệ| PAID[status = PAID]
+  S -->|amount <= 0 hoặc method sai| FAILED[status = FAILED]
+  PAID --> W[2.3 Ghi giao dịch]
+  FAILED --> W
+  W --> D[(D1 - transactions)]
+  D --> R[2.4 Phản hồi HTTP 201]
+  R --> OUT[Booking Service]

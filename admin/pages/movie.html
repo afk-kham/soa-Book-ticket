@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="vi" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phim — Admin SOA Cinema</title>
+  <link rel="stylesheet" href="../vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../vendor/bootstrap/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div id="app">
+  <div class="alert alert-secondary d-flex align-items-center gap-2 py-2 px-3 mb-3 small border-secondary">
+    <i class="bi bi-info-circle-fill text-warning"></i>
+    <div>
+      <b>Mẹo quản trị:</b> Áp phích chất lượng cao, ảnh nền và trailer chính thức sẽ được hệ thống tự động nhận diện và đồng bộ theo tên phim.
+    </div>
+  </div>
+  <div id="stats"></div>
+  <div class="card" id="list"></div>
+</div>
+
+<script src="../vendor/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/movie-extras.js"></script>
+<script src="../js/common.js"></script>
+<script>
+Admin.shell("movie", "Quản lý phim", "Danh mục phim đang chiếu và sắp chiếu tại rạp SOA Cinema");
+
+Admin.crudPage({
+  service: "movie",
+  path: "/api/movies",
+  noun: "phim",
+  search: "Tìm theo tên, thể loại...",
+  formHint: "Phim mới thêm sẽ có suất chiếu 7 ngày tới thông qua lịch chiếu.",
+  afterLoad: function (rows) {
+    var genres = {};
+    rows.forEach(function (r) { genres[r.genre] = 1; });
+    var avg = rows.length ? Math.round(rows.reduce(function (t, r) { return t + Number(r.duration || 0); }, 0) / rows.length) : 0;
+    Admin.stats(document.getElementById("stats"), [
+      { label: "Tổng số phim", value: rows.length },
+      { label: "Thể loại phim", value: Object.keys(genres).length },
+      { label: "Thời lượng trung bình", value: avg + " phút" }
+    ]);
+  },
+  columns: [
+    { label: "ID", render: function (r) { return '<span class="id">#' + r.id + "</span>"; } },
+    {
+      label: "Tên phim",
+      render: function (r) {
+        var extra = window.mergeMovieExtras ? window.mergeMovieExtras(r) : null;
+        var age = extra && extra.ageRating ? ' <span class="badge bg-secondary-subtle text-light">' + Admin.esc(extra.ageRating) + "</span>" : "";
+        return '<span class="cell-movie">' + Admin.poster(r) + "<div><b>" + Admin.esc(r.title) + "</b>" + age + "</div></span>";
+      }
+    },
+    { label: "Thể loại", render: function (r) { return Admin.badge("", r.genre); } },
+    { label: "Thời lượng", align: "num", render: function (r) { return r.duration + " phút"; } },
+    {
+      label: "Trailer",
+      render: function (r) {
+        var extra = window.mergeMovieExtras ? window.mergeMovieExtras(r) : null;
+        if (extra && extra.youtubeId) {
+          return '<button class="btn btn-sm btn-outline-danger py-0 px-2 d-inline-flex align-items-center gap-1" onclick="Admin.openTrailer(\'' +
+            Admin.esc(r.title).replace(/'/g, "\\'") + '\', \'' + Admin.esc(extra.youtubeId) + '\')"><i class="bi bi-play-circle-fill"></i> Xem</button>';
+        }
+        return '<span class="text-secondary small">—</span>';
+      }
+    },
+    { label: "Tệp poster", render: function (r) { return '<span class="mono">' + Admin.esc(r.poster || "—") + "</span>"; } },
+    { label: "Ngày tạo", render: function (r) { return Admin.fmtTime(r.createdAt); } }
+  ],
+  fields: function (row) {
+    var extra = row ? (window.mergeMovieExtras ? window.mergeMovieExtras(row) : null) : null;
+    return [
+      { name: "title", label: "Tên phim", required: true, placeholder: "VD: Inception" },
+      { name: "genre", label: "Thể loại", required: true, placeholder: "VD: Hành động, Viễn tưởng", hint: "Có thể nhập nhiều thể loại, phân cách bằng dấu phẩy" },
+      { name: "duration", label: "Thời lượng (phút)", type: "number", required: true, min: 1, placeholder: "VD: 120" },
+      { name: "poster", label: "Tên tệp áp phích hoặc URL ảnh", placeholder: "poster1.jpg hoặc https://...", hint: "Tệp trong thư mục assets/posters/ hoặc URL ảnh trực tuyến" },
+      { name: "trailer", label: "Trailer YouTube (URL hoặc ID)", placeholder: "https://www.youtube.com/watch?v=... hoặc YoHD9XEInc0", hint: "Hệ thống tự động trích xuất mã video 11 ký tự" }
+    ];
+  },
+  onRender: function (form, row) {
+    var genreInp = form.elements["genre"];
+    var posterInp = form.elements["poster"];
+    var trailerInp = form.elements["trailer"];
+
+    // Gợi ý chips thể loại nhanh
+    if (genreInp) {
+      var genreChips = ["Hành động", "Khoa học viễn tưởng", "Hoạt hình", "Kinh dị", "Hài", "Tình cảm", "Phiêu lưu", "Tâm lý", "Gia đình"];
+      var chipsWrap = document.createElement("div");
+      chipsWrap.className = "d-flex flex-wrap gap-1 mt-1 mb-2";
+      chipsWrap.innerHTML = genreChips.map(function (g) {
+        return '<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill" style="font-size:11px">' + g + '</button>';
+      }).join("");
+      genreInp.parentNode.appendChild(chipsWrap);
+
+      chipsWrap.querySelectorAll("button").forEach(function (btn) {
+        btn.onclick = function () {
+          var curVal = genreInp.value.trim();
+          var g = btn.textContent;
+          if (!curVal) {
+            genreInp.value = g;
+          } else {
+            var parts = curVal.split(/,\s*/);
+            if (parts.indexOf(g) < 0) {
+              parts.push(g);
+              genreInp.value = parts.join(", ");
+            }
+          }
+        };
+      });
+    }
+
+    // Xem trước poster
+    if (posterInp) {
+      var posterPreview = document.createElement("div");
+      posterPreview.id = "movie-poster-preview";
+      posterPreview.className = "d-flex align-items-center gap-2 p-2 mt-2 rounded border border-secondary";
+      posterPreview.style.background = "var(--cinema-surface-2)";
+      posterInp.parentNode.appendChild(posterPreview);
+
+      function updatePosterPreview() {
+        var val = posterInp.value.trim();
+        if (!val) {
+          posterPreview.style.display = "none";
+          return;
+        }
+        var src = val.indexOf("http") === 0 ? val : (val.indexOf("assets/") === 0 ? "../" + val : "../assets/posters/" + val);
+        posterPreview.innerHTML = '<img src="' + src + '" style="width:40px;height:60px;object-fit:cover;border-radius:4px" onerror="this.src=\'../assets/posters/inception.jpg\'"><div class="small text-secondary">Xem trước áp phích</div>';
+        posterPreview.style.display = "flex";
+      }
+      posterInp.oninput = updatePosterPreview;
+      updatePosterPreview();
+    }
+
+    // Tự động chuẩn hóa trailer URL khi dán
+    if (trailerInp) {
+      trailerInp.onblur = function () {
+        var val = trailerInp.value.trim();
+        var m = val.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+        if (m) trailerInp.value = m[1];
+      };
+    }
+  },
+  toForm: function (r) {
+    var extra = window.mergeMovieExtras ? window.mergeMovieExtras(r) : null;
+    return {
+      title: r.title,
+      genre: r.genre,
+      duration: r.duration,
+      poster: r.poster || "",
+      trailer: extra && extra.youtubeId ? extra.youtubeId : ""
+    };
+  },
+  toPayload: function (d) {
+    var ytVal = d.trailer ? d.trailer.trim() : "";
+    var m = ytVal.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    var ytId = m ? m[1] : ytVal;
+
+    return {
+      title: d.title.trim(),
+      genre: d.genre.trim(),
+      duration: Number(d.duration),
+      poster: d.poster.trim()
+    };
+  }
+});
+</script>
+</body>
+</html>

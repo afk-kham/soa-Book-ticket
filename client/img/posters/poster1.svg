@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600">
+  <title>Avengers: Endgame</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#140a2e"/><stop offset=".55" stop-color="#3b0f4f"/><stop offset="1" stop-color="#0a0612"/></linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".42" r=".5"><stop offset="0" stop-color="#ffd36b" stop-opacity=".95"/><stop offset=".35" stop-color="#f08a24" stop-opacity=".55"/><stop offset="1" stop-color="#6b1d7a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset=".5" stop-color="#f5b301"/><stop offset="1" stop-color="#a35c00"/></linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".85"/></linearGradient>
+  </defs>
+  <rect width="400" height="600" fill="url(#bg)"/>
+  <g fill="#fff" opacity=".7">
+    <circle cx="40" cy="60" r="1.2"/><circle cx="96" cy="130" r=".9"/><circle cx="330" cy="70" r="1.4"/><circle cx="360" cy="190" r="1"/><circle cx="60" cy="230" r="1"/>
+    <circle cx="300" cy="30" r=".8"/><circle cx="150" cy="40" r="1.1"/><circle cx="250" cy="110" r=".7"/><circle cx="20" cy="330" r="1.2"/><circle cx="380" cy="300" r=".9"/>
+  </g>
+  <circle cx="200" cy="250" r="230" fill="url(#glow)"/>
+  <!-- Vòng xoáy vũ trụ -->
+  <g fill="none" stroke="#ffcf4d" stroke-linecap="round">
+    <ellipse cx="200" cy="250" rx="150" ry="44" stroke-width="2" opacity=".55" transform="rotate(-18 200 250)"/>
+    <ellipse cx="200" cy="250" rx="120" ry="30" stroke-width="1.4" opacity=".4" transform="rotate(14 200 250)"/>
+  </g>
+  <!-- Biểu tượng chữ A trong vòng tròn -->
+  <g transform="translate(200 250)">
+    <circle r="78" fill="none" stroke="url(#gold)" stroke-width="12"/>
+    <path d="M-44 70 L8 -92 L30 -92 L52 70 L30 70 L18 28 L-14 28 L-26 70 Z M-8 6 L12 6 L4 -28 Z" fill="url(#gold)"/>
+    <path d="M30 -92 L88 -40" stroke="url(#gold)" stroke-width="12" stroke-linecap="round"/>
+  </g>
+  <!-- Sáu viên đá -->
+  <g transform="translate(200 395)">
+    <circle cx="-75" r="7" fill="#3b82f6"/><circle cx="-45" r="7" fill="#ef4444"/><circle cx="-15" r="7" fill="#a855f7"/>
+    <circle cx="15" r="7" fill="#22c55e"/><circle cx="45" r="7" fill="#f59e0b"/><circle cx="75" r="7" fill="#f97316"/>
+  </g>
+  <rect width="400" height="600" fill="url(#fade)"/>
+  <g font-family="'Segoe UI', Arial, sans-serif" text-anchor="middle" fill="#fff">
+    <text x="200" y="478" font-size="44" font-weight="900" letter-spacing="6" fill="url(#gold)">AVENGERS</text>
+    <text x="200" y="514" font-size="22" font-weight="700" letter-spacing="14">ENDGAME</text>
+    <text x="200" y="556" font-size="13" letter-spacing="3" opacity=".75">TRẬN CHIẾN CUỐI CÙNG</text>
+  </g>
+  <g font-family="'Segoe UI', Arial, sans-serif" font-weight="800">
+    <rect x="16" y="16" width="44" height="26" rx="5" fill="#f5b301"/><text x="38" y="35" font-size="14" text-anchor="middle" fill="#1d1500">T13</text>
+  </g>
+</svg>

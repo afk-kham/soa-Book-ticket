@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="vi" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suất chiếu — Admin SOA Cinema</title>
+  <link rel="stylesheet" href="../vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="../vendor/bootstrap/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+<div id="app">
+  <div class="card toolbar d-flex align-items-center gap-2">
+    <label class="text-secondary small mb-0"><i class="bi bi-funnel me-1"></i>Lọc theo phim:</label>
+    <select id="f-movie" class="form-select w-auto">
+      <option value="">Tất cả phim</option>
+    </select>
+  </div>
+  <div class="card" id="list"></div>
+</div>
+
+<script src="../vendor/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/movie-extras.js"></script>
+<script src="../js/common.js"></script>
+<script>
+Admin.shell("showtime", "Quản lý suất chiếu", "Lịch chiếu phim theo rạp, phòng và khung giờ chiếu tại SOA Cinema");
+var movies = {}, movieObjects = {}, filter = document.getElementById("f-movie");
+
+var page = Admin.crudPage({
+  service: "showtime",
+  path: "/api/showtimes",
+  noun: "suất chiếu",
+  search: "Tìm theo phim, rạp, phòng...",
+  formHint: "Phim phải có trong danh mục thì mới tạo được suất chiếu.",
+  listPath: function () {
+    return "/api/showtimes" + (filter.value ? "?movieId=" + encodeURIComponent(filter.value) : "");
+  },
+  beforeLoad: async function () {
+    if (Object.keys(movies).length) return;
+    try {
+      var mList = await Admin.api("movie", "GET", "/api/movies");
+      mList.forEach(function (m) {
+        movies[m.id] = m.title;
+        movieObjects[m.id] = m;
+      });
+      filter.insertAdjacentHTML("beforeend", Object.keys(movies).map(function (id) {
+        return '<option value="' + id + '">' + Admin.esc(movies[id]) + "</option>";
+      }).join(""));
+    } catch (e) {
+      Admin.toast("Không lấy được danh sách phim: " + e.message, "error");
+    }
+  },
+  columns: [
+    { label: "ID", render: function (r) { return '<span class="id">#' + r.id + "</span>"; } },
+    {
+      label: "Phim",
+      render: function (r) {
+        var m = movieObjects[r.movieId] || { title: movies[r.movieId] || "(không rõ)" };
+        var isPast = new Date(String(r.time).replace(" ", "T")) < new Date();
+        return '<span class="cell-movie">' + Admin.poster(m) +
+          "<div><b>" + Admin.esc(m.title) + "</b><br><small class='" + (isPast ? "text-secondary" : "text-success") + "'>" +
+          (isPast ? "Đã chiếu" : "Sắp chiếu") + "</small></div></span>";
+      }
+    },
+    { label: "Rạp chiếu", key: "cinema" },
+    { label: "Phòng chiếu", key: "room" },
+    { label: "Giờ chiếu", render: function (r) { return Admin.fmtTime(String(r.time).slice(0, 16)); } },
+    { label: "Giá vé", align: "num", render: function (r) { return Admin.money(r.price); } }
+  ],
+  fields: function () {
+    return [
+      {
+        name: "movieId",
+        label: "Phim",
+        type: "select",
+        options: Object.keys(movies).map(function (id) { return { value: id, label: movies[id] + " (#" + id + ")" }; })
+      },
+      { name: "cinema", label: "Rạp", required: true, placeholder: "VD: CGV Vincom Đồng Khởi" },
+      { name: "room", label: "Phòng", required: true, placeholder: "VD: P1" },
+      { name: "time", label: "Giờ chiếu", type: "datetime-local", required: true },
+      { name: "price", label: "Giá vé (VNĐ)", type: "number", required: true, min: 0, placeholder: "90000" }
+    ];
+  },
+  onRender: function (form, row, rows) {
+    var sel = form.elements["movieId"];
+    if (!sel) return;
+    var preview = document.createElement("div");
+    preview.id = "showtime-movie-preview";
+    preview.className = "d-flex align-items-center gap-2 p-2 mt-2 rounded border border-secondary";
+    preview.style.background = "var(--cinema-surface-2)";
+    sel.parentNode.appendChild(preview);
+
+    function updatePreview() {
+      var m = movieObjects[sel.value];
+      if (m) {
+        preview.innerHTML = Admin.poster(m) + '<div><b class="text-white">' + Admin.esc(m.title) + '</b><div class="text-secondary small">' + Admin.esc(m.genre) + ' · ' + m.duration + ' phút</div></div>';
+        preview.style.display = "flex";
+      } else {
+        preview.style.display = "none";
+      }
+    }
+    sel.onchange = updatePreview;
+    updatePreview();
+  },
+  toForm: function (r) {
+    return {
+      movieId: r.movieId,
+      cinema: r.cinema,
+      room: r.room,
+      time: String(r.time).replace(" ", "T").slice(0, 16),
+      price: r.price
+    };
+  },
+  toPayload: function (d, row, rows) {
+    var dt = new Date(d.time);
+    if (isNaN(dt.getTime())) {
+      throw new Error("Giờ chiếu không đúng định dạng ngày giờ.");
+    }
+    if (dt.getTime() < Date.now() - 60000) {
+      throw new Error("Giờ chiếu không được ở trong quá khứ. Vui lòng chọn thời gian sắp tới.");
+    }
+
+    var reqTime = dt.getTime();
+    var conflict = (rows || []).find(function (s) {
+      var sTime = new Date(String(s.time).replace(" ", "T")).getTime();
+      return s.cinema.trim().toLowerCase() === d.cinema.trim().toLowerCase() &&
+             s.room.trim().toLowerCase() === d.room.trim().toLowerCase() &&
+             Math.abs(sTime - reqTime) < 2 * 3600 * 1000 &&
+             (!row || String(s.id) !== String(row.id));
+    });
+
+    if (conflict) {
+      throw new Error("Xung đột phòng chiếu: Phòng " + d.room.trim() + " tại rạp này đã có lịch chiếu vào lúc " + Admin.fmtTime(conflict.time) + " (yêu cầu khoảng cách tối thiểu 2 tiếng giữa các suất).");
+    }
+
+    return {
+      movieId: Number(d.movieId),
+      cinema: d.cinema.trim(),
+      room: d.room.trim(),
+      time: d.time.replace("T", " ") + ":00",
+      price: Number(d.price)
+    };
+  }
+});
+
+filter.onchange = page.reload;
+</script>
+</body>
+</html>
