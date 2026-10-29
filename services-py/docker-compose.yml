@@ -1,0 +1,112 @@
+# Docker Compose cho 6 service Python/FastAPI (khung). Chạy trong thư mục services-py/:
+#   cp .env.example .env   (tùy chọn)  &&  docker compose up --build
+# Cổng PUBLISH ra máy host = cổng cố định của hợp đồng (Admin/Client gọi http://<host>:5001..5006 từ TRÌNH DUYỆT).
+# Giữa các container gọi nhau bằng TÊN SERVICE + CỔNG NỘI BỘ (vd http://movie:5001), không qua localhost.
+# Không dùng depends_on giữa các service nghiệp vụ: SOA yêu cầu mỗi service chạy/dừng độc lập.
+name: soa-book-ticket-py
+
+services:
+  movie:
+    build: ./movie
+    image: soa-movie:scaffold
+    container_name: soa-movie
+    restart: unless-stopped
+    ports:
+      - "${MOVIE_HOST_PORT:-5001}:5001"  # host:container
+    environment:
+      PORT: "5001"
+      DB_PATH: /data/movie.db
+      JWT_SECRET: ${JWT_SECRET:-}
+    volumes:
+      - movie_data:/data  # SQLite của riêng movie
+
+  showtime:
+    build: ./showtime
+    image: soa-showtime:scaffold
+    container_name: soa-showtime
+    restart: unless-stopped
+    ports:
+      - "${SHOWTIME_HOST_PORT:-5002}:5002"  # host:container
+    environment:
+      PORT: "5002"
+      DB_PATH: /data/showtime.db
+      MOVIE_SERVICE_URL: http://movie:5001
+      VALIDATE_MOVIE: "${VALIDATE_MOVIE:-true}"
+      AUTO_SCHEDULE_DAYS: "${AUTO_SCHEDULE_DAYS:-7}"
+      APP_TIMEZONE: "${APP_TIMEZONE:-Asia/Ho_Chi_Minh}"
+      JWT_SECRET: ${JWT_SECRET:-}
+    volumes:
+      - showtime_data:/data  # SQLite của riêng showtime
+
+  user:
+    build: ./user
+    image: soa-user:scaffold
+    container_name: soa-user
+    restart: unless-stopped
+    ports:
+      - "${USER_HOST_PORT:-5003}:5003"  # host:container
+    environment:
+      PORT: "5003"
+      DB_PATH: /data/user.db
+      JWT_SECRET: ${JWT_SECRET:-}
+    volumes:
+      - user_data:/data  # SQLite của riêng user
+
+  booking:
+    build: ./booking
+    image: soa-booking:scaffold
+    container_name: soa-booking
+    restart: unless-stopped
+    ports:
+      - "${BOOKING_HOST_PORT:-5004}:5004"  # host:container
+    environment:
+      PORT: "5004"
+      DB_PATH: /data/booking.db
+      USER_SERVICE_URL: http://user:5003
+      MOVIE_SERVICE_URL: http://movie:5001
+      SHOWTIME_SERVICE_URL: http://showtime:5002
+      PAYMENT_SERVICE_URL: http://payment:5005
+      NOTIFICATION_SERVICE_URL: http://notification:5006
+      UPSTREAM_TIMEOUT_SECONDS: "${UPSTREAM_TIMEOUT_SECONDS:-5}"
+      HOLD_MINUTES: "${HOLD_MINUTES:-10}"
+      JWT_SECRET: ${JWT_SECRET:-}
+      INTERNAL_KEY: ${INTERNAL_KEY:-}
+    volumes:
+      - booking_data:/data  # SQLite của riêng booking
+
+  payment:
+    build: ./payment
+    image: soa-payment:scaffold
+    container_name: soa-payment
+    restart: unless-stopped
+    ports:
+      - "${PAYMENT_HOST_PORT:-5005}:5005"  # host:container
+    environment:
+      PORT: "5005"
+      DB_PATH: /data/payment.db
+      JWT_SECRET: ${JWT_SECRET:-}
+    volumes:
+      - payment_data:/data  # SQLite của riêng payment
+
+  notification:
+    build: ./notification
+    image: soa-notification:scaffold
+    container_name: soa-notification
+    restart: unless-stopped
+    ports:
+      - "${NOTIFICATION_HOST_PORT:-5006}:5006"  # host:container
+    environment:
+      PORT: "5006"
+      DB_PATH: /data/notification.db
+      JWT_SECRET: ${JWT_SECRET:-}
+      INTERNAL_KEY: ${INTERNAL_KEY:-}
+    volumes:
+      - notification_data:/data  # SQLite của riêng notification
+
+volumes:
+  movie_data:
+  showtime_data:
+  user_data:
+  booking_data:
+  payment_data:
+  notification_data:

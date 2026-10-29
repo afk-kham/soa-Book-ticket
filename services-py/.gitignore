@@ -1,0 +1,11 @@
+# Dữ liệu SQLite KHÔNG commit (có thể chứa dữ liệu thật)
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+data/
+.env
+.venv/
+__pycache__/
+.pytest_cache/
