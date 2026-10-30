@@ -1,4 +1,1 @@
-"""DB: kết nối SQLite, khởi tạo schema/migration (TODO, chờ nhóm chốt).
-
-TODO(TV6): khởi tạo schema/migration SQLite - chờ quyết định D-03 (xem docs/OPEN_QUESTIONS.md).
-"""
+"""DB: kết nối SQLite và khởi tạo schema (bước tường minh: `python -m app.db.init_db [--seed]`)."""
