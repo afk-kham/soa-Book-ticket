@@ -1,6 +1,6 @@
 # TV3 — User/Auth Service (Python / FastAPI / SQLite) — cổng 5003
 
-> **Trạng thái: KHUNG.** Service chỉ khởi động và trả `GET /health`. Mọi nghiệp vụ do **TV3** viết theo README này.
+> **Trạng thái: ĐÃ CÀI ĐẶT (chờ nhóm trưởng duyệt D-07/D-18).** 4 endpoint nghiệp vụ + `GET /health`, SQLite, BCrypt, 140 test (DB tạm). Token vẫn là `demo-token-<username>` (giữa kỳ); **chưa** bật JWT vì D-18 chưa chốt.
 > Nhánh làm việc: `feature/tv3-user` (không làm trực tiếp trên `main`/`develop`). Đọc trước: [README chung](../README.md), [API_CONTRACT.md](../API_CONTRACT.md) §4, [ARCHITECTURE](../docs/ARCHITECTURE.md), [OPEN_QUESTIONS](../docs/OPEN_QUESTIONS.md).
 
 ## 1. Mục tiêu và phạm vi trách nhiệm
@@ -163,6 +163,14 @@ docker compose up --build user
 ```
 
 Test tích hợp liên service (`python tests/integration/run_tests.py`, thư mục gốc repo) chỉ dùng được khi các service liên quan đã được cài đặt đủ hành vi.
+
+## 11b. Triển khai thực tế (TV3) — tóm tắt
+
+- **Schema**: `app/db/schema.sql` (`CREATE TABLE IF NOT EXISTS`, UNIQUE `username`, `COLLATE NOCASE` để giữ hành vi không phân biệt hoa/thường của MySQL cũ). Chạy idempotent khi service khởi động (lifespan); **import module không tạo DB**.
+- **Seed** (tường minh, không tự chạy): `python -m app.db.seed` — `INSERT OR IGNORE` 3 tài khoản `admin/user1/user2`, giữ nguyên id + hash cũ, không ghi đè.
+- **Lỗi/CORS (D-07, trong phạm vi service)**: `app/core/http.py` — `OPTIONS`→204, validation→400 `VALIDATION_ERROR`, 404/405/500 theo envelope, không lộ SQL/stack. Khi nhóm trưởng có mẫu chung thì thay file này.
+- **Postman**: import `postman/user-service.postman_collection.json` (biến `baseUrl = http://localhost:5003`).
+- Seed rồi chạy thử: `python -m app.db.seed` → đăng nhập `admin / Admin@123`, `user1 / User@123`.
 
 ## 12. Checklist hoàn thành
 

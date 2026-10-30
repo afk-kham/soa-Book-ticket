@@ -1,4 +1,4 @@
-"""Controller: nhận request từ router, kiểm tra đầu vào mức cơ bản, gọi Service.
+"""Controller: nhận request từ router, gọi Service, dựng response theo hợp đồng."""
+from app.controllers.user_controller import UserController
 
-TODO(TV3): triển khai theo README.md của service.
-"""
+__all__ = ["UserController"]

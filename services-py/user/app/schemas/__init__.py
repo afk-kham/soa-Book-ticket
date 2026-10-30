@@ -1,4 +1,4 @@
-"""Schema: model Pydantic cho request/response của API (camelCase theo API_CONTRACT).
+"""Schema: model Pydantic cho request/response của API (camelCase theo API_CONTRACT)."""
+from app.schemas.user import LoginRequest, LoginResponse, RegisterRequest, UserResponse
 
-TODO(TV3): triển khai theo README.md của service.
-"""
+__all__ = ["LoginRequest", "LoginResponse", "RegisterRequest", "UserResponse"]
