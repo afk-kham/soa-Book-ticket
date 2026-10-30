@@ -1,6 +1,8 @@
 # TV6 — Notification Service (Python / FastAPI / SQLite) — cổng 5006
 
-> **Trạng thái: KHUNG.** Service chỉ khởi động và trả `GET /health`. Mọi nghiệp vụ do **TV6** viết theo README này.
+> **Trạng thái: ĐÃ CÀI ĐẶT** 6 endpoint của hợp đồng + `/health` (44 test pytest đạt). Chưa bật xác thực JWT/`X-Internal-Key` (chờ D-18), chưa build thử Docker.
+> Tạo bảng là bước tường minh: `python -m app.db.init_db [--seed]` (Docker tự chạy bản không seed). Schema/seed nằm ở `app/db/schema.sql`, `app/db/seed.sql`.
+> Không có `POST /api/notify/test` và `GET /api/notify/stats` của mã Go (ngoài hợp đồng); trang Admin "gửi thử" trên `main` đang gọi `/api/notify/test` — cần nhóm trưởng quyết (sửa Admin hoặc PR sửa `API_CONTRACT.md`).
 > Nhánh làm việc: `feature/tv6-notification` (không làm trực tiếp trên `main`/`develop`). Đọc trước: [README chung](../README.md), [API_CONTRACT.md](../API_CONTRACT.md) §7, [ARCHITECTURE](../docs/ARCHITECTURE.md), [OPEN_QUESTIONS](../docs/OPEN_QUESTIONS.md).
 
 ## 1. Mục tiêu và phạm vi trách nhiệm

@@ -1,0 +1,27 @@
+# Chạy RIÊNG Notification Service (cổng 5006), không cần các service khác.
+#   cd services-py/notification
+#   docker compose up --build -d
+#   -> http://localhost:5006/docs   (Swagger UI)    http://localhost:5006/health
+#   docker compose down             (giữ dữ liệu)   docker compose down -v   (xóa cả dữ liệu SQLite)
+#
+# Cổng trên máy (host) đổi được bằng NOTIFICATION_HOST_PORT, giống services-py/docker-compose.yml.
+# Windows đôi khi giữ dải cổng 4922-5021 (lỗi "ports are not available"): đặt NOTIFICATION_HOST_PORT=15006.
+# Cổng trong container luôn là 5006 (theo hợp đồng).
+services:
+  notification:
+    build: .
+    image: soa-notification:standalone
+    container_name: soa-notification-standalone
+    restart: unless-stopped
+    ports:
+      - "${NOTIFICATION_HOST_PORT:-5006}:5006"  # host:container
+    environment:
+      PORT: "5006"
+      DB_PATH: /data/notification.db
+      JWT_SECRET: ${JWT_SECRET:-}        # chưa dùng (xác thực chờ D-18); KHÔNG commit khóa thật
+      INTERNAL_KEY: ${INTERNAL_KEY:-}
+    volumes:
+      - notification_data:/data          # SQLite của riêng notification
+
+volumes:
+  notification_data:
