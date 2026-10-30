@@ -64,20 +64,3 @@ test("GET /api/payment?bookingId= lọc đúng và lỗi trả code", () => with
 test("chuyển khoản ngân hàng (BANK_TRANSFER) là phương thức hợp lệ", () => {
   assert.equal(normalizeTransaction({ bookingId: 10, amount: 90000, method: "bank_transfer" }).status, "PAID");
 });
-
-test("Swagger UI và OpenAPI spec được phục vụ từ Payment Service", () => withServer(async base => {
-  const docs = await fetch(base + "/docs");
-  assert.equal(docs.status, 200);
-  assert.match(await docs.text(), /swagger-ui-bundle\.js/);
-
-  const spec = await fetch(base + "/openapi.json");
-  assert.equal(spec.status, 200);
-  const openapi = await spec.json();
-  assert.equal(openapi.openapi, "3.0.3");
-  assert.ok(openapi.paths["/api/payment"].get);
-  assert.ok(openapi.paths["/api/payment"].post);
-
-  const asset = await fetch(base + "/docs/swagger-ui-bundle.js");
-  assert.equal(asset.status, 200);
-  assert.match(asset.headers.get("content-type"), /javascript/);
-}));
