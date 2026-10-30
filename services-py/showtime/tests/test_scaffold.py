@@ -13,6 +13,13 @@ def test_health_ok():
     assert r.json() == {"status": "success", "data": {"service": "showtime-service", "port": 5002}}
 
 
+def test_openapi_docs_are_available():
+    response = TestClient(app).get("/docs")
+
+    assert response.status_code == 200
+    assert "Swagger UI" in response.text
+
+
 def test_importing_app_does_not_create_database_file():
     assert not Path(config.DB_PATH).exists()
 

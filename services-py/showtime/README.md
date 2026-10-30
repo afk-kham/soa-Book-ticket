@@ -1,6 +1,6 @@
 # TV2 — Showtime Service (Python / FastAPI / SQLite) — cổng 5002
 
-> **Trạng thái: KHUNG.** Service chỉ khởi động và trả `GET /health`. Mọi nghiệp vụ do **TV2** viết theo README này.
+> **Trạng thái: Đã triển khai API Showtime bằng FastAPI/SQLite.** Xem §2 và chạy test bằng lệnh ở §11.
 > Nhánh làm việc: `feature/tv2-showtime` (không làm trực tiếp trên `main`/`develop`). Đọc trước: [README chung](../README.md), [API_CONTRACT.md](../API_CONTRACT.md) §3, [ARCHITECTURE](../docs/ARCHITECTURE.md), [OPEN_QUESTIONS](../docs/OPEN_QUESTIONS.md).
 
 ## 1. Mục tiêu và phạm vi trách nhiệm
@@ -36,24 +36,25 @@ showtime/
 ├── pytest.ini                 ← pythonpath=. , testpaths=tests
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                ← tạo FastAPI app, CORS, include router (KHUNG)
+│   ├── main.py                ← FastAPI app, CORS, error envelope
 │   ├── api/
 │   │   ├── __init__.py
-│   │   └── router.py          ← APIRouter: hiện chỉ GET /health. **Thêm route nghiệp vụ tại đây**
-│   ├── controllers/__init__.py   ← (trống) nhận request → gọi service
-│   ├── services/__init__.py      ← (trống) **logic nghiệp vụ**
-│   ├── repositories/__init__.py  ← (trống) **SQL SQLite**
-│   ├── entities/__init__.py      ← (trống) dữ liệu nội bộ (snake_case)
-│   ├── schemas/__init__.py       ← (trống) Pydantic request/response (camelCase)
+│   │   └── router.py          ← APIRouter cho health và API showtimes
+│   ├── controllers/__init__.py   ← request parsing và response envelope
+│   ├── services/__init__.py      ← nghiệp vụ, Movie API và xếp lịch
+│   ├── repositories/__init__.py  ← SQL SQLite tham số hóa
+│   ├── entities/__init__.py      ← dữ liệu nội bộ (snake_case)
+│   ├── schemas/__init__.py       ← Pydantic request/response (camelCase)
 │   ├── db/
-│   │   ├── __init__.py        ← TODO khởi tạo schema/migration (chờ D-03)
-│   │   └── connection.py      ← get_connection(): mở SQLite tại DB_PATH (không tạo bảng/dữ liệu)
+│   │   ├── __init__.py        ← kết nối SQLite; không tạo DB lúc import
+│   │   └── connection.py      ← get_connection(): mở SQLite tại DB_PATH
 │   └── core/
 │       ├── __init__.py
 │       └── config.py          ← đọc biến môi trường (SERVICE_NAME, PORT, DB_PATH, ...)
 └── tests/
     ├── __init__.py
-    └── test_scaffold.py       ← test khung (health, không tự tạo DB). Thêm test nghiệp vụ tại đây
+    ├── test_scaffold.py       ← health, không tạo DB khi import app
+    └── test_showtimes.py      ← CRUD, validation, Movie API, auto-schedule
 ```
 
 Ánh xạ từ mã nguồn cũ:
@@ -105,8 +106,8 @@ Lớp nào cũng **chỉ gọi xuống** lớp dưới nó. Không import code c
 - Một file `showtime.db`, **chỉ service này** mở. Local: `./data/showtime.db`; Docker: `/data/showtime.db` (volume `showtime_data`). `*.db` bị `.gitignore` — **không commit**.
 - Schema cũ (MySQL) để **đối chiếu**: `showtimes(id INT AUTO_INCREMENT PK, movie_id INT NOT NULL, cinema VARCHAR(150), room VARCHAR(50), time DATETIME, price INT)` — không khóa ngoại.
 - Seed cũ: `database/showtime/seed.sql`. **Không chạy** các file `schema.sql`/`seed.sql`/`seed.js` cũ (có `DROP`/`DELETE`/`drop()`).
-- Khi viết schema SQLite: `CREATE TABLE IF NOT EXISTS`, idempotent, **không `DROP`**, không tự nạp dữ liệu lúc import/khởi động; giữ nguyên id và giá trị seed cũ (thêm dữ liệu mới = id lớn hơn).
-- Việc tạo schema và nạp dữ liệu là bước **tường minh** (script/lệnh), chỉ làm sau khi nhóm chốt D-01, D-03, D-16. Chuyển dữ liệu thật từ nguồn cũ là **migration riêng**: sao lưu trước, đối chiếu sau (xem `docs/MIGRATION_TRACKER.md` §3).
+- Schema SQLite được tạo lazy khi repository thực hiện DB access bằng `CREATE TABLE IF NOT EXISTS`; không tạo DB lúc import/khởi động, không `DROP`, không tự nạp seed. Giữ nguyên id và giá trị seed cũ khi migration (thêm dữ liệu mới = id lớn hơn).
+- Nạp seed và chuyển dữ liệu thật từ nguồn cũ vẫn là các bước **tường minh**, chỉ làm sau khi nhóm chốt D-01, D-03, D-16. Migration cần sao lưu trước, đối chiếu sau (xem `docs/MIGRATION_TRACKER.md` §3).
 - Test dùng DB tạm (`tmp_path`), **không** dùng file dữ liệu thật; không test hành vi xóa trên dữ liệu thật.
 
 ## 8. Dependency với service khác
@@ -175,7 +176,7 @@ Test tích hợp liên service (`python tests/integration/run_tests.py`, thư m�
 - [ ] Đã đọc mã cũ `services/showtime/` và ghi lại sai khác với contract (nếu có) vào PR.
 - [ ] Mọi endpoint ở `API_CONTRACT.md` §3 đã cài đặt, khớp path/method/envelope/camelCase/mã HTTP/mã lỗi.
 - [ ] Validation đủ (body rỗng, JSON sai, kiểu dữ liệu, giới hạn độ dài); không crash khi body rỗng/sai JSON.
-- [ ] `/health`, `OPTIONS → 204`, CORS `*` đúng (sau khi nhóm chốt D-07).
+- [ ] `/health`, `OPTIONS → 204`, CORS `*` đúng.
 - [ ] Schema SQLite idempotent, seed giữ nguyên id/giá trị; không có `DROP`.
 - [ ] Không lộ trường nhạy cảm, lỗi SQL, stack trace.
 - [ ] Test của service pass (DB tạm); `docker compose up --build showtime` chạy và `/health` OK.
@@ -195,9 +196,10 @@ Khung **không tạo** và **không di chuyển** file nặng. Bảng cho biết
 
 Quy tắc chung (xem [ASSETS_GUIDE](../docs/ASSETS_GUIDE.md)): file cũ giữ nguyên tên và đường dẫn; file mới đặt tên mới cạnh file cũ; HTML đang tham chiếu ảnh nào thì không đổi đường dẫn ảnh đó.
 
-## 14. Vấn đề chưa rõ — hỏi nhóm trưởng trước khi triển khai
+## 14. Điểm triển khai cần nhóm trưởng xác nhận
 
-- D-01, D-07, D-09 (thay `GET_LOCK` của MySQL), D-11 (HTTP client).
-- Múi giờ: `time` lưu giờ địa phương (`Asia/Ho_Chi_Minh`) dạng TEXT; Booking so sánh `time` với giờ máy Booking → hai service phải cùng múi giờ container. Xác nhận cấu hình `TZ` cho Docker.
+- Schema được tạo lazy khi repository cần DB; auto-schedule dùng transaction `BEGIN IMMEDIATE` thay cho `GET_LOCK` của MySQL để tránh sinh trùng.
+- Movie API được gọi bằng `httpx.AsyncClient` với timeout 3 giây; preflight `OPTIONS` trả 204.
+- Múi giờ `time` lưu local (`APP_TIMEZONE`) dạng TEXT; Booking so sánh `time` với giờ máy Booking → hai service cần cùng múi giờ container. Xác nhận cấu hình `TZ` cho Docker và các quyết định D-01/D-03/D-07/D-09/D-11/D-16 còn mở.
 
 Danh sách đầy đủ và trạng thái: [OPEN_QUESTIONS.md](../docs/OPEN_QUESTIONS.md).

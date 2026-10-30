@@ -1,4 +1,13 @@
-"""Entity/Model: đối tượng dữ liệu NỘI BỘ (ánh xạ bảng SQLite). Khác Schema (dữ liệu API).
+"""Internal snake_case representation of a SQLite showtime row."""
 
-TODO(TV2): triển khai theo README.md của service.
-"""
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class Showtime:
+    id: int
+    movie_id: int
+    cinema: str
+    room: str
+    time: str
+    price: int
