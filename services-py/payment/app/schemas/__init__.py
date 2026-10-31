@@ -1,4 +1,4 @@
-"""Schema: model Pydantic cho request/response của API (camelCase theo API_CONTRACT).
+"""Package schemas."""
+from app.schemas.payment import PaymentCreateRequest, PaymentResponse
 
-TODO(TV5): triển khai theo README.md của service.
-"""
+__all__ = ["PaymentCreateRequest", "PaymentResponse"]
