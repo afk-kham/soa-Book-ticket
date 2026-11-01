@@ -1,23 +1,52 @@
 """Entry point FastAPI của Movie Service (cổng 5001).
 
-Chạy local:  uvicorn app.main:app --host 0.0.0.0 --port 5001
-TODO(nhóm trưởng): error envelope {"status":"error","code","message"} và OPTIONS->204 theo API_CONTRACT
-(CORSMiddleware của Starlette trả 200 cho preflight) - xem docs/OPEN_QUESTIONS.md mục D-07.
+Chạy local:
+  uvicorn app.main:app --host 0.0.0.0 --port 5001 --reload
+
+Swagger UI:
+  http://localhost:5001/docs
+OpenAPI JSON:
+  http://localhost:5001/openapi.json
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core import config
+from app.core.http import register_http_handling
+from app.db import init_schema
 
-app = FastAPI(title="Movie Service", version="0.0.1-scaffold")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["Content-Type", "Authorization"],
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Vòng đời của Movie Service: Tự động khởi tạo schema khi app bắt đầu chạy."""
+    init_schema()
+    yield
+
+
+tags_metadata = [
+    {
+        "name": "Health",
+        "description": "Kiểm tra tình trạng hoạt động và cổng dịch vụ (dùng cho giám sát & Docker Healthcheck).",
+    },
+    {
+        "name": "Movies",
+        "description": "Quản lý danh mục phim: truy vấn danh sách, xem chi tiết, thêm mới, sửa và xóa phim.",
+    },
+]
+
+app = FastAPI(
+    title="Movie Service API (TV1)",
+    description="Dịch vụ quản lý danh mục phim - Kiến trúc SOA (Nhánh TV1)",
+    version="1.0.0",
+    docs_url="/docs",
+    openapi_url="/openapi.json",
+    openapi_tags=tags_metadata,
+    lifespan=lifespan,
 )
+
+register_http_handling(app)
 app.include_router(api_router)
 
 
