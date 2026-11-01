@@ -1,9 +1,11 @@
-"""Test khung: chỉ kiểm tra app khởi động được và không tự tạo DB. KHÔNG phải test nghiệp vụ."""
+"""Test khung: app khởi động được, /health đúng dạng và import app không tự tạo DB."""
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.core import config
 from app.main import app
 
 
@@ -13,8 +15,17 @@ def test_health_ok():
     assert r.json() == {"status": "success", "data": {"service": "movie-service", "port": 5001}}
 
 
-def test_importing_app_does_not_create_database_file():
-    assert not Path(config.DB_PATH).exists()
+def test_importing_app_does_not_create_database_file(tmp_path):
+    # Tiến trình con + DB_PATH tạm: đảm bảo import app.main không tự động tạo file CSDL
+    db = tmp_path / "sub" / "x.db"
+    env = {**os.environ, "DB_PATH": str(db)}
+    subprocess.run(
+        [sys.executable, "-c", "import app.main"],
+        check=True,
+        env=env,
+        cwd=Path(__file__).resolve().parents[1],
+    )
+    assert not db.exists() and not db.parent.exists()
 
 
 def test_declared_libraries_are_installed():
