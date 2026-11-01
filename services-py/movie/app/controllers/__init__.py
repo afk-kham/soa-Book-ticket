@@ -1,4 +1,4 @@
-"""Controllers của Movie Service."""
-from app.controllers.movie_controller import MovieController
+"""Controller: nhận request từ router, kiểm tra đầu vào mức cơ bản, gọi Service.
 
-__all__ = ["MovieController"]
+TODO(TV1): triển khai theo README.md của service.
+"""

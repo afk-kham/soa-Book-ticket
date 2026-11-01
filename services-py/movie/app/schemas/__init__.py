@@ -1,4 +1,4 @@
-"""Schemas Pydantic của Movie Service."""
-from app.schemas.movie import MovieCreate, MovieResponse, MovieUpdate
+"""Schema: model Pydantic cho request/response của API (camelCase theo API_CONTRACT).
 
-__all__ = ["MovieCreate", "MovieUpdate", "MovieResponse"]
+TODO(TV1): triển khai theo README.md của service.
+"""
