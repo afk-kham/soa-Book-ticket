@@ -1,4 +1,5 @@
-"""Service: logic nghiệp vụ của service. Không truy cập SQLite trực tiếp - đi qua Repository.
+"""Services của Movie Service."""
+from app.services.errors import MovieNotFoundError, MovieServiceError
+from app.services.movie_service import MovieService
 
-TODO(TV1): triển khai theo README.md của service.
-"""
+__all__ = ["MovieService", "MovieServiceError", "MovieNotFoundError"]

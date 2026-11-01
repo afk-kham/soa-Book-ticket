@@ -1,4 +1,4 @@
-"""Entity/Model: đối tượng dữ liệu NỘI BỘ (ánh xạ bảng SQLite). Khác Schema (dữ liệu API).
+"""Entities của Movie Service."""
+from app.entities.movie import Movie
 
-TODO(TV1): triển khai theo README.md của service.
-"""
+__all__ = ["Movie"]
