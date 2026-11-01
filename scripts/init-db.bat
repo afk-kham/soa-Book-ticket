@@ -1,19 +1,17 @@
 @echo off
-rem Tạo 5 CSDL MySQL (schema + seed). Chạy từ thư mục gốc:  scripts\init-db.bat
-rem Đặt DB_USER / DB_PASSWORD trước nếu không dùng root không mật khẩu.
+rem Tạo/nạp lại DB SQLite cho các service Python (schema + dữ liệu mẫu). Idempotent: INSERT OR IGNORE, KHÔNG xóa dữ liệu có sẵn.
+rem Chạy từ thư mục gốc:  scripts\init-db.bat
+rem (start-all.bat tự tạo DB lần đầu; chỉ cần chạy file này khi muốn nạp lại dữ liệu mẫu. Cần .venv: chạy start-all một lần trước,
+rem  hoặc file này sẽ tự tạo .venv + cài thư viện.)
 setlocal
 cd /d "%~dp0.."
-if "%DB_USER%"=="" set DB_USER=root
-set PW=
-if not "%DB_PASSWORD%"=="" set PW=-p%DB_PASSWORD%
-for %%s in (movie showtime user booking notification) do (
-  echo ^>^> %%s_db
-  mysql -u%DB_USER% %PW% --default-character-set=utf8mb4 < database\%%s\schema.sql || goto :err
-  mysql -u%DB_USER% %PW% --default-character-set=utf8mb4 < database\%%s\seed.sql || goto :err
+for %%s in (movie user payment notification) do (
+  echo ^>^> %%s
+  call scripts\run-service.bat %%s --init-only || goto :err
 )
-echo OK: da nap 5 CSDL MySQL.
-echo Payment (MongoDB): mongosh database\payment\seed.js
+echo OK: da tao/nap DB SQLite (services-py\^<ten^>\data\^<ten^>.db).
+echo Showtime tao bang tu dong khi dung; lich chieu 7 ngay toi do Showtime tu sinh. Booking chua co du lieu mau.
 exit /b 0
 :err
-echo LOI khi nap CSDL. Kiem tra MySQL dang chay va DB_USER / DB_PASSWORD.
+echo LOI khi tao/nap DB. Xem thong bao phia tren.
 exit /b 1
