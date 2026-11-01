@@ -14,15 +14,55 @@ const path_ = require("path");
 })();
 const http = require("http");
 const { MongoClient } = require("mongodb");
+const SWAGGER_DIR = require("swagger-ui-dist").getAbsoluteFSPath();
 const PORT = Number(process.env.PORT || 5005);
 const HOST = process.env.HOST || "0.0.0.0";
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017";
 const DB_NAME = process.env.MONGO_DB || "payment_db";
+const OPENAPI_FILE = path_.join(__dirname, "openapi.json");
+const DOCS_ASSETS = {
+  "swagger-ui.css": "text/css; charset=utf-8",
+  "swagger-ui-bundle.js": "application/javascript; charset=utf-8",
+  "swagger-ui-standalone-preset.js": "application/javascript; charset=utf-8",
+  "favicon-16x16.png": "image/png",
+  "favicon-32x32.png": "image/png",
+};
+const DOCS_HTML = `<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payment Service API</title>
+  <link rel="stylesheet" href="/docs/swagger-ui.css">
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="/docs/swagger-ui-bundle.js"></script>
+  <script src="/docs/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.onload = () => SwaggerUIBundle({
+      url: "/openapi.json",
+      dom_id: "#swagger-ui",
+      deepLinking: true,
+      presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+      layout: "StandaloneLayout"
+    });
+  </script>
+</body>
+</html>`;
 // BANK_TRANSFER: chuyển khoản ngân hàng qua mã VietQR; CASH giữ lại để tương thích (Admin bán tại quầy)
 const ALLOWED_METHODS = new Set(["BANK_TRANSFER", "MOMO", "VNPAY", "CASH"]);
 const MAX_BODY_BYTES = 1024 * 1024;
 function corsHeaders() { return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,POST,OPTIONS", "Access-Control-Allow-Headers": "Content-Type,Authorization", "Access-Control-Max-Age": "86400" }; }
 function sendJson(res, statusCode, payload) { const body = JSON.stringify(payload); res.writeHead(statusCode, { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8", "Content-Length": Buffer.byteLength(body) }); res.end(body); }
+function sendText(res, contentType, body) { res.writeHead(200, { ...corsHeaders(), "Content-Type": contentType, "Content-Length": Buffer.byteLength(body) }); res.end(body); }
+function sendStaticFile(res, file, contentType) {
+  fs.readFile(file, (error, body) => {
+    if (error) return sendError(res, 404, "Không tìm thấy tài nguyên Swagger");
+    res.writeHead(200, { ...corsHeaders(), "Content-Type": contentType, "Content-Length": body.length });
+    res.end(body);
+  });
+}
 const ERROR_CODES = { 400: "VALIDATION_ERROR", 404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED", 409: "CONFLICT", 413: "PAYLOAD_TOO_LARGE", 500: "INTERNAL_ERROR" };
 function sendError(res, statusCode, message, code) { sendJson(res, statusCode, { status: "error", code: code || ERROR_CODES[statusCode] || "ERROR", message }); }
 function sendSuccess(res, statusCode, data) { sendJson(res, statusCode, { status: "success", data }); }
@@ -36,6 +76,16 @@ function createApp(collection) {
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
     const path = url.pathname.replace(/\/+$/, "") || "/";
     try {
+      if (path === "/docs" && req.method === "GET")
+        return sendText(res, "text/html; charset=utf-8", DOCS_HTML);
+      if (path === "/openapi.json" && req.method === "GET")
+        return sendStaticFile(res, OPENAPI_FILE, "application/json; charset=utf-8");
+      if (path.startsWith("/docs/") && req.method === "GET") {
+        const asset = path.slice("/docs/".length);
+        const contentType = DOCS_ASSETS[asset];
+        if (!contentType) return sendError(res, 404, "Không tìm thấy tài nguyên Swagger");
+        return sendStaticFile(res, path_.join(SWAGGER_DIR, asset), contentType);
+      }
       if (path === "/api/payment" && req.method === "POST") {
         const input = await readJsonBody(req);
         const shapeError = validateShape(input);
