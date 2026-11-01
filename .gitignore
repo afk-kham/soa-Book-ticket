@@ -26,6 +26,9 @@ bin/
 obj/
 # PHP
 vendor/
+# UI (admin/client) cần Bootstrap + icon nằm sẵn trong repo để chạy offline: KHÔNG ignore hai thư mục này
+!admin/vendor/
+!client/vendor/
 writable/cache/
 writable/logs/
 # Go
