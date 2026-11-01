@@ -1,21 +1,29 @@
-"""Kết nối SQLite ở mức khung. KHÔNG tạo bảng, KHÔNG nạp dữ liệu.
+"""Kết nối SQLite của RIÊNG service này (database-per-service).
 
-File DB chỉ được tạo khi có code gọi get_connection() (lúc import/khởi động thì KHÔNG tạo).
-TODO(TV6): sau khi nhóm chốt D-03 (xem docs/OPEN_QUESTIONS.md) hãy bổ sung PRAGMA
-(vd journal_mode=WAL, busy_timeout), row_factory và phần khởi tạo schema.
+File DB chỉ được tạo khi có code gọi get_connection(); import/khởi động app thì KHÔNG tạo.
+Cấu hình theo D-03: WAL + busy_timeout=5000, row_factory=Row, chạy một worker Uvicorn.
 """
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-from app.core.config import DB_PATH
+from app.core import config
 
 
 @contextmanager
 def get_connection():
-    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    """Mở kết nối; commit nếu khối with thành công, rollback nếu có lỗi; luôn đóng."""
+    path = Path(config.DB_PATH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path, timeout=5)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA journal_mode = WAL")
     try:
         yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()

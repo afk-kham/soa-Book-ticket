@@ -1,4 +1,4 @@
-"""Controller: nhận request từ router, kiểm tra đầu vào mức cơ bản, gọi Service.
+"""Package controllers."""
+from app.controllers.payment_controller import get_payments_controller, post_payment
 
-TODO(TV5): triển khai theo README.md của service.
-"""
+__all__ = ["get_payments_controller", "post_payment"]

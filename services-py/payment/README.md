@@ -1,6 +1,6 @@
 # TV5 — Payment Service (Python / FastAPI / SQLite) — cổng 5005
 
-> **Trạng thái: KHUNG.** Service chỉ khởi động và trả `GET /health`. Mọi nghiệp vụ do **TV5** viết theo README này.
+> **Trạng thái triển khai:** Đã cài endpoint nghiệp vụ Payment trên FastAPI/SQLite; xác thực JWT đã viết nhưng chưa ép buộc mặc định theo quyết định D-18. Schema và seed vẫn là bước tường minh, chưa chạy migration dữ liệu thật.
 > Nhánh làm việc: `feature/tv5-payment` (không làm trực tiếp trên `main`/`develop`). Đọc trước: [README chung](../README.md), [API_CONTRACT.md](../API_CONTRACT.md) §6, [ARCHITECTURE](../docs/ARCHITECTURE.md), [OPEN_QUESTIONS](../docs/OPEN_QUESTIONS.md).
 
 ## 1. Mục tiêu và phạm vi trách nhiệm
@@ -102,6 +102,7 @@ Lớp nào cũng **chỉ gọi xuống** lớp dưới nó. Không import code c
 - Schema cũ (MongoDB) để **đối chiếu**: MongoDB `payment_db.transactions`: `{_id ObjectId, bookingId:int, amount:number, method:string, status:'PAID'|'FAILED', paidAt:Date}`, index `bookingId`.
 - Seed cũ: `database/payment/seed.js` (2 giao dịch: booking 1 `PAID` 180000 MOMO; booking 2 `FAILED` 85000 VNPAY) — **file có `db.transactions.drop()`, không chạy**. **Không chạy** các file `schema.sql`/`seed.sql`/`seed.js` cũ (có `DROP`/`DELETE`/`drop()`).
 - Khi viết schema SQLite: `CREATE TABLE IF NOT EXISTS`, idempotent, **không `DROP`**, không tự nạp dữ liệu lúc import/khởi động; giữ nguyên id và giá trị seed cũ (thêm dữ liệu mới = id lớn hơn).
+- Lệnh khởi tạo mặc định vừa tạo schema vừa seed, và có thể chỉ định DB bằng biến môi trường: `DB_PATH=./data/check.db python -m app.db.init_db` (PowerShell: `$env:DB_PATH="./data/check.db"; python -m app.db.init_db`). Dùng `--no-seed` nếu chỉ muốn tạo schema.
 - Việc tạo schema và nạp dữ liệu là bước **tường minh** (script/lệnh), chỉ làm sau khi nhóm chốt D-01, D-03, D-16. Chuyển dữ liệu thật từ nguồn cũ là **migration riêng**: sao lưu trước, đối chiếu sau (xem `docs/MIGRATION_TRACKER.md` §3).
 - Test dùng DB tạm (`tmp_path`), **không** dùng file dữ liệu thật; không test hành vi xóa trên dữ liệu thật.
 

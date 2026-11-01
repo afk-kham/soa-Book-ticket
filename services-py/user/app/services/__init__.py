@@ -1,4 +1,16 @@
-"""Service: logic nghiệp vụ của service. Không truy cập SQLite trực tiếp - đi qua Repository.
+"""Service: logic nghiệp vụ của service. Không truy cập SQLite trực tiếp - đi qua Repository."""
+from app.services.errors import (
+    InvalidCredentialsError,
+    UsernameTakenError,
+    UserNotFoundError,
+    UserServiceError,
+)
+from app.services.user_service import UserService
 
-TODO(TV3): triển khai theo README.md của service.
-"""
+__all__ = [
+    "InvalidCredentialsError",
+    "UserNotFoundError",
+    "UserService",
+    "UserServiceError",
+    "UsernameTakenError",
+]
