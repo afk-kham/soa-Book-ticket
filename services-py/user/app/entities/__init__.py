@@ -1,4 +1,4 @@
-"""Entity/Model: đối tượng dữ liệu NỘI BỘ (ánh xạ bảng SQLite). Khác Schema (dữ liệu API).
+"""Entity/Model: đối tượng dữ liệu NỘI BỘ (ánh xạ bảng SQLite). Khác Schema (dữ liệu API)."""
+from app.entities.user import User, UserAccount
 
-TODO(TV3): triển khai theo README.md của service.
-"""
+__all__ = ["User", "UserAccount"]
