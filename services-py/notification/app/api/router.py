@@ -11,14 +11,9 @@ from app.schemas.notification import CreateLogRequest, NotifyRequest, UpdateLogR
 api_router = APIRouter()
 
 
-api_router.add_api_route("/", c.list_all, methods=["GET"], summary="Trang gốc: toàn bộ nhật ký hiện có trong CSDL")
-
-
 @api_router.get("/health")
 def health():
     return {"status": "success", "data": {"service": config.SERVICE_NAME, "port": config.PORT}}
-
-
 
 
 def _body(model):
@@ -33,7 +28,8 @@ R("/api/notify/logs", c.list_logs, methods=["GET"], summary="Danh sách nhật k
 R("/api/notify/logs", c.create_log, methods=["POST"], status_code=201, summary="Tạo bản ghi nhật ký",
   openapi_extra=_body(CreateLogRequest))
 R("/api/notify/logs/{log_id}", c.get_log, methods=["GET"], summary="Chi tiết một bản ghi")
-for _m in ("PUT", "PATCH"):
-    R("/api/notify/logs/{log_id}", c.update_log, methods=[_m], operation_id=f"update_log_{_m.lower()}",
-      summary="Cập nhật bản ghi (mọi trường tùy chọn)", openapi_extra=_body(UpdateLogRequest))
+R("/api/notify/logs/{log_id}", c.update_log, methods=["PUT"], summary="Cập nhật bản ghi (mọi trường tùy chọn)",
+  openapi_extra=_body(UpdateLogRequest))
+# PATCH cùng hành vi với PUT (hợp đồng §7 ghi PUT|PATCH): vẫn hoạt động nhưng ẩn khỏi Swagger cho đỡ rối
+R("/api/notify/logs/{log_id}", c.update_log, methods=["PATCH"], include_in_schema=False)
 R("/api/notify/logs/{log_id}", c.delete_log, methods=["DELETE"], summary="Xóa bản ghi")

@@ -61,11 +61,6 @@ async def list_logs(bookingId: str | None = Query(None, description="Lọc theo 
     return success_response([log_to_dict(n) for n in logs])
 
 
-async def list_all() -> JSONResponse:
-    """GET / : toàn bộ nhật ký hiện có (mới nhất trước), cùng dạng với GET /api/notify/logs."""
-    return success_response([log_to_dict(n) for n in service.list_logs(None, None, None)])
-
-
 async def create_log(request: Request) -> JSONResponse:
     n = service.create_log(await _parse(request, CreateLogRequest))
     return success_response(log_to_dict(n), 201)
