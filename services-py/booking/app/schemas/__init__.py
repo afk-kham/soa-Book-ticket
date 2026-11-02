@@ -1,4 +1,16 @@
-"""Schema: model Pydantic cho request/response của API (camelCase theo API_CONTRACT).
+"""Schema: model Pydantic cho request/response của API (camelCase theo API_CONTRACT)."""
+from app.schemas.booking import (
+    BookingResponse,
+    BookingResultResponse,
+    CancelBookingRequest,
+    CreateBookingRequest,
+    PayBookingRequest,
+)
 
-TODO(TV4): triển khai theo README.md của service.
-"""
+__all__ = [
+    "BookingResponse",
+    "BookingResultResponse",
+    "CancelBookingRequest",
+    "CreateBookingRequest",
+    "PayBookingRequest",
+]
