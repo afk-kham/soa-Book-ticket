@@ -1,4 +1,4 @@
-"""Controller: nhận request từ router, kiểm tra đầu vào mức cơ bản, gọi Service.
+"""Controller: nhận request từ router, kiểm tra đầu vào mức cơ bản, gọi Service."""
+from app.controllers.booking_controller import BookingController, handle_booking_error
 
-TODO(TV4): triển khai theo README.md của service.
-"""
+__all__ = ["BookingController", "handle_booking_error"]
