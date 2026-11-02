@@ -15,6 +15,7 @@ Gợi ý nội dung: luồng điều phối ở `INTEGRATION_FLOW.md` (sơ đồ
 | Mã nguồn + test giữa kỳ (bản độc lập) | `source-giua-ky/` |
 
 **Lưu ý:** báo cáo và ảnh kết quả mô tả bản **giữa kỳ** (Booking chạy độc lập, `POST /api/booking` nhận `pricePerSeat`).
-Bản dùng để tích hợp là `services/booking/` (điều phối User/Movie/Showtime/Payment/Notification, giá lấy từ Showtime) — xem `INTEGRATION_FLOW.md`.
+Bản dùng để tích hợp là `services-py/booking/` (Python/FastAPI/SQLite, theo yêu cầu cuối kỳ của thầy): điều phối User/Movie/Showtime/Payment/Notification, giá lấy từ Showtime — xem `services-py/booking/README.md` và `INTEGRATION_FLOW.md`.
+`services/booking/` (C#) là mã cũ, chỉ giữ để đối chiếu hành vi.
 Trang admin dùng trong hệ thống là `admin/pages/booking.html` (dùng khung chung); `admin_booking_giua_ky.html` chỉ giữ để tham khảo
 (có thêm: đếm theo trạng thái, tìm theo người đặt/mã đơn/ghế, tổng tiền đã thanh toán, ngăn chi tiết đơn).
