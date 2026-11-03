@@ -1,7 +1,7 @@
-// Client chỉ gọi các service công khai: Movie, Showtime, User, Booking. Việc thanh toán/thông báo do Booking điều phối.
+// Client gọi Movie, Showtime, User, Booking. Việc thanh toán/thông báo do Booking điều phối; riêng VNPAY Sandbox cần Client gọi Payment để lấy URL thanh toán.
 (function () {
   var host = location.hostname || "localhost";
-  window.API = { movie: "http://" + host + ":5001", showtime: "http://" + host + ":5002", user: "http://" + host + ":5003", booking: "http://" + host + ":5004" };
+  window.API = { movie: "http://" + host + ":5001", showtime: "http://" + host + ":5002", user: "http://" + host + ":5003", booking: "http://" + host + ":5004", payment: "http://" + host + ":5005" };
   // Sơ đồ phòng chiếu dùng chung cho mọi phòng (Showtime chưa lưu kích thước phòng). Ghế dạng <hàng><số>: A1..F10.
   window.SEAT_MAP = { rows: "ABCDEF", cols: 10, aisleAfter: [5], maxSeats: 10 };
   // Ảnh poster: trường "poster" của phim là URL, hoặc tên file trong thư mục này (thiếu .jpg/.png thì thử bản .svg cùng tên).
