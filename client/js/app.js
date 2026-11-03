@@ -1030,12 +1030,16 @@
 
     function render() {
       sts.sort(function (a, b) { return String(a.time).localeCompare(String(b.time)); });
-      var minPrice = sts.length ? Math.min.apply(null, sts.map(function (s) { return s.price; })) : 0;
+      // Giá khác nhau theo suất (giờ chiếu, cuối tuần): hiện khoảng giá để không lệch với số tiền ở bước thanh toán
+      var prices = sts.map(function (s) { return s.price; });
+      var minPrice = prices.length ? Math.min.apply(null, prices) : 0;
+      var maxPrice = prices.length ? Math.max.apply(null, prices) : 0;
 
       $("#facts").innerHTML =
         '<div class="fact-item"><span class="fact-label">Thời lượng</span><b class="fact-val">' + duration(m.duration) + "</b></div>" +
         '<div class="fact-item"><span class="fact-label">Suất sắp tới</span><b class="fact-val">' + (stErr ? "—" : sts.length) + "</b></div>" +
-        (minPrice ? '<div class="fact-item"><span class="fact-label">Giá vé từ</span><b class="fact-val text-warning">' + money(minPrice) + "</b></div>" : "");
+        (minPrice ? '<div class="fact-item"><span class="fact-label">Giá vé</span><b class="fact-val text-warning">' +
+          (maxPrice > minPrice ? money(minPrice) + " – " + money(maxPrice) : money(minPrice)) + "</b></div>" : "");
 
       var body = $("#st-body");
       if (stErr && !sts.length) { body.innerHTML = errorBox(stErr); bindRetry(load); return; }

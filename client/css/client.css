@@ -1756,6 +1756,25 @@ main#view {
   border-color: var(--cinema-border-light);
   transform: translateY(-2px);
 }
+/* Cột phải cố định: giá, thẻ đếm ngược, nút xếp dọc; đếm ngược đổi số mỗi giây không làm xô lệch giá */
+.ticket-row .trow-body { min-width: 0; }
+.ticket-row .trow-right {
+  flex: 0 0 auto;
+  min-width: 230px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.ticket-row .trow-right .price { display: block; white-space: nowrap; }
+.ticket-row .trow-right .countdown {
+  margin: 0 !important;
+  min-width: 150px;
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ticket-row .trow-right .row-actions { flex-wrap: nowrap; }
 .ticket-row.PENDING {
   border-color: rgba(245, 179, 1, 0.45);
   background: linear-gradient(90deg, rgba(245, 179, 1, 0.05), var(--cinema-surface-1));
@@ -1917,7 +1936,10 @@ main#view {
   }
   .ticket-row .trow-right {
     width: 100%;
+    min-width: 0;
     display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     border-top: 1px solid var(--cinema-border);
