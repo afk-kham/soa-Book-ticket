@@ -26,11 +26,11 @@ set /a P_NOTIFICATION=5006+SOA_PORT_OFFSET
 
 set "PORT="
 set "INIT="
-rem Lệnh tạo/nạp DB của từng service (Showtime tạo bảng tự động khi dùng; Booking đang là khung nên chưa có)
+rem Lệnh tạo/nạp DB của từng service (Showtime tạo bảng tự động khi dùng nên không cần)
 if /i "%NAME%"=="movie"        ( set "PORT=%P_MOVIE%"        & set "INIT=-m app.db.seed" )
 if /i "%NAME%"=="showtime"     ( set "PORT=%P_SHOWTIME%" )
 if /i "%NAME%"=="user"         ( set "PORT=%P_USER%"         & set "INIT=-m app.db.seed" )
-if /i "%NAME%"=="booking"      ( set "PORT=%P_BOOKING%" )
+if /i "%NAME%"=="booking"      ( set "PORT=%P_BOOKING%"      & set "INIT=-m app.db.init_db --seed" )
 if /i "%NAME%"=="payment"      ( set "PORT=%P_PAYMENT%"      & set "INIT=-m app.db.init_db" )
 if /i "%NAME%"=="notification" ( set "PORT=%P_NOTIFICATION%" & set "INIT=-m app.db.init_db --seed" )
 if not defined PORT (
@@ -74,7 +74,7 @@ if defined DO_INIT (
   echo [%NAME%] Tao/nap DB: %DB_PATH%
   "%PY%" %INIT% || (echo [LOI] Tao/nap DB that bai & exit /b 1)
 ) else if /i "%MODE%"=="--init-only" (
-  echo [%NAME%] Khong can nap DB ^(bang duoc tao tu dong hoac service chua co du lieu mau^)
+  echo [%NAME%] Khong can nap DB ^(bang duoc tao tu dong khi dung^)
 )
 if /i "%MODE%"=="--init-only" exit /b 0
 

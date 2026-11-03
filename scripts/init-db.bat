@@ -5,12 +5,12 @@ rem (start-all.bat tự tạo DB lần đầu; chỉ cần chạy file này khi 
 rem  hoặc file này sẽ tự tạo .venv + cài thư viện.)
 setlocal
 cd /d "%~dp0.."
-for %%s in (movie user payment notification) do (
+for %%s in (movie user booking payment notification) do (
   echo ^>^> %%s
   call scripts\run-service.bat %%s --init-only || goto :err
 )
 echo OK: da tao/nap DB SQLite (services-py\^<ten^>\data\^<ten^>.db).
-echo Showtime tao bang tu dong khi dung; lich chieu 7 ngay toi do Showtime tu sinh. Booking chua co du lieu mau.
+echo Showtime tao bang tu dong khi dung; lich chieu 7 ngay toi do Showtime tu sinh.
 exit /b 0
 :err
 echo LOI khi tao/nap DB. Xem thong bao phia tren.

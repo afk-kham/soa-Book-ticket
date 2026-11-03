@@ -13,11 +13,11 @@ OFF=${SOA_PORT_OFFSET:-0}
 P_MOVIE=$((5001+OFF)); P_SHOWTIME=$((5002+OFF)); P_USER=$((5003+OFF))
 P_BOOKING=$((5004+OFF)); P_PAYMENT=$((5005+OFF)); P_NOTIFICATION=$((5006+OFF))
 
-case "$NAME" in   # cổng + lệnh tạo/nạp DB (Showtime tự tạo bảng khi dùng; Booking đang là khung)
+case "$NAME" in   # cổng + lệnh tạo/nạp DB (Showtime tự tạo bảng khi dùng nên không cần)
   movie)        PORT=$P_MOVIE;        INIT=(-m app.db.seed) ;;
   showtime)     PORT=$P_SHOWTIME;     INIT=() ;;
   user)         PORT=$P_USER;         INIT=(-m app.db.seed) ;;
-  booking)      PORT=$P_BOOKING;      INIT=() ;;
+  booking)      PORT=$P_BOOKING;      INIT=(-m app.db.init_db --seed) ;;
   payment)      PORT=$P_PAYMENT;      INIT=(-m app.db.init_db) ;;
   notification) PORT=$P_NOTIFICATION; INIT=(-m app.db.init_db --seed) ;;
   *) echo "[LỖI] Tên service không hợp lệ: $NAME" >&2; exit 2 ;;
@@ -47,7 +47,7 @@ if [ ${#INIT[@]} -gt 0 ]; then
     "$PY" "${INIT[@]}"
   fi
 elif [ "$MODE" = "--init-only" ]; then
-  echo "[$NAME] Không cần nạp DB (bảng tự tạo hoặc service chưa có dữ liệu mẫu)"
+  echo "[$NAME] Không cần nạp DB (bảng tự tạo khi dùng)"
 fi
 [ "$MODE" = "--init-only" ] && exit 0
 
