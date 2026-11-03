@@ -28,7 +28,7 @@ set "PORT="
 set "INIT="
 rem Lệnh tạo/nạp DB của từng service (Showtime tạo bảng tự động khi dùng nên không cần)
 if /i "%NAME%"=="movie"        ( set "PORT=%P_MOVIE%"        & set "INIT=-m app.db.seed" )
-if /i "%NAME%"=="showtime"     ( set "PORT=%P_SHOWTIME%" )
+if /i "%NAME%"=="showtime"     ( set "PORT=%P_SHOWTIME%"     & set "INIT=-m app.db.seed" )
 if /i "%NAME%"=="user"         ( set "PORT=%P_USER%"         & set "INIT=-m app.db.seed" )
 if /i "%NAME%"=="booking"      ( set "PORT=%P_BOOKING%"      & set "INIT=-m app.db.init_db --seed" )
 if /i "%NAME%"=="payment"      ( set "PORT=%P_PAYMENT%"      & set "INIT=-m app.db.init_db" )

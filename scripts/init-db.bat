@@ -5,7 +5,7 @@ rem (start-all.bat tự tạo DB lần đầu; chỉ cần chạy file này khi 
 rem  hoặc file này sẽ tự tạo .venv + cài thư viện.)
 setlocal
 cd /d "%~dp0.."
-for %%s in (movie user booking payment notification) do (
+for %%s in (movie showtime user booking payment notification) do (
   echo ^>^> %%s
   call scripts\run-service.bat %%s --init-only || goto :err
 )

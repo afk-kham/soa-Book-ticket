@@ -3,7 +3,7 @@
 # Chạy từ thư mục gốc:  bash scripts/init-db.sh   (start-all.sh tự tạo DB lần đầu; chỉ cần file này khi muốn nạp lại dữ liệu mẫu)
 set -e
 cd "$(dirname "$0")/.."
-for s in movie user booking payment notification; do
+for s in movie showtime user booking payment notification; do
   echo ">> $s"
   bash scripts/run-service.sh "$s" --init-only
 done

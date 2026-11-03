@@ -15,7 +15,7 @@ P_BOOKING=$((5004+OFF)); P_PAYMENT=$((5005+OFF)); P_NOTIFICATION=$((5006+OFF))
 
 case "$NAME" in   # cổng + lệnh tạo/nạp DB (Showtime tự tạo bảng khi dùng nên không cần)
   movie)        PORT=$P_MOVIE;        INIT=(-m app.db.seed) ;;
-  showtime)     PORT=$P_SHOWTIME;     INIT=() ;;
+  showtime)     PORT=$P_SHOWTIME;     INIT=(-m app.db.seed) ;;
   user)         PORT=$P_USER;         INIT=(-m app.db.seed) ;;
   booking)      PORT=$P_BOOKING;      INIT=(-m app.db.init_db --seed) ;;
   payment)      PORT=$P_PAYMENT;      INIT=(-m app.db.init_db) ;;
