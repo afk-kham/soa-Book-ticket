@@ -2061,10 +2061,6 @@
             '<h1 class="fs-3 fw-bold mb-2">' + (reg ? "Tạo tài khoản mới" : "Chào mừng trở lại") + "</h1>" +
             '<p class="text-secondary small mb-4">' + (reg ? "Đăng ký để nhận nhiều ưu đãi và quản lý vé tiện lợi." : "Đăng nhập để tiếp tục đặt vé của bạn.") + "</p>" +
 
-            (reg ? "" : '<div class="alert alert-secondary d-flex justify-content-between align-items-center py-2 px-3 mb-3 small">' +
-              '<span>Tài khoản thử: <code>user1</code> / <code>User@123</code></span>' +
-              '<button type="button" class="btn btn-link btn-sm text-warning p-0" id="fill">Điền nhanh</button></div>') +
-
             '<div id="err"></div>' +
 
             '<div class="mb-3">' +
@@ -2106,15 +2102,6 @@
         var p = $("#p"), hidden = p.type === "password";
         p.type = hidden ? "text" : "password";
         this.innerHTML = hidden ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
-      };
-    }
-
-    var fill = $("#fill");
-    if (fill) {
-      fill.onclick = function () {
-        $("#u").value = "user1";
-        $("#p").value = "User@123";
-        $("#go").focus();
       };
     }
 
