@@ -48,7 +48,8 @@
     movie: "Không tải được danh mục phim lúc này. Vui lòng thử lại sau ít phút.",
     showtime: "Không tải được lịch chiếu lúc này. Vui lòng thử lại sau ít phút.",
     user: "Hệ thống tài khoản đang tạm gián đoạn. Vui lòng thử lại sau ít phút.",
-    booking: "Hệ thống đặt vé đang tạm gián đoạn. Vui lòng thử lại sau ít phút."
+    booking: "Hệ thống đặt vé đang tạm gián đoạn. Vui lòng thử lại sau ít phút.",
+    payment: "Cổng thanh toán đang tạm gián đoạn. Ghế của bạn vẫn được giữ — vui lòng thử lại sau ít phút."
   };
   var FRIENDLY = {
     PAYMENT_SERVICE_UNAVAILABLE: "Cổng thanh toán đang tạm gián đoạn. Ghế của bạn vẫn được giữ — vui lòng thử lại sau ít phút.",
@@ -1542,9 +1543,16 @@
       r.onchange = function () {
         method = r.value;
         sessionStorage.setItem("soa.method", method);
+        $("#paid").innerHTML = payLabel();
         box();
       };
     });
+
+    function payLabel() {
+      return method === "VNPAY"
+        ? '<i class="bi bi-credit-card me-1"></i> Thanh toán qua VNPAY (Sandbox)'
+        : '<i class="bi bi-check2-circle me-1"></i> Tôi đã thanh toán';
+    }
 
     $("#paid").onclick = async function () {
       var btn = this;
@@ -1555,6 +1563,12 @@
       $("#err").innerHTML = "";
 
       try {
+        if (method === "VNPAY") {
+          // Chuyển sang cổng VNPAY Sandbox; kết quả quay về #/vnpay-return/<id>/ok|fail
+          var v = await call("payment", "POST", "/api/payment/vnpay/create", { bookingId: b.id, amount: b.totalPrice });
+          location.href = v.paymentUrl;
+          return;
+        }
         var r = await call("booking", "POST", "/api/booking/" + id + "/pay", {
           username: user.username,
           paymentMethod: method
@@ -1579,7 +1593,7 @@
       }
       busy = false;
       btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Tôi đã thanh toán';
+      btn.innerHTML = payLabel();
     };
 
     $("#cancel").onclick = function () {
@@ -1601,6 +1615,7 @@
       );
     };
 
+    $("#paid").innerHTML = payLabel();
     box();
     tick();
     every(tick, 1000);
@@ -1721,6 +1736,43 @@
           confirmBtn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> Xác nhận thanh toán thử';
         }
       };
+    }
+  }
+
+  /* =============================================================================
+     KẾT QUẢ TỪ VNPAY SANDBOX: Payment đã ghi giao dịch, Booking đối soát để chốt đơn
+  ============================================================================= */
+  async function vnpayReturn(id, result) {
+    if (needLogin()) return;
+    var alive = current();
+    if (result !== "ok") {
+      show(stateBox("❌", "Thanh toán VNPAY chưa hoàn tất",
+        "Giao dịch bị hủy hoặc không thành công. Ghế vẫn được giữ trong thời gian cho phép, bạn có thể thử lại.",
+        '<a class="btn btn-primary mt-3" href="#/pay/' + esc(id) + '">Quay lại thanh toán</a>'));
+      return;
+    }
+    show(stateBox("⏳", "Đang xác nhận thanh toán...", "Vui lòng không đóng trang.", ""));
+    try {
+      var r = await call("booking", "POST", "/api/booking/" + encodeURIComponent(id) + "/pay", {
+        username: user.username,
+        paymentMethod: "VNPAY"
+      });
+      if (!alive()) return;
+      if (r.status === "PAID") {
+        sessionStorage.setItem("soa.paid." + id, JSON.stringify({
+          method: "VNPAY",
+          transactionId: r.payment && r.payment.transactionId,
+          notification: r.notification
+        }));
+        location.hash = "#/ticket/" + id + "/new";
+        return;
+      }
+      throw new Error("Giao dịch chưa được ghi nhận.");
+    } catch (e) {
+      if (!alive()) return;
+      if (e.code === "ALREADY_PAID") { location.hash = "#/ticket/" + id; return; }
+      show(stateBox("⚠️", "Chưa chốt được đơn", e.message || "Vui lòng kiểm tra lại trong mục Vé của tôi.",
+        '<a class="btn btn-primary mt-3" href="#/my">Vé của tôi</a>'));
     }
   }
 
@@ -2156,6 +2208,7 @@
     if (p[1] === "book" && p[3]) return book(p[2], p[3]);
     if (p[1] === "pay" && p[2]) return pay(p[2]);
     if (p[1] === "sandbox-pay" && p[2]) return sandboxPay(p[2]);
+    if (p[1] === "vnpay-return" && p[2]) return vnpayReturn(p[2], p[3]);
     if (p[1] === "ticket" && p[2]) return ticket(p[2], p[3] === "new");
     if (p[1] === "result" || p[1] === "my") {
       if (p[1] === "result") { location.replace("#/my"); return; }

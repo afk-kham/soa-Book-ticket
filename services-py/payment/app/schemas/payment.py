@@ -26,3 +26,10 @@ class PaymentResponse(BaseModel):
     method: str
     status: str
     paidAt: str
+
+
+class VnpayCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    bookingId: StrictInt = Field(gt=0, le=9223372036854775807)
+    amount: StrictInt = Field(gt=0, le=2000000000)
