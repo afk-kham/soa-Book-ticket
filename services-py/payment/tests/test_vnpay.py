@@ -1,6 +1,7 @@
 """Test VNPAY Sandbox: chữ ký, tạo URL, nhận kết quả trả về. Dùng DB tạm, không gọi mạng."""
 import hashlib
 import hmac
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qsl, quote_plus, urlsplit
 
 import pytest
@@ -11,6 +12,8 @@ from app.db.init_db import init_db
 from app.main import app
 
 SECRET = "TESTSECRET"
+VN = timezone(timedelta(hours=7))
+VNP_TIME = "%Y%m%d%H%M%S"
 
 
 @pytest.fixture
@@ -51,6 +54,50 @@ def test_create_returns_signed_url(client):
                                   {"bookingId": 1, "amount": "9"}, {"amount": 5}])
 def test_create_validation_400(client, body):
     assert client.post("/api/payment/vnpay/create", json=body).status_code == 400
+
+
+def _create_query(client, expires_at) -> dict:
+    r = client.post("/api/payment/vnpay/create", json={"bookingId": 7, "amount": 90000, "expiresAt": expires_at})
+    assert r.status_code == 201, r.text
+    return dict(parse_qsl(urlsplit(r.json()["data"]["paymentUrl"]).query))
+
+
+def test_create_without_expires_keeps_15_minutes(client):
+    q = _create_query(client, None)
+    created, expire = (datetime.strptime(q[k], VNP_TIME) for k in ("vnp_CreateDate", "vnp_ExpireDate"))
+    assert expire - created == timedelta(minutes=15)
+
+
+def test_create_expiry_capped_one_minute_before_hold(client):
+    # Đúng định dạng expiresAt Booking trả: giờ Việt Nam, không kèm múi giờ
+    hold = (datetime.now(VN) + timedelta(minutes=5)).replace(microsecond=0)
+    q = _create_query(client, hold.strftime("%Y-%m-%d %H:%M:%S"))
+    assert q["vnp_ExpireDate"] == (hold - timedelta(minutes=1)).strftime(VNP_TIME)
+
+
+def test_create_expiry_accepts_iso_with_offset(client):
+    hold = (datetime.now(timezone.utc) + timedelta(minutes=5)).replace(microsecond=0)
+    q = _create_query(client, hold.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    assert q["vnp_ExpireDate"] == (hold.astimezone(VN) - timedelta(minutes=1)).strftime(VNP_TIME)
+
+
+def test_create_long_hold_still_15_minutes(client):
+    q = _create_query(client, (datetime.now(VN) + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S"))
+    created, expire = (datetime.strptime(q[k], VNP_TIME) for k in ("vnp_CreateDate", "vnp_ExpireDate"))
+    assert expire - created == timedelta(minutes=15)
+
+
+@pytest.mark.parametrize("left", [timedelta(seconds=30), timedelta(minutes=-3)])
+def test_create_hold_almost_over_409(client, left):
+    hold = (datetime.now(VN) + left).strftime("%Y-%m-%d %H:%M:%S")
+    r = client.post("/api/payment/vnpay/create", json={"bookingId": 7, "amount": 90000, "expiresAt": hold})
+    assert r.status_code == 409 and r.json()["code"] == "HOLD_EXPIRED"
+
+
+@pytest.mark.parametrize("value", ["ngay mai", "", 1700000000])
+def test_create_bad_expires_400(client, value):
+    r = client.post("/api/payment/vnpay/create", json={"bookingId": 7, "amount": 90000, "expiresAt": value})
+    assert r.status_code == 400 and r.json()["code"] == "VALIDATION_ERROR"
 
 
 def test_create_not_configured_503(client, monkeypatch):
