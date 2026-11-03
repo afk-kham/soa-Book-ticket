@@ -35,7 +35,7 @@ def now_utc() -> str:
 
 def _check_booking_id(booking_id: int) -> None:
     if booking_id <= 0 or booking_id > MAX_BOOKING_ID:
-        raise ApiError(400, "bookingId phải là số nguyên dương trong phạm vi INT MySQL")
+        raise ApiError(400, "bookingId phải là số nguyên dương")
 
 
 def _check_channel(channel: str) -> None:
