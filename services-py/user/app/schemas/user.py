@@ -22,6 +22,8 @@ MSG_USERNAME = "username phải dài 3–50 ký tự, chỉ gồm chữ, số, d
 MSG_PASSWORD = "password phải dài từ 6 đến 72 ký tự"
 MSG_EMAIL = "email không hợp lệ"
 MSG_LOGIN_MISSING = "Thiếu username hoặc password"
+MSG_ROLE = "role phải là USER hoặc ADMIN"
+ROLES = ("USER", "ADMIN")
 
 
 class _CamelModel(BaseModel):
@@ -62,6 +64,55 @@ class RegisterRequest(_CamelModel):
         if len(v) > EMAIL_MAX or not EMAIL_RE.fullmatch(v):
             raise ValueError(MSG_EMAIL)
         return v
+
+
+class CreateUserRequest(RegisterRequest):
+    """Admin tạo người dùng: như đăng ký nhưng được chọn ``role`` (mặc định USER)."""
+
+    role: str = "USER"
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def _check_role(cls, v: Any) -> str:
+        if v is None:
+            return "USER"
+        if not isinstance(v, str) or v.strip().upper() not in ROLES:
+            raise ValueError(MSG_ROLE)
+        return v.strip().upper()
+
+
+class UpdateUserRequest(_CamelModel):
+    """Sửa một phần: trường nào gửi lên mới đổi. ``email`` rỗng/null -> xóa email."""
+
+    username: str | None = None
+    password: str | None = None
+    email: str | None = None
+    role: str | None = None
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def _check_username(cls, v: Any) -> str | None:
+        return None if v is None else RegisterRequest._check_username(v)
+
+    @field_validator("password", mode="before")
+    @classmethod
+    def _check_password(cls, v: Any) -> str | None:
+        return None if v is None else RegisterRequest._check_password(v)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def _check_email(cls, v: Any) -> str | None:
+        return RegisterRequest._check_email(v)
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def _check_role(cls, v: Any) -> str | None:
+        return None if v is None else CreateUserRequest._check_role(v)
+
+    def changes(self) -> dict:
+        """Các trường được gửi lên (username/password/role null coi như không đổi; email null = xóa email)."""
+        sent = self.model_dump(exclude_unset=True)
+        return {k: v for k, v in sent.items() if v is not None or k == "email"}
 
 
 class LoginRequest(_CamelModel):
