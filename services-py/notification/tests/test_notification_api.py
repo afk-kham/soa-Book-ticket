@@ -90,12 +90,14 @@ def test_list_bad_filter_400(client, q):
     err(client.get("/api/notify/logs?" + q), 400, "VALIDATION_ERROR")
 
 
-def test_root_lists_all_logs_same_as_logs_endpoint(client):
-    notify(client, bookingId=30)
-    r = client.get("/")
-    assert r.status_code == 200 and r.json()["status"] == "success"
-    assert r.json()["data"] == client.get("/api/notify/logs").json()["data"]
-    assert len(r.json()["data"]) == 2  # seed + vừa tạo
+def test_swagger_lists_only_one_route_per_function(client):
+    """Swagger gọn: đủ CRUD, không có GET / trùng danh sách, PATCH ẩn (vẫn hoạt động)."""
+    paths = client.get("/openapi.json").json()["paths"]
+    assert sorted(paths) == ["/api/notify", "/api/notify/logs", "/api/notify/logs/{log_id}", "/health"]
+    assert sorted(paths["/api/notify/logs/{log_id}"]) == ["delete", "get", "put"]
+    assert sorted(paths["/api/notify/logs"]) == ["get", "post"]
+    err(client.get("/"), 404, "NOT_FOUND")
+    assert client.patch("/api/notify/logs/1", json={"message": "x"}).status_code == 200
 
 
 # ---------- POST /api/notify/logs ----------
