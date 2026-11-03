@@ -20,20 +20,16 @@ class NotifyRequest(_Request):
 
 class CreateLogRequest(_Request):
     username: StrictStr = ""
-    recipient: StrictStr = ""
     booking_id: StrictInt = Field(0, alias="bookingId")
     channel: StrictStr = ""
     message: StrictStr = ""
-    content: StrictStr = ""
 
 
 class UpdateLogRequest(_Request):
     username: StrictStr | None = None
-    recipient: StrictStr | None = None
     booking_id: StrictInt | None = Field(None, alias="bookingId")
     channel: StrictStr | None = None
     message: StrictStr | None = None
-    content: StrictStr | None = None
 
 
 def log_to_dict(n: NotificationLog) -> dict:
