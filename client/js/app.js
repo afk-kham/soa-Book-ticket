@@ -1968,6 +1968,14 @@
           return '<button type="button" class="soa-tab' + (t[0] === cur ? " active" : "") + '" data-t="' + t[0] + '" role="tab" aria-selected="' + (t[0] === cur) + '">' +
             '<span>' + esc(t[1]) + '</span><span class="soa-tab-badge ' + badgeClass + '">' + n + "</span></button>";
         }).join("");
+        // Gắn sự kiện ngay khi vẽ tab: tab rỗng thoát sớm bên dưới nên không được để ở cuối hàm
+        $$("#tabs .soa-tab").forEach(function (t) {
+          t.onclick = function () {
+            cur = t.dataset.t;
+            sessionStorage.setItem("soa.tab", cur);
+            render();
+          };
+        });
       }
 
       var list = rows.filter(function (b) { return !cur || b.status === cur; });
@@ -2016,14 +2024,6 @@
           '<div class="right trow-right text-end">' + right + "</div>" +
         "</article>";
       }).join("") + "</div>";
-
-      $$("#tabs .soa-tab").forEach(function (t) {
-        t.onclick = function () {
-          cur = t.dataset.t;
-          sessionStorage.setItem("soa.tab", cur);
-          render();
-        };
-      });
 
       $$("[data-cancel]").forEach(function (btn) {
         btn.onclick = function () {
