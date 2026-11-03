@@ -112,17 +112,14 @@ def test_create_log_custom_message_and_limits(client):
     err(client.post("/api/notify/logs", json={"username": "u", "bookingId": 9, "channel": "SMS", "message": "x" * 256}),
         400, "VALIDATION_ERROR")
     err(client.post("/api/notify/logs", json={"username": "u", "bookingId": 9, "channel": "SMS",
-                                              "message": "a", "content": "b"}), 400, "VALIDATION_ERROR")
+                                              "message": "a", "content": "b"}), 400, "VALIDATION_ERROR")  # trường lạ
 
 
-def test_create_log_with_recipient_validation(client):
-    ok = {"recipient": "a@b.vn", "bookingId": 3, "channel": "EMAIL", "content": "Xin chào"}
-    assert client.post("/api/notify/logs", json=ok).status_code == 201
-    err(client.post("/api/notify/logs", json={**ok, "recipient": "khong-phai-email"}), 400, "VALIDATION_ERROR")
-    err(client.post("/api/notify/logs", json={**ok, "channel": "SMS", "recipient": "123"}), 400, "VALIDATION_ERROR")
-    assert client.post("/api/notify/logs", json={**ok, "channel": "SMS", "recipient": "+84901234567"}).status_code == 201
-    err(client.post("/api/notify/logs", json={"recipient": "a@b.vn", "bookingId": 3, "channel": "EMAIL"}),
-        400, "VALIDATION_ERROR")  # thiếu nội dung
+def test_create_log_rejects_recipient_and_content_fields(client):
+    """Chỉ nhận username + message (không còn tên thay thế recipient/content gây nhầm lẫn)."""
+    err(client.post("/api/notify/logs", json={"recipient": "a@b.vn", "bookingId": 3, "channel": "EMAIL"}), 400, "VALIDATION_ERROR")
+    err(client.post("/api/notify/logs", json={"username": "u", "bookingId": 3, "channel": "EMAIL", "content": "x"}),
+        400, "VALIDATION_ERROR")
 
 
 # ---------- GET /api/notify/logs/{id} ----------

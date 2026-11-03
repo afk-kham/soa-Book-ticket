@@ -16,9 +16,6 @@ logger = logging.getLogger("notification")
 
 MAX_BOOKING_ID = 2147483647
 CHANNELS = ("EMAIL", "SMS")
-_EMAIL = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
-                    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$")
-_PHONE = re.compile(r"^[0-9]{9,15}$")
 _STORE_ERRORS = {
     "ghi": "Không thể lưu nhật ký thông báo",
     "đọc": "Không thể đọc nhật ký thông báo",
@@ -34,18 +31,6 @@ def compose_message(booking_id: int) -> str:
 def now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-
-def validate_recipient(channel: str, recipient: str) -> None:
-    if recipient == "" or len(recipient) > 50:
-        raise ApiError(400, "Vui lòng nhập người nhận (tối đa 50 ký tự)")
-    if channel == "EMAIL":
-        if not _EMAIL.match(recipient):
-            raise ApiError(400, "Vui lòng nhập địa chỉ email hợp lệ")
-    elif channel == "SMS":
-        if not _PHONE.match(recipient.removeprefix("+")):
-            raise ApiError(400, "Vui lòng nhập số điện thoại hợp lệ (9–15 chữ số)")
-    else:
-        raise ApiError(400, "channel phải là EMAIL hoặc SMS")
 
 
 def _check_booking_id(booking_id: int) -> None:
@@ -108,27 +93,13 @@ class NotificationService:
 
     # POST /api/notify/logs
     def create_log(self, req: CreateLogRequest) -> NotificationLog:
-        username, message = req.username, req.message
-        new_recipient = req.recipient != ""
-        if new_recipient:
-            if username != "":
-                raise ApiError(400, "Chỉ gửi một trong hai trường recipient hoặc username")
-            username = req.recipient
-        if req.content != "":
-            if message != "":
-                raise ApiError(400, "Chỉ gửi một trong hai trường content hoặc message")
-            message = req.content
-        username, message, channel = username.strip(), message.strip(), req.channel.strip().upper()
+        username, message, channel = req.username.strip(), req.message.strip(), req.channel.strip().upper()
 
         _check_booking_id(req.booking_id)
         _check_channel(channel)
-        if new_recipient:
-            validate_recipient(channel, username)
-        elif username == "" or len(username) > 50:
+        if username == "" or len(username) > 50:
             raise ApiError(400, "username phải có từ 1 đến 50 ký tự Unicode")
         if message == "":
-            if new_recipient:
-                raise ApiError(400, "Vui lòng nhập nội dung thông báo")
             message = compose_message(req.booking_id)
         elif len(message) > 255:
             raise ApiError(400, "message tối đa 255 ký tự")
@@ -140,16 +111,6 @@ class NotificationService:
     # PUT|PATCH /api/notify/logs/{id}
     def update_log(self, log_id: int, req: UpdateLogRequest) -> NotificationLog:
         username, message = req.username, req.message
-        new_recipient = req.recipient is not None
-        if new_recipient:
-            if username is not None:
-                raise ApiError(400, "Chỉ gửi một trong hai trường recipient hoặc username")
-            username = req.recipient
-        if req.content is not None:
-            if message is not None:
-                raise ApiError(400, "Chỉ gửi một trong hai trường content hoặc message")
-            message = req.content
-
         if username is not None:
             username = username.strip()
             if username == "" or len(username) > 50:
@@ -160,12 +121,10 @@ class NotificationService:
             _check_channel(channel)
 
         existing = None
-        if new_recipient or channel is not None or message is not None:
+        if message is not None:
             existing = self._store("đọc", self.repo.get, log_id)
             if existing is None:
                 raise ApiError(404, "Không tìm thấy nhật ký thông báo để cập nhật")
-            if new_recipient:
-                validate_recipient(channel or existing.channel, username)
 
         if req.booking_id is not None:
             _check_booking_id(req.booking_id)
