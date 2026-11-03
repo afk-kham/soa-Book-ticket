@@ -1565,7 +1565,8 @@
       try {
         if (method === "VNPAY") {
           // Chuyển sang cổng VNPAY Sandbox; kết quả quay về #/vnpay-return/<id>/ok|fail
-          var v = await call("payment", "POST", "/api/payment/vnpay/create", { bookingId: b.id, amount: b.totalPrice });
+          // Gửi kèm hạn giữ ghế để link VNPAY hết hạn trước khi Booking hủy đơn
+          var v = await call("payment", "POST", "/api/payment/vnpay/create", { bookingId: b.id, amount: b.totalPrice, expiresAt: b.expiresAt });
           location.href = v.paymentUrl;
           return;
         }
