@@ -1,6 +1,6 @@
 # TV4 — Booking Service (Python / FastAPI / SQLite) — cổng 5004
 
-> **Trạng thái: KHUNG.** Service chỉ khởi động và trả `GET /health`. Mọi nghiệp vụ do **TV4** viết theo README này.
+> **Trạng thái: ĐÃ CÀI ĐẶT ĐỦ NGHIỆP VỤ** theo [API_CONTRACT.md](../API_CONTRACT.md) §5: 7 endpoint + `/health`, chống đặt trùng ghế, giữ ghế có hạn, điều phối 5 service, xử lý khi đối tác lỗi. JWT đã có nhưng **tắt mặc định** (xem §10, chờ D-18).
 > Nhánh làm việc: `feature/tv4-booking` (không làm trực tiếp trên `main`/`develop`). Đọc trước: [README chung](../README.md), [API_CONTRACT.md](../API_CONTRACT.md) §5, [ARCHITECTURE](../docs/ARCHITECTURE.md), [OPEN_QUESTIONS](../docs/OPEN_QUESTIONS.md).
 
 ## 1. Mục tiêu và phạm vi trách nhiệm
@@ -38,24 +38,36 @@ booking/
 ├── pytest.ini                 ← pythonpath=. , testpaths=tests
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                ← tạo FastAPI app, CORS, include router (KHUNG)
+│   ├── main.py                ← tạo FastAPI app, vòng quét đơn quá hạn mỗi 30 giây
 │   ├── api/
-│   │   ├── __init__.py
-│   │   └── router.py          ← APIRouter: hiện chỉ GET /health. **Thêm route nghiệp vụ tại đây**
-│   ├── controllers/__init__.py   ← (trống) nhận request → gọi service
-│   ├── services/__init__.py      ← (trống) **logic nghiệp vụ**
-│   ├── repositories/__init__.py  ← (trống) **SQL SQLite**
-│   ├── entities/__init__.py      ← (trống) dữ liệu nội bộ (snake_case)
-│   ├── schemas/__init__.py       ← (trống) Pydantic request/response (camelCase)
+│   │   ├── router.py          ← khai báo path/method/mã HTTP, nối sang controller
+│   │   └── deps.py            ← lắp Repository → Service → Controller
+│   ├── controllers/
+│   │   └── booking_controller.py  ← đọc body (giới hạn 64 KiB), kiểm tra query, dịch mã lỗi ra mã HTTP
+│   ├── services/
+│   │   ├── booking_service.py     ← **nghiệp vụ điều phối**: đặt, thanh toán, hủy, hết hạn, đối soát Payment
+│   │   └── upstream.py            ← gọi HTTP sang 5 service (timeout, 503 khi không với tới được)
+│   ├── repositories/
+│   │   └── booking_repository.py  ← **toàn bộ SQL**, giao dịch `BEGIN IMMEDIATE`
+│   ├── entities/booking.py    ← dữ liệu nội bộ (snake_case), hằng trạng thái, `expires_at`
+│   ├── schemas/booking.py     ← Pydantic request/response (camelCase), thứ tự và thông báo lỗi như mã cũ
 │   ├── db/
-│   │   ├── __init__.py        ← TODO khởi tạo schema/migration (chờ D-03)
-│   │   └── connection.py      ← get_connection(): mở SQLite tại DB_PATH (không tạo bảng/dữ liệu)
+│   │   ├── connection.py      ← get_connection(): WAL + busy_timeout, tự commit/rollback
+│   │   ├── schema.sql         ← bảng `bookings`, 2 index, 2 CHECK (idempotent, không DROP)
+│   │   ├── seed.sql           ← 3 đơn mẫu giữ nguyên id/giá trị (`INSERT OR IGNORE`)
+│   │   └── init_db.py         ← `python -m app.db.init_db [--seed]`
 │   └── core/
-│       ├── __init__.py
-│       └── config.py          ← đọc biến môi trường (SERVICE_NAME, PORT, DB_PATH, ...)
+│       ├── config.py          ← biến môi trường, tự nạp `.env` khi chạy local
+│       ├── clock.py           ← đồng hồ theo `APP_TIMEZONE`
+│       ├── errors.py          ← `BookingError(code, message)`
+│       ├── http.py            ← envelope, CORS, `OPTIONS → 204`, 404/405/500 (D-07)
+│       └── jwt_auth.py        ← verify JWT HS256 (chỉ dùng khi bật `JWT_REQUIRED`)
 └── tests/
-    ├── __init__.py
-    └── test_scaffold.py       ← test khung (health, không tự tạo DB). Thêm test nghiệp vụ tại đây
+    ├── conftest.py            ← DB tạm, giả lập 5 đối tác bằng `httpx.MockTransport`
+    ├── test_scaffold.py       ← test khung
+    ├── test_booking_api.py    ← hợp đồng API: envelope, validation, mã HTTP, mã lỗi
+    ├── test_booking_flow.py   ← điều phối: đặt trùng ghế, Payment/Notification lỗi, hết hạn, đồng thời
+    └── test_infrastructure.py ← schema/seed, múi giờ, cấu hình, vòng quét, JWT
 ```
 
 Ánh xạ từ mã nguồn cũ:
@@ -108,7 +120,9 @@ Lớp nào cũng **chỉ gọi xuống** lớp dưới nó. Không import code c
 - Schema cũ (MySQL) để **đối chiếu**: `bookings(id INT AUTO_INCREMENT PK, movie_id INT NN, showtime_id INT NN, username VARCHAR(50) NN, seats VARCHAR(100) NN, total_price INT NN, status VARCHAR(10) NN DEFAULT 'PENDING', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)` + index `(showtime_id,status)`, `(username)` + CHECK `status IN (...)`, `total_price >= 0`.
 - Seed cũ: `database/booking/seed.sql` (3 đơn: PAID / CANCELLED / PENDING); `booking_db.sqlserver.sql` **không dùng**. **Không chạy** các file `schema.sql`/`seed.sql`/`seed.js` cũ (có `DROP`/`DELETE`/`drop()`).
 - Khi viết schema SQLite: `CREATE TABLE IF NOT EXISTS`, idempotent, **không `DROP`**, không tự nạp dữ liệu lúc import/khởi động; giữ nguyên id và giá trị seed cũ (thêm dữ liệu mới = id lớn hơn).
-- Việc tạo schema và nạp dữ liệu là bước **tường minh** (script/lệnh), chỉ làm sau khi nhóm chốt D-01, D-03, D-16. Chuyển dữ liệu thật từ nguồn cũ là **migration riêng**: sao lưu trước, đối chiếu sau (xem `docs/MIGRATION_TRACKER.md` §3).
+- Việc tạo schema và nạp dữ liệu là bước **tường minh**: `python -m app.db.init_db [--seed]`. App không tự tạo bảng lúc import hay khởi động; chưa chạy lệnh này thì mọi endpoint nghiệp vụ trả 500. Riêng Docker: `CMD` của `Dockerfile` chạy `init_db` (không `--seed`) trước Uvicorn, nên seed vẫn phải chạy tay (§11). Chuyển dữ liệu thật từ nguồn cũ là **migration riêng**: sao lưu trước, đối chiếu sau (xem `docs/MIGRATION_TRACKER.md` §3).
+- **Nạp seed Booking cùng lúc với seed Payment.** Payment seed sẵn giao dịch `PAID` của đơn 1 và `FAILED` của đơn 2. Nếu Booking không seed, đơn mới đầu tiên sẽ có id 1, Payment trả `ALREADY_PAID`, Booking đối soát ra giao dịch cũ và coi là đã trả. Có seed thì đơn mới bắt đầu từ id 4.
+- Chống đặt trùng ghế (D-10): "quét hết hạn + đọc ghế + lưu đơn" nằm trong một giao dịch `BEGIN IMMEDIATE`, giành quyền ghi ngay từ đầu nên không cần đổi schema và vẫn đúng nếu có nhiều tiến trình cùng ghi một file DB.
 - Test dùng DB tạm (`tmp_path`), **không** dùng file dữ liệu thật; không test hành vi xóa trên dữ liệu thật.
 
 ## 8. Dependency với service khác
@@ -135,6 +149,8 @@ Lớp nào cũng **chỉ gọi xuống** lớp dưới nó. Không import code c
 | `NOTIFICATION_SERVICE_URL` | `http://localhost:5006` | `http://notification:5006` | URL Notification Service |
 | `UPSTREAM_TIMEOUT_SECONDS` | `5` | `5` | Timeout gọi service khác (mặc định 5; Notification 3) |
 | `HOLD_MINUTES` | `10` | `10` | Số phút giữ ghế đơn `PENDING` (mặc định 10) |
+| `APP_TIMEZONE` | `Asia/Ho_Chi_Minh` | chưa khai báo, dùng mặc định | Múi giờ của `createdAt`, hạn giữ ghế và phép so giờ chiếu. **Phải trùng với Showtime** |
+| `JWT_REQUIRED` | `false` | chưa khai báo, dùng mặc định | Công tắc xác thực cuối kỳ (D-18). Muốn bật trong Compose, nhóm trưởng cần thêm biến này vào `docker-compose.yml` |
 | `JWT_SECRET` | `(trống)` | `${JWT_SECRET:-}` | Khóa JWT HS256 **dùng chung cả nhóm** (>= 32 ký tự, UTF-8 thô). Để trống trong khung; điền ở máy mình, **không commit khóa thật** |
 | `INTERNAL_KEY` | `(trống)` | `${INTERNAL_KEY:-}` | Khóa nội bộ Booking → Notification (header `X-Internal-Key`); **không commit khóa thật** |
 
@@ -151,10 +167,17 @@ Không thêm gói khác khi chưa cần; thêm bằng PR, **pin phiên bản**, 
 
 ### Xác thực cuối kỳ (kế hoạch v2.1, mục 5) — áp dụng cho service này
 
-- `POST /api/booking`, `GET /api/booking/{id}`: **cuối kỳ** cần JWT hợp lệ; `username` lấy từ token (không tin body).
-- `GET /api/booking` (danh sách): **cuối kỳ** role `ADMIN`.
-- **Chuyển tiếp nguyên header `Authorization`** sang Payment; gọi Notification kèm header `X-Internal-Key` (biến `INTERNAL_KEY`).
-- `pay`, `cancel`, `seats`, `availability` **không có trong bảng v2.1** (repo hiện có) — hỏi nhóm trưởng về quyền truy cập.
+Đã cài đặt, **tắt mặc định** bằng `JWT_REQUIRED=false` vì hiện User còn trả `demo-token-<username>`, Client/Admin chưa gửi header `Authorization`. Khi tắt, danh tính lấy từ body như baseline. Header `Authorization` luôn được chuyển tiếp nguyên vẹn sang Payment; `X-Internal-Key` được gửi sang Notification khi có `INTERNAL_KEY`.
+
+Khi bật `JWT_REQUIRED=true` (thiếu/sai token → 401, thiếu quyền → 403):
+
+| Endpoint | Quy tắc | Nguồn |
+|---|---|---|
+| `POST /api/booking` | JWT; `username` lấy từ claim `sub`, bỏ qua body | v2.1 §4.2 |
+| `GET /api/booking/{id}` | JWT; chỉ chủ đơn hoặc `ADMIN` | v2.1 §4.2 yêu cầu JWT; **đề xuất** thêm kiểm tra chủ đơn |
+| `GET /api/booking` | `ADMIN` xem tất cả; `USER` chỉ được gọi với `?username=<chính mình>` | v2.1 §4.2 ghi `ADMIN`; **đề xuất** nới cho `USER` vì trang "Vé của tôi" của Client dùng endpoint này |
+| `POST .../pay`, `POST .../cancel` | JWT; chủ đơn lấy từ `sub`; `ADMIN` thao tác được mọi đơn | **Đề xuất**, không có trong v2.1 (D-18b). Trang Admin đang hủy đơn hộ khách |
+| `GET .../seats`, `.../availability`, `/health` | Công khai | **Đề xuất**: không chứa dữ liệu cá nhân, Client vẽ sơ đồ ghế bằng các endpoint này |
 
 Quy định JWT chung: **HS256**; khóa lấy từ biến môi trường `JWT_SECRET` (>= 32 ký tự, chuyển sang byte bằng **UTF-8 thô, không giải mã Base64**); claims `sub` (username), `userId`, `role` (`USER`/`ADMIN`), `iat`, `exp` (+2 giờ); gửi bằng `Authorization: Bearer <token>`; cho phép lệch giờ **60 giây**; thiếu/sai token → 401, đủ token nhưng thiếu quyền → 403; phải trả **204** cho `OPTIONS` (trình duyệt luôn gửi preflight khi có header `Authorization`). Khóa thật **không** được commit. Giữa kỳ các endpoint còn công khai — thời điểm bật xác thực do nhóm trưởng quyết (D-18).
 
@@ -167,30 +190,40 @@ Quy định JWT chung: **HS256**; khóa lấy từ biến môi trường `JWT_SE
 cd services-py/booking
 python3.12 -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
-cp .env.example .env                                       # KHÔNG commit .env
-uvicorn app.main:app --host 0.0.0.0 --port 5004 --reload
-curl http://localhost:5004/health                        # {"status":"success","data":{"service":"booking-service","port":5004}}
+cp .env.example .env                                       # KHÔNG commit .env. Service tự nạp file này khi chạy local
+python -m app.db.init_db --seed                            # tạo bảng + 3 đơn mẫu, chạy lại an toàn
+uvicorn app.main:app --host 0.0.0.0 --port 5004            # không dùng --workers
+curl http://localhost:5004/health                          # {"status":"success","data":{"service":"booking-service","port":5004}}
 python -m pytest -q                                        # test của service
+# Swagger UI: http://localhost:5004/docs
 
-# Docker (từ services-py/)
-docker compose up --build booking
+# Docker (từ services-py/). Sau khi service chạy, nạp seed của Booking cùng các service khác
+docker compose up --build -d
+docker compose exec booking python -m app.db.init_db --seed
 ```
 
-Test tích hợp liên service (`python tests/integration/run_tests.py`, thư mục gốc repo) chỉ dùng được khi các service liên quan đã được cài đặt đủ hành vi.
+Test tích hợp liên service: bật đủ 6 service (Movie, User, Payment, Notification phải chạy lệnh seed/init của mình trước) rồi chạy từ thư mục gốc repo:
+
+```bash
+python tests/integration/run_tests.py                       # 54 kiểm tra luồng bình thường
+python tests/integration/run_tests.py --expect-down payment # tắt Payment trước; tương tự notification, user, movie, showtime
+```
 
 ## 12. Checklist hoàn thành
 
-- [ ] Đã đọc mã cũ `services/booking/` và ghi lại sai khác với contract (nếu có) vào PR.
-- [ ] Mọi endpoint ở `API_CONTRACT.md` §5 đã cài đặt, khớp path/method/envelope/camelCase/mã HTTP/mã lỗi.
-- [ ] Validation đủ (body rỗng, JSON sai, kiểu dữ liệu, giới hạn độ dài); không crash khi body rỗng/sai JSON.
-- [ ] `/health`, `OPTIONS → 204`, CORS `*` đúng (sau khi nhóm chốt D-07).
-- [ ] Schema SQLite idempotent, seed giữ nguyên id/giá trị; không có `DROP`.
-- [ ] Không lộ trường nhạy cảm, lỗi SQL, stack trace.
-- [ ] Test của service pass (DB tạm); `docker compose up --build booking` chạy và `/health` OK.
-- [ ] Chạy lại các nhóm [kịch bản lỗi] trong `INTEGRATION_FLOW.md` §2 với service đối tác tắt (503/`FAILED`/`SKIPPED`).
-- [ ] Hai request đặt cùng ghế đồng thời: đúng một request thành công.
-- [ ] Cập nhật README này và `docs/MIGRATION_TRACKER.md`; không commit `.env`, `*.db`, `__pycache__/`.
+- [x] Đã đọc mã cũ `services/booking/` và ghi lại sai khác với contract (xem §14).
+- [x] Mọi endpoint ở `API_CONTRACT.md` §5 đã cài đặt, khớp path/method/envelope/camelCase/mã HTTP/mã lỗi.
+- [x] Validation đủ (body rỗng, JSON sai, kiểu dữ liệu, giới hạn độ dài); không crash khi body rỗng/sai JSON.
+- [x] `/health`, `OPTIONS → 204`, CORS `*` đúng (D-07 xử lý trong phạm vi service).
+- [x] Schema SQLite idempotent, seed giữ nguyên id/giá trị; không có `DROP`.
+- [x] Không lộ trường nhạy cảm, lỗi SQL, stack trace.
+- [x] Test của service pass (237 test, DB tạm); `docker compose up --build` chạy cả 6 service và `/health` OK.
+- [x] Chạy lại các nhóm [kịch bản lỗi] trong `INTEGRATION_FLOW.md` §2 với service đối tác tắt (503/`FAILED`/`SKIPPED`).
+- [x] Hai request đặt cùng ghế đồng thời: đúng một request thành công (20 request thật vào container: 1 thành công, 19 `SEAT_TAKEN`).
+- [x] Cập nhật README này và `docs/MIGRATION_TRACKER.md`; không commit `.env`, `*.db`, `__pycache__/`.
 - [ ] PR vào `develop`, có 1 người khác duyệt (không tự merge).
+
+Đã kiểm tra với cả 6 service Python chạy thật, trên uvicorn local và trên container Docker: `tests/integration/run_tests.py` đạt 54/54, 5 kịch bản `--expect-down` đạt hết. Chưa kiểm tra: JWT từ đầu đến cuối (User chưa cấp JWT thật, chỉ test bằng token tự ký) và giao diện Client/Admin trên trình duyệt.
 
 ## 13. File nặng — người dùng tự bổ sung / giữ nguyên
 
@@ -208,8 +241,29 @@ Quy tắc chung (xem [ASSETS_GUIDE](../docs/ASSETS_GUIDE.md)): file cũ giữ ng
 
 ## 14. Vấn đề chưa rõ — hỏi nhóm trưởng trước khi triển khai
 
-- D-01, D-04 (**`payment.id` phải là chuỗi**, code cũ đọc `GetString()`), D-07, D-10 (khóa ghế/đồng thời với SQLite), D-11 (HTTP client), D-18.
-- `created_at` ghi theo **giờ máy Booking** (không phải giờ SQLite/UTC) và `expiresAt` tính từ đó — giữ nguyên hành vi, kiểm tra múi giờ container.
-- Code cũ ưu tiên kết nối IPv4 khi gọi service khác (tránh trễ ~1s trên Windows). Trong Docker không cần; xác nhận khi chạy local Windows.
+Đã xử lý trong phạm vi service, cần nhóm trưởng xác nhận lại:
+
+- **D-04:** `transactionId` luôn là chuỗi; Booking đọc được cả khi Payment trả id số hay chuỗi.
+- **D-07:** `app/core/http.py` theo mẫu của User/Movie, kèm header `Allow` đầy đủ cho 405.
+- **D-10:** giao dịch `BEGIN IMMEDIATE`, không đổi schema (xem §7).
+- **D-11:** dùng `httpx.AsyncClient` như Showtime.
+- **Múi giờ:** dùng `APP_TIMEZONE` thay giờ máy (xem mục sai khác bên dưới).
+- **IPv4:** vẫn ưu tiên IPv4 như mã cũ. Đo trên Windows với URL `localhost`: giữ ghế 54 ms khi ép IPv4, 840 ms khi không ép.
+
+Còn chờ quyết định: D-01, D-16 (migration dữ liệu thật), **D-18** (thời điểm bật JWT, quyền của `pay`/`cancel`, và cách Booking hỏi lại `GET /api/payment?bookingId=` khi endpoint đó chỉ cho `ADMIN`).
 
 Danh sách đầy đủ và trạng thái: [OPEN_QUESTIONS.md](../docs/OPEN_QUESTIONS.md).
+
+### Sai khác có chủ đích so với mã C# cũ
+
+Mọi path, method, tên trường, mã HTTP và mã lỗi giữ nguyên. Các điểm dưới đây chỉ khác ở những tình huống mã cũ xử lý chưa đúng:
+
+| Tình huống | Mã C# cũ | Bản Python | Lý do |
+|---|---|---|---|
+| Giờ hệ thống | Giờ máy chạy Booking | Theo `APP_TIMEZONE` | Container Python chạy UTC, giờ máy sẽ lệch 7 tiếng so với giờ chiếu và trình duyệt |
+| Khách trả tiền xong nhưng ghế đã bán cho người khác | Vẫn gửi thông báo "Đặt vé thành công" | `notification: SKIPPED` | Đơn không còn hiệu lực, ghi log cần hoàn tiền như cũ |
+| Hai yêu cầu `/pay` song song cho cùng đơn | Gửi 2 thông báo, ghi log nhầm "cần hoàn tiền" | Chỉ gửi 1 thông báo, không ghi log nhầm | Yêu cầu thứ hai nhận ra đơn đã `PAID` |
+| Showtime trả thiếu `price`/`movieId` | 500 | 502 `SHOWTIME_SERVICE_ERROR` | Lỗi của đối tác, đúng nhóm mã trong hợp đồng |
+| Id đơn vượt `INT` trên đường dẫn | 500 | 404 `NOT_FOUND` | Mã cũ tràn số khi parse |
+| `Access-Control-Allow-Methods` | Có cả `PUT, DELETE` | Chỉ `GET, POST, OPTIONS` | Service không có `PUT/DELETE` |
+| Chế độ `BOOKING_STORE=memory` | Có | Bỏ | Test dùng SQLite tạm |

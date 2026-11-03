@@ -1,4 +1,4 @@
-"""Repository: truy cập và thao tác dữ liệu SQLite (SQL nằm ở đây, và chỉ ở đây).
+"""Repository: truy cập và thao tác dữ liệu SQLite (SQL nằm ở đây, và chỉ ở đây)."""
+from app.repositories.booking_repository import BookingRepository
 
-TODO(TV4): triển khai theo README.md của service.
-"""
+__all__ = ["BookingRepository"]

@@ -11,7 +11,7 @@ Ký hiệu: ⬜ chưa làm · 🟨 đang làm · ✅ xong (kèm test) · ⛔ b�
 | Movie | TV1 | ✅ (health, pytest 2/2) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | D-01, D-06, D-07, D-08 |
 | Showtime | TV2 | ✅ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | D-01, D-07, D-09, D-11 |
 | User | TV3 | ✅ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | D-01, D-06, D-07, D-11, D-18 |
-| Booking | TV4 | ✅ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | D-01, D-04, D-07, D-10, D-11 |
+| Booking | TV4 | ✅ | ✅ | ✅ | ✅ | ✅ (237 test) | ✅ (`run_tests.py` 54/54 + 5 kịch bản `--expect-down`, local và Docker) | ⬜ | Migration chờ D-01, D-16. JWT có sẵn, tắt mặc định, chờ D-18 |
 | Payment | TV5 | ✅ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | D-01, D-04, D-07 |
 | Notification | TV6 | ✅ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | D-01, D-06, D-07, D-13 |
 
@@ -38,14 +38,14 @@ Cột *Cũ* = đã xác minh trong code cũ; *Py* = trạng thái bản Python. 
 | User | `GET /api/users` (+ `?username=`) | ✅ | ⬜ | | TV3 | |
 | User | `GET /api/users/{id}` | ✅ | ⬜ | | TV3 | |
 | User | `GET /health` | — (mới) | ✅ khung | `tests/test_scaffold.py` | TV3 | |
-| Booking | `POST /api/booking` | ✅ | ⬜ | | TV4 | |
-| Booking | `POST /api/booking/{id}/pay` | ✅ | ⬜ | | TV4 | |
-| Booking | `POST /api/booking/{id}/cancel` | ✅ | ⬜ | | TV4 | |
-| Booking | `GET /api/booking` | ✅ | ⬜ | | TV4 | |
-| Booking | `GET /api/booking/{id}` | ✅ | ⬜ | | TV4 | |
-| Booking | `GET /api/booking/seats` | ✅ | ⬜ | | TV4 | |
-| Booking | `GET /api/booking/availability` | ✅ | ⬜ | | TV4 | |
-| Booking | `GET /health` (ping DB) | ✅ | 🟨 khung chưa ping DB | `tests/test_scaffold.py` | TV4 | |
+| Booking | `POST /api/booking` | ✅ | ✅ | `tests/test_booking_api.py`, `tests/test_booking_flow.py` | TV4 | |
+| Booking | `POST /api/booking/{id}/pay` | ✅ | ✅ | `tests/test_booking_flow.py` | TV4 | |
+| Booking | `POST /api/booking/{id}/cancel` | ✅ | ✅ | `tests/test_booking_flow.py` | TV4 | |
+| Booking | `GET /api/booking` | ✅ | ✅ | `tests/test_booking_api.py` | TV4 | |
+| Booking | `GET /api/booking/{id}` | ✅ | ✅ | `tests/test_booking_api.py` | TV4 | |
+| Booking | `GET /api/booking/seats` | ✅ | ✅ | `tests/test_booking_api.py` | TV4 | |
+| Booking | `GET /api/booking/availability` | ✅ | ✅ | `tests/test_booking_api.py` | TV4 | |
+| Booking | `GET /health` (ping DB) | ✅ | ✅ | `tests/test_booking_api.py` | TV4 | |
 | Payment | `POST /api/payment` | ✅ | ⬜ | | TV5 | |
 | Payment | `GET /api/payment` (+ `?bookingId=`) | ✅ | ⬜ | | TV5 | |
 | Payment | `GET /health` | ✅ | ✅ khung | `tests/test_scaffold.py` | TV5 | |
