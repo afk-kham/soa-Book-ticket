@@ -19,7 +19,10 @@
 <script src="../js/common.js"></script>
 <script>
 Admin.shell("user", "Quản lý người dùng", "Tài khoản khách hàng và quản trị viên — mật khẩu được mã hóa an toàn");
-document.getElementById("page-actions").innerHTML = '<button class="secondary" id="btn-login"><i class="bi bi-shield-lock me-1"></i>Thử đăng nhập</button><button id="btn-reg"><i class="bi bi-person-plus me-1"></i>+ Đăng ký tài khoản</button>';
+document.getElementById("page-actions").innerHTML = '<button class="secondary" id="btn-login"><i class="bi bi-shield-lock me-1"></i>Thử đăng nhập</button><button id="btn-reg"><i class="bi bi-person-plus me-1"></i>+ Thêm tài khoản</button>';
+
+var currentRows = [];
+var ROLE_OPTIONS = [{ value: "USER", label: "Người dùng" }, { value: "ADMIN", label: "Quản trị" }];
 
 async function load() {
   Admin.clearError();
@@ -44,7 +47,11 @@ async function load() {
       },
       { label: "Email liên hệ", render: function (r) { return r.email ? Admin.esc(r.email) : '<small class="text-secondary">—</small>'; } },
       { label: "Vai trò", render: function (r) { return Admin.badge(r.role, r.role === "ADMIN" ? "Quản trị" : "Người dùng"); } }
-    ], rows, null, { search: "Tìm theo tên đăng nhập, email...", empty: "Chưa có tài khoản nào" });
+    ], rows, function (r) {
+      return '<button class="small secondary" data-edit="' + r.id + '">Sửa</button>' +
+        '<button class="small ghost" data-del="' + r.id + '" style="color:var(--cinema-red)">Xóa</button>';
+    }, { search: "Tìm theo tên đăng nhập, email...", empty: "Chưa có tài khoản nào" });
+    currentRows = rows;
   } catch (e) {
     Admin.showError(e);
     list.innerHTML = "";
@@ -54,21 +61,58 @@ async function load() {
 
 document.getElementById("btn-reg").onclick = function () {
   Admin.openForm({
-    title: "Đăng ký tài khoản mới",
-    subtitle: "Tài khoản tạo tại đây sẽ mặc định vai trò Khách hàng.",
+    title: "Thêm tài khoản mới",
+    subtitle: "Chọn vai trò Người dùng hoặc Quản trị cho tài khoản.",
     submitLabel: "Tạo tài khoản",
     fields: [
       { name: "username", label: "Tên đăng nhập", required: true, placeholder: "VD: huynhat" },
       { name: "email", label: "Email", type: "email", placeholder: "email@domain.com" },
-      { name: "password", label: "Mật khẩu", type: "password", required: true, hint: "Tối thiểu 6 ký tự; được băm an toàn." }
+      { name: "password", label: "Mật khẩu", type: "password", required: true, hint: "Tối thiểu 6 ký tự; được băm an toàn." },
+      { name: "role", label: "Vai trò", type: "select", value: "USER", options: ROLE_OPTIONS }
     ],
     onSubmit: async function (d) {
-      await Admin.api("user", "POST", "/api/register", d);
+      await Admin.api("user", "POST", "/api/users", d);
       Admin.toast("Đã tạo tài khoản " + d.username + " thành công");
       load();
     }
   });
 };
+
+// Sửa / Xóa tài khoản
+document.getElementById("list").addEventListener("click", async function (ev) {
+  var eb = ev.target.closest("[data-edit]"), db = ev.target.closest("[data-del]");
+  if (eb) {
+    var u = currentRows.filter(function (r) { return String(r.id) === eb.dataset.edit; })[0];
+    if (!u) return;
+    Admin.openForm({
+      title: "Sửa tài khoản #" + u.id,
+      subtitle: "Để trống mật khẩu nếu không muốn đổi.",
+      submitLabel: "Lưu thay đổi",
+      fields: [
+        { name: "username", label: "Tên đăng nhập", required: true, value: u.username },
+        { name: "email", label: "Email", type: "email", value: u.email || "", placeholder: "Để trống để xóa email" },
+        { name: "password", label: "Mật khẩu mới", type: "password", placeholder: "Không đổi" },
+        { name: "role", label: "Vai trò", type: "select", value: u.role, options: ROLE_OPTIONS }
+      ],
+      onSubmit: async function (d) {
+        var payload = { username: d.username.trim(), email: (d.email || "").trim(), role: d.role };
+        if (d.password) payload.password = d.password;
+        await Admin.api("user", "PUT", "/api/users/" + u.id, payload);
+        Admin.toast("Đã cập nhật tài khoản #" + u.id);
+        load();
+      }
+    });
+  }
+  if (db && await Admin.confirmBox("Xóa tài khoản #" + db.dataset.del + "? Thao tác này không hoàn tác được.", "Xóa ngay")) {
+    try {
+      await Admin.api("user", "DELETE", "/api/users/" + db.dataset.del);
+      Admin.toast("Đã xóa tài khoản #" + db.dataset.del);
+      load();
+    } catch (e) {
+      Admin.toast(e.message, "error");
+    }
+  }
+});
 
 document.getElementById("btn-login").onclick = function () {
   Admin.openForm({

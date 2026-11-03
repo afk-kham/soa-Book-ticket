@@ -6,7 +6,7 @@ import bcrypt
 
 from app.entities import User, UserAccount
 from app.repositories import DuplicateUsernameError, UserRepository
-from app.services.errors import InvalidCredentialsError, UsernameTakenError, UserNotFoundError
+from app.services.errors import InvalidCredentialsError, LastAdminError, UsernameTakenError, UserNotFoundError
 
 BCRYPT_ROUNDS = 10  # cost 10, tiền tố $2a$ - khớp hash trong seed cũ
 DEMO_TOKEN_PREFIX = "demo-token-"  # giữa kỳ (D-18 chưa chốt JWT)
@@ -73,6 +73,44 @@ class UserService:
         if user is None:
             raise UserNotFoundError(user_id)
         return user
+
+    def create_user(self, username: str, password: str, email: str | None, role: str) -> User:
+        """Admin tạo người dùng với vai trò tùy chọn (USER/ADMIN)."""
+        if self._repo.find_by_username(username) is not None:
+            raise UsernameTakenError(username)
+        try:
+            return self._repo.insert(username, hash_password(password), email, role)
+        except DuplicateUsernameError as exc:
+            raise UsernameTakenError(username) from exc
+
+    def update_user(self, user_id: int, changes: dict) -> User:
+        """Sửa một phần. ``changes`` có thể gồm username, password, email, role."""
+        current = self.get_user(user_id)
+        fields = dict(changes)
+        new_name = fields.get("username")
+        if new_name is not None:
+            other = self._repo.find_by_username(new_name)
+            if other is not None and other.id != user_id:
+                raise UsernameTakenError(new_name)
+        if fields.get("role") == "USER" and current.role == "ADMIN" and self._repo.count_admins() <= 1:
+            raise LastAdminError()
+        if "password" in fields:
+            fields["password_hash"] = hash_password(fields.pop("password"))
+        try:
+            user = self._repo.update(user_id, fields)
+        except DuplicateUsernameError as exc:
+            raise UsernameTakenError(str(new_name)) from exc
+        if user is None:
+            raise UserNotFoundError(user_id)
+        return user
+
+    def delete_user(self, user_id: int) -> None:
+        """Xóa người dùng; không cho xóa quản trị viên cuối cùng."""
+        current = self.get_user(user_id)
+        if current.role == "ADMIN" and self._repo.count_admins() <= 1:
+            raise LastAdminError()
+        if not self._repo.delete(user_id):
+            raise UserNotFoundError(user_id)
 
     @staticmethod
     def _issue_token(account: UserAccount) -> str:

@@ -73,6 +73,11 @@ Tên cũ `movie_id` (query và body) vẫn được nhận để tương thích,
 | POST | `/api/login` | `{username, password}` → `{id, username, role, token}` · sai → 401 |
 | GET | `/api/users` | Danh sách (không có mật khẩu); `?username=x` tìm một người (Booking dùng) |
 | GET | `/api/users/{id}` | Chi tiết |
+| POST | `/api/users` | Admin tạo người dùng `{username, password, email?, role?}` (`role` ∈ `USER`/`ADMIN`, mặc định `USER`) → 201 · trùng → 409 |
+| PUT \| PATCH | `/api/users/{id}` | Sửa một phần `{username?, password?, email?, role?}` → 200 (`email` rỗng/null = xóa email; mật khẩu băm lại BCrypt) · không có → 404 · trùng username → 409 |
+| DELETE | `/api/users/{id}` | Xóa → 200 `{id, deleted: true}` · không có → 404 |
+
+Không được xóa hoặc hạ quyền **quản trị viên cuối cùng** → 409 `CONFLICT`. Xóa người dùng không xóa đơn/nhật ký ở service khác (chúng lưu `username` riêng).
 
 `token` ở giữa kỳ là token demo (`demo-token-<username>`). Cuối kỳ: JWT ký bằng **một** `JWT_SECRET` chung; Booking đọc `sub` từ token thay vì tin `username` trong body.
 Mật khẩu băm BCrypt; `passwordHash` **không bao giờ** xuất hiện trong response.

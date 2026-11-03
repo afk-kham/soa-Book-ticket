@@ -15,3 +15,8 @@ class InvalidCredentialsError(UserServiceError):
 
 class UserNotFoundError(UserServiceError):
     """Không tìm thấy người dùng (-> 404 NOT_FOUND)."""
+
+
+
+class LastAdminError(UserServiceError):
+    """Xóa hoặc hạ quyền quản trị viên cuối cùng (-> 409 CONFLICT)."""
