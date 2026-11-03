@@ -46,6 +46,29 @@ Dừng: `bash scripts/stop-all.sh`. Chạy từng service riêng: xem `README.md
 Demo chịu lỗi (cho buổi bảo vệ): tắt một service rồi chạy
 `python3 tests/integration/run_tests.py --expect-down payment` (hoặc `notification`, `showtime`, `user`, `movie`).
 
+## Chạy bằng các service Python (`services-py`) và tài khoản đăng nhập thử
+
+Các service Python lưu dữ liệu vào SQLite (không cần MySQL/MongoDB). **Yêu cầu:** Python 3.12 trong `PATH`.
+
+```bash
+# Windows                                   # Linux / macOS / Git Bash
+scripts\init-db.bat                          bash scripts/init-db.sh      # (tuỳ chọn) tạo/nạp lại DB; start-all tự tạo DB lần đầu
+scripts\start-all.bat                        bash scripts/start-all.sh    # chạy 6 service + Admin (8081) + Client (8080)
+scripts\stop-all.bat                         bash scripts/stop-all.sh     # dừng
+python ui-seed/seed-movies.py                                              # (tuỳ chọn) nạp thêm phim: 5 -> 15 phim + suất chiếu 7 ngày tới
+```
+- Lần chạy đầu mỗi service tự tạo `.venv` riêng và cài thư viện nên mất ~1 phút. Swagger của từng service: `http://localhost:500x/docs`.
+- Script chạy trực tiếp trên máy, **không cần Docker**. Nếu đang chạy stack Docker (`services-py/docker-compose.yml`) thì hãy dừng nó trước (`docker compose stop`), vì cả hai cùng dùng các cổng 5001–5006.
+- Windows báo lỗi cổng (`WinError 10013`) khi dải 4922–5021 bị hệ thống giữ: xem ghi chú trong `scripts/run-service.bat` (biến `SOA_PORT_OFFSET`).
+
+**Tài khoản đăng nhập thử** (dữ liệu mẫu của User Service):
+
+| Vai trò | Tên đăng nhập | Mật khẩu |
+|---|---|---|
+| Khách (Client) | `user1` | `User@123` |
+| Khách (Client) | `user2` | `User@123` |
+| Quản trị (Admin) | `admin` | `Admin@123` |
+
 ## Cấu trúc thư mục
 ```
 services/<tên>/   mã nguồn từng service (+ .env.example, README)
