@@ -54,6 +54,7 @@
   var FRIENDLY = {
     PAYMENT_SERVICE_UNAVAILABLE: "Cổng thanh toán đang tạm gián đoạn. Ghế của bạn vẫn được giữ — vui lòng thử lại sau ít phút.",
     PAYMENT_SERVICE_ERROR: "Giao dịch chưa hoàn tất. Vui lòng kiểm tra lại hoặc chọn phương thức khác.",
+    VNPAY_NOT_CONFIGURED: "Cổng VNPAY tạm thời chưa sẵn sàng. Ghế của bạn vẫn được giữ — vui lòng chọn phương thức thanh toán khác.",
     USER_NOT_FOUND: "Tài khoản không tồn tại. Vui lòng đăng nhập lại.",
     MOVIE_NOT_FOUND: "Phim này không còn tồn tại.",
     SHOWTIME_NOT_FOUND: "Suất chiếu không còn tồn tại, vui lòng chọn suất khác.",
