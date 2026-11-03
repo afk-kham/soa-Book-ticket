@@ -1,12 +1,13 @@
 """Router của Payment Service."""
 import re
 
-from fastapi import APIRouter, Body, Query
+from fastapi import APIRouter, Body, Query, Request
 from fastapi.responses import JSONResponse
 
 from app.core import config
 from app.controllers import get_payments_controller, post_payment
-from app.schemas import PaymentCreateRequest
+from app.controllers.vnpay_controller import create_vnpay_url, vnpay_return
+from app.schemas import PaymentCreateRequest, VnpayCreateRequest
 
 api_router = APIRouter()
 
@@ -19,6 +20,16 @@ def health():
 @api_router.post("/api/payment", status_code=201)
 def create_payment(payload: PaymentCreateRequest = Body(...)):
     return post_payment(payload)
+
+
+@api_router.post("/api/payment/vnpay/create", status_code=201)
+def vnpay_create(request: Request, payload: VnpayCreateRequest = Body(...)):
+    return create_vnpay_url(payload, request)
+
+
+@api_router.get("/api/payment/vnpay/return", include_in_schema=False)
+def vnpay_callback(request: Request):
+    return vnpay_return(request)
 
 
 @api_router.get("/api/payment", status_code=200)

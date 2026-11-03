@@ -194,3 +194,16 @@ Quy tắc chung (xem [ASSETS_GUIDE](../docs/ASSETS_GUIDE.md)): file cũ giữ ng
 - Test tích hợp gốc có `tests/integration/tools/payment_in_memory.js` (giả lập Payment bằng bộ nhớ) — không còn cần khi có SQLite; hỏi nhóm trưởng trước khi bỏ/đổi.
 
 Danh sách đầy đủ và trạng thái: [OPEN_QUESTIONS.md](../docs/OPEN_QUESTIONS.md).
+
+## VNPAY Sandbox (thanh toán thử cho buổi demo)
+
+Cấu hình trong `.env` (không commit): `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_URL`, `VNPAY_RETURN_URL`, `CLIENT_URL` (mẫu ở `.env.example`).
+
+| Endpoint | Mô tả |
+|---|---|
+| `POST /api/payment/vnpay/create` `{bookingId, amount}` | 201 + `{paymentUrl, txnRef}` (URL ký HMAC-SHA512). 400 sai dữ liệu, 503 `VNPAY_NOT_CONFIGURED` |
+| `GET /api/payment/vnpay/return` | VNPAY chuyển trình duyệt về đây: kiểm tra chữ ký, mã `00` mới ghi giao dịch `PAID` (method `VNPAY`), rồi chuyển về Client `#/vnpay-return/<id>/ok\|fail` |
+
+Luồng: Client lấy `paymentUrl` → người dùng thanh toán trên VNPAY → Payment ghi giao dịch → Client gọi `POST /api/booking/{id}/pay` (`paymentMethod=VNPAY`); Payment trả 409 `ALREADY_PAID` nên Booking đối soát theo giao dịch đã ghi và chốt đơn `PAID` + gửi thông báo.
+
+> Hai endpoint trên **chưa có trong `API_CONTRACT.md`** (mục 2 phía trên yêu cầu PR sửa hợp đồng được duyệt). Thẻ test sandbox: https://sandbox.vnpayment.vn/apis/vnpay-demo/
