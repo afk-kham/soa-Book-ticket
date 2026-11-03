@@ -448,11 +448,37 @@ def test_pay_when_payment_says_already_paid_recovers_the_transaction(client, ups
 def test_reconcile_prefers_paid_over_newer_failed(client, upstreams, order):
     booking = hold(client, order)
     upstreams.transactions += [
-        {"id": "1", "bookingId": booking["id"], "status": "PAID"},
-        {"id": "2", "bookingId": booking["id"], "status": "FAILED"},
+        {"id": "1", "bookingId": booking["id"], "amount": 180000, "status": "PAID"},
+        {"id": "2", "bookingId": booking["id"], "amount": 180000, "status": "FAILED"},
     ]
     upstreams.lose_payment_reply = True
     r = client.post(f"/api/booking/{booking['id']}/pay", json={"username": "user1", "paymentMethod": "MOMO"})
+    assert r.json()["data"]["payment"]["transactionId"] == "1"
+
+
+@pytest.mark.parametrize("amount", [1000, 179999, None, "180000", True])
+def test_underpaid_transaction_does_not_settle_order(client, upstreams, order, amount):
+    """Ai cũng gọi được POST /api/payment (Client tự gửi amount khi tạo link VNPAY): Payment ghi PAID 1.000 đ
+    rồi trả 409 cho Booking. Đối soát phải so số tiền, không chốt đơn 180.000 đ chỉ vì status = PAID."""
+    booking = hold(client, order)
+    upstreams.transactions.append(
+        {"id": "9", "bookingId": booking["id"], "amount": amount, "method": "MOMO", "status": "PAID", "paidAt": "x"}
+    )
+    r = client.post(f"/api/booking/{booking['id']}/pay", json={"username": "user1", "paymentMethod": "VNPAY"})
+    assert is_error(r, 502, "PAYMENT_SERVICE_ERROR")
+    assert "không đủ số tiền" in r.json()["message"]
+    assert client.get(f"/api/booking/{booking['id']}").json()["data"]["status"] == "PENDING"
+    assert upstreams.service_calls("notification") == []
+
+
+def test_underpaid_paid_is_skipped_when_a_full_payment_exists(client, upstreams, order):
+    booking = hold(client, order)
+    upstreams.transactions += [
+        {"id": "1", "bookingId": booking["id"], "amount": 180000, "status": "PAID"},
+        {"id": "2", "bookingId": booking["id"], "amount": 1000, "status": "PAID"},
+    ]
+    r = client.post(f"/api/booking/{booking['id']}/pay", json={"username": "user1", "paymentMethod": "MOMO"})
+    assert r.json()["data"]["status"] == "PAID"
     assert r.json()["data"]["payment"]["transactionId"] == "1"
 
 
