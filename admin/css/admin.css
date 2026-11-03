@@ -573,6 +573,8 @@ button.small { padding: 4px 10px; font-size: 12px; }
   box-shadow: var(--shadow-lg);
   animation: pop 0.18s ease;
 }
+/* Bootstrap cũng định nghĩa .modal (display:none; position:fixed; height:100%): vô hiệu hóa riêng cho hộp thoại của Admin */
+.modal-bg > .modal { display: block; position: relative; top: auto; left: auto; z-index: auto; height: auto; overflow: auto; outline: 0; }
 .modal h3 { margin: 0 0 6px; font-size: 20px; color: #fff; }
 .modal .modal-sub { color: var(--cinema-text-muted); margin: 0 0 20px; font-size: 13px; }
 .field { margin-bottom: 16px; }
