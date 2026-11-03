@@ -21,4 +21,5 @@ EXPOSE 5004
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
     CMD python -c "import os,urllib.request as u; u.urlopen('http://127.0.0.1:%s/health' % os.environ['PORT'], timeout=2)"
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+# Tạo schema là bước tường minh, chạy lại an toàn (chỉ CREATE ... IF NOT EXISTS). KHÔNG nạp seed ở đây.
+CMD ["sh", "-c", "python -m app.db.init_db && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
