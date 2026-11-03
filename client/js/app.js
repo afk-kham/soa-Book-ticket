@@ -1481,10 +1481,6 @@
               "</ol>" +
             "</div>" +
           "</div>" +
-          '<div class="alert alert-secondary d-flex align-items-center gap-2 mt-3 mb-0 small border-secondary">' +
-            '<i class="bi bi-info-circle-fill text-warning"></i>' +
-            '<div>Mẹo thử nghiệm: Quý khách có thể quét mã thử bằng điện thoại hoặc bấm nút <b>Tôi đã thanh toán</b> bên dưới để hoàn tất đơn hàng.</div>' +
-          '</div>' +
         "</div>";
 
       var btnBank = $("#btnQrBank");
