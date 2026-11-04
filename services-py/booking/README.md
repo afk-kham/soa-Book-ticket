@@ -1,6 +1,6 @@
 # TV4 — Booking Service (Python / FastAPI / SQLite) — cổng 5004
 
-> **Trạng thái: ĐÃ CÀI ĐẶT ĐỦ NGHIỆP VỤ** theo [API_CONTRACT.md](../API_CONTRACT.md) §5: 7 endpoint + `/health`, chống đặt trùng ghế, giữ ghế có hạn, điều phối 5 service, xử lý khi đối tác lỗi. JWT đã có nhưng **tắt mặc định** (xem §10, chờ D-18).
+> **Trạng thái: ĐÃ CÀI ĐẶT ĐỦ NGHIỆP VỤ** theo [API_CONTRACT.md](../API_CONTRACT.md) §5: 9 endpoint + `/health`, chống đặt trùng ghế, giữ ghế có hạn, điều phối 5 service, xử lý khi đối tác lỗi. JWT đã có nhưng **tắt mặc định** (xem §10, chờ D-18).
 > Nhánh làm việc: `feature/tv4-booking` (không làm trực tiếp trên `main`/`develop`). Đọc trước: [README chung](../README.md), [API_CONTRACT.md](../API_CONTRACT.md) §5, [ARCHITECTURE](../docs/ARCHITECTURE.md), [OPEN_QUESTIONS](../docs/OPEN_QUESTIONS.md).
 
 ## 1. Mục tiêu và phạm vi trách nhiệm
@@ -20,7 +20,7 @@ Bảng đầy đủ (request/response/mã HTTP/lỗi) ở [API_CONTRACT.md](../A
 - `POST /{id}/pay`: kiểm tra chủ đơn (403 `FORBIDDEN`); thất bại/Payment sập → đơn **vẫn PENDING**; đã trả → 409 `ALREADY_PAID`; đã hủy/hết hạn → 409 `BOOKING_CANCELLED`.
 - `POST /{id}/cancel`: `PAID` → 409 `PAID_NOT_CANCELLABLE`.
 - Timeout: upstream 5s (`UPSTREAM_TIMEOUT_SECONDS`), Notification 3s, hỏi lại Payment 2s. Payment sập → hỏi lại `GET /api/payment?bookingId=` rồi mới hủy. Notification lỗi **không** làm hỏng đơn `PAID` (`notification: FAILED`).
-- **Không** tạo PUT/DELETE CRUD chung (sẽ phá nghiệp vụ đặt/trả/hủy).
+- `PUT /{id}`: chỉ đổi ghế của đơn `PENDING` (giá = đơn giá cũ × số ghế mới, hạn giữ không đổi). `DELETE /{id}?username=`: xóa hẳn đơn ở mọi trạng thái. Đặt/trả/hủy vẫn đi qua `POST`.
 - `GET /health` phải **ping DB**.
 
 Ngoài bảng này **không thêm endpoint nào** nếu chưa có PR sửa `API_CONTRACT.md` được duyệt.
@@ -176,7 +176,7 @@ Khi bật `JWT_REQUIRED=true` (thiếu/sai token → 401, thiếu quyền → 40
 | `POST /api/booking` | JWT; `username` lấy từ claim `sub`, bỏ qua body | v2.1 §4.2 |
 | `GET /api/booking/{id}` | JWT; chỉ chủ đơn hoặc `ADMIN` | v2.1 §4.2 yêu cầu JWT; **đề xuất** thêm kiểm tra chủ đơn |
 | `GET /api/booking` | `ADMIN` xem tất cả; `USER` chỉ được gọi với `?username=<chính mình>` | v2.1 §4.2 ghi `ADMIN`; **đề xuất** nới cho `USER` vì trang "Vé của tôi" của Client dùng endpoint này |
-| `POST .../pay`, `POST .../cancel` | JWT; chủ đơn lấy từ `sub`; `ADMIN` thao tác được mọi đơn | **Đề xuất**, không có trong v2.1 (D-18b). Trang Admin đang hủy đơn hộ khách |
+| `POST .../pay`, `POST .../cancel`, `PUT`/`DELETE /api/booking/{id}` | JWT; chủ đơn lấy từ `sub`; `ADMIN` thao tác được mọi đơn | **Đề xuất**, không có trong v2.1 (D-18b). Trang Admin đang hủy đơn hộ khách |
 | `GET .../seats`, `.../availability`, `/health` | Công khai | **Đề xuất**: không chứa dữ liệu cá nhân, Client vẽ sơ đồ ghế bằng các endpoint này |
 
 Quy định JWT chung: **HS256**; khóa lấy từ biến môi trường `JWT_SECRET` (>= 32 ký tự, chuyển sang byte bằng **UTF-8 thô, không giải mã Base64**); claims `sub` (username), `userId`, `role` (`USER`/`ADMIN`), `iat`, `exp` (+2 giờ); gửi bằng `Authorization: Bearer <token>`; cho phép lệch giờ **60 giây**; thiếu/sai token → 401, đủ token nhưng thiếu quyền → 403; phải trả **204** cho `OPTIONS` (trình duyệt luôn gửi preflight khi có header `Authorization`). Khóa thật **không** được commit. Giữa kỳ các endpoint còn công khai — thời điểm bật xác thực do nhóm trưởng quyết (D-18).
@@ -217,7 +217,7 @@ python tests/integration/run_tests.py --expect-down payment # tắt Payment trư
 - [x] `/health`, `OPTIONS → 204`, CORS `*` đúng (D-07 xử lý trong phạm vi service).
 - [x] Schema SQLite idempotent, seed giữ nguyên id/giá trị; không có `DROP`.
 - [x] Không lộ trường nhạy cảm, lỗi SQL, stack trace.
-- [x] Test của service pass (237 test, DB tạm); `docker compose up --build` chạy cả 6 service và `/health` OK.
+- [x] Test của service pass (263 test, DB tạm); `docker compose up --build` chạy cả 6 service và `/health` OK.
 - [x] Chạy lại các nhóm [kịch bản lỗi] trong `INTEGRATION_FLOW.md` §2 với service đối tác tắt (503/`FAILED`/`SKIPPED`).
 - [x] Hai request đặt cùng ghế đồng thời: đúng một request thành công (20 request thật vào container: 1 thành công, 19 `SEAT_TAKEN`).
 - [x] Cập nhật README này và `docs/MIGRATION_TRACKER.md`; không commit `.env`, `*.db`, `__pycache__/`.
@@ -265,5 +265,4 @@ Mọi path, method, tên trường, mã HTTP và mã lỗi giữ nguyên. Các �
 | Hai yêu cầu `/pay` song song cho cùng đơn | Gửi 2 thông báo, ghi log nhầm "cần hoàn tiền" | Chỉ gửi 1 thông báo, không ghi log nhầm | Yêu cầu thứ hai nhận ra đơn đã `PAID` |
 | Showtime trả thiếu `price`/`movieId` | 500 | 502 `SHOWTIME_SERVICE_ERROR` | Lỗi của đối tác, đúng nhóm mã trong hợp đồng |
 | Id đơn vượt `INT` trên đường dẫn | 500 | 404 `NOT_FOUND` | Mã cũ tràn số khi parse |
-| `Access-Control-Allow-Methods` | Có cả `PUT, DELETE` | Chỉ `GET, POST, OPTIONS` | Service không có `PUT/DELETE` |
 | Chế độ `BOOKING_STORE=memory` | Có | Bỏ | Test dùng SQLite tạm |

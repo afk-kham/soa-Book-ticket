@@ -85,6 +85,8 @@ Mật khẩu băm BCrypt; `passwordHash` **không bao giờ** xuất hiện tron
 | POST | `/api/booking/{id}/cancel` | Hủy đơn đang giữ ghế `{username}` → 200 (nhả ghế). Đơn đã trả → 409 `PAID_NOT_CANCELLABLE`. |
 | GET | `/api/booking` | Danh sách; lọc `?username=&status=&showtimeId=` |
 | GET | `/api/booking/{id}` | Chi tiết |
+| PUT | `/api/booking/{id}` | Đổi ghế của đơn đang giữ `{username, seats}` → 200. Giá = đơn giá cũ × số ghế mới, hạn giữ ghế không đổi. Đơn đã trả → 409 `ALREADY_PAID`; đã hủy/hết hạn → 409 `BOOKING_CANCELLED`; ghế mới đã có người giữ → 409 `SEAT_TAKEN`. |
+| DELETE | `/api/booking/{id}?username=` | Xóa hẳn đơn ở mọi trạng thái → 200 (trả đơn vừa xóa). Không phải chủ đơn → 403 `FORBIDDEN`. |
 | GET | `/api/booking/seats?showtimeId=1` | Ghế đang bị giữ (PENDING/PAID) — Client vẽ sơ đồ ghế |
 | GET | `/api/booking/availability?showtimeIds=1,2,3` | `[{showtimeId, taken}]` — số ghế đã bị giữ của nhiều suất (Client hiện "còn N ghế") |
 | GET | `/health` | Kiểm tra sống (có ping DB) |

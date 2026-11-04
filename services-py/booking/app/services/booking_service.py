@@ -223,6 +223,32 @@ class BookingService:
             self._repo.try_update_status(booking_id, PENDING, CANCELLED)
         return BookingResult(self._find(booking_id), None, NOTIFICATION_SKIPPED)
 
+    # ------------------------------------------------------------------ đổi ghế / xóa
+    def update_seats(self, booking_id: int, username: str, seats: list[str], is_admin: bool = False) -> Booking:
+        """Đổi ghế của đơn đang giữ. Giá tính lại theo đơn giá cũ (không gọi Showtime), hạn giữ ghế giữ nguyên."""
+        with self._repo.transaction() as tx:
+            self._expire_holds(tx)
+            booking = self._owned(booking_id, username, is_admin, tx)
+            if booking.status == PAID:
+                raise BookingError("ALREADY_PAID", f"Đơn #{booking_id} đã thanh toán, không thể đổi ghế")
+            if booking.status == CANCELLED:
+                raise BookingError("BOOKING_CANCELLED", f"Đơn #{booking_id} đã hết hạn giữ ghế hoặc đã bị hủy")
+            taken = tx.taken_seats(booking.showtime_id) - set(booking.seats)  # ghế của chính đơn này chọn lại được
+            clash = [seat for seat in seats if seat in taken]
+            if clash:
+                raise BookingError("SEAT_TAKEN", f"Ghế đã có người đặt: {', '.join(clash)}")
+            unit_price = booking.total_price // len(booking.seats)
+            tx.update_seats(booking_id, seats, unit_price * len(seats))
+            return self._find(booking_id, tx)
+
+    def delete_booking(self, booking_id: int, username: str, is_admin: bool = False) -> Booking:
+        """Xóa hẳn đơn ở mọi trạng thái, trả về đơn vừa xóa. id không bị dùng lại (AUTOINCREMENT)."""
+        with self._repo.transaction() as tx:
+            self._expire_holds(tx)
+            booking = self._owned(booking_id, username, is_admin, tx)
+            tx.delete(booking_id)
+        return booking
+
     # ------------------------------------------------------------------ đọc
     def list_bookings(self, username: str | None, status: str | None, showtime_id: int | None) -> list[Booking]:
         self.expire_holds()
@@ -249,8 +275,10 @@ class BookingService:
             raise BookingError("NOT_FOUND", f"Không tìm thấy đơn đặt vé có id {booking_id}")
         return booking
 
-    def _owned(self, booking_id: int, username: str, is_admin: bool) -> Booking:
-        booking = self._find(booking_id)
+    def _owned(
+        self, booking_id: int, username: str, is_admin: bool, repo: BookingRepository | None = None
+    ) -> Booking:
+        booking = self._find(booking_id, repo)
         if not is_admin and booking.username != username:
             raise BookingError("FORBIDDEN", "Bạn không có quyền thao tác với đơn này")
         return booking

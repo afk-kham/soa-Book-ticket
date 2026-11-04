@@ -293,7 +293,9 @@ def test_unknown_path_is_404_envelope(client):
     [
         ("put", "/api/booking", "GET, OPTIONS, POST"),
         ("delete", "/api/booking", "GET, OPTIONS, POST"),
-        ("delete", "/api/booking/1", "GET, OPTIONS"),
+        ("patch", "/api/booking/1", "DELETE, GET, OPTIONS, PUT"),
+        ("put", "/api/booking/seats", "GET, OPTIONS"),
+        ("delete", "/api/booking/availability", "GET, OPTIONS"),
         ("post", "/api/booking/seats", "GET, OPTIONS"),
         ("post", "/api/booking/availability", "GET, OPTIONS"),
         ("get", "/api/booking/1/pay", "OPTIONS, POST"),
@@ -314,6 +316,7 @@ def test_options_is_204_without_body(client, path):
     assert r.content == b""
     assert r.headers["access-control-allow-origin"] == "*"
     assert "Authorization" in r.headers["access-control-allow-headers"]
+    assert r.headers["access-control-allow-methods"] == "GET, POST, PUT, DELETE, OPTIONS"
 
 
 @pytest.mark.parametrize("path", ["/health", "/api/booking", "/api/booking/99", "/khong-co"])
@@ -342,3 +345,7 @@ def test_openapi_documents_every_business_endpoint_and_request_body(client):
     }
     properties = paths["/api/booking"]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"]
     assert {"username", "movieId", "showtimeId", "seats", "paymentMethod", "payNow"} == set(properties)
+    detail = paths["/api/booking/{booking_id}"]
+    assert {"get", "put", "delete"} == set(detail)
+    assert {"username", "seats"} == set(detail["put"]["requestBody"]["content"]["application/json"]["schema"]["properties"])
+    assert "username" in {p["name"] for p in detail["delete"]["parameters"]}
