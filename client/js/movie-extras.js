@@ -262,7 +262,8 @@
     if (item.titleVi) LOOKUP_MAP[normalizeKey(item.titleVi)] = item;
   });
 
-  // Hỗ trợ ánh xạ theo ID và tên tệp poster của 15 phim gốc
+  // Ánh xạ tên tệp poster của 15 phim gốc (seed dùng poster1.jpg...); cột đầu là id trong seed, chỉ để đối chiếu.
+  // KHÔNG khớp theo id: id do CSDL cấp, phim thêm mới/đổi tên sẽ bị gắn poster, mô tả, trailer của phim khác.
   var ID_MAP = [
     [1, "avengers-endgame", "poster1"],
     [2, "inception", "poster2"],
@@ -284,7 +285,6 @@
   ID_MAP.forEach(function (pair) {
     var item = MOVIE_EXTRAS[pair[1]];
     if (item) {
-      LOOKUP_MAP[String(pair[0])] = item;
       LOOKUP_MAP[pair[2]] = item;
       LOOKUP_MAP[pair[2] + ".jpg"] = item;
       LOOKUP_MAP["assets/posters/" + pair[2] + ".jpg"] = item;
@@ -303,11 +303,6 @@
     var title = apiMovie.title || "";
     var key = normalizeKey(title);
     var extra = LOOKUP_MAP[key] || null;
-
-    // Khớp theo ID nếu không khớp tên
-    if (!extra && apiMovie.id) {
-      extra = LOOKUP_MAP[String(apiMovie.id)] || null;
-    }
 
     // Nếu không khớp tên, thử khớp theo trường poster
     if (!extra && apiMovie.poster) {
