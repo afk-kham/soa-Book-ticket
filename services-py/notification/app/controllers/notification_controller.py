@@ -80,3 +80,7 @@ async def delete_log(log_id: str) -> JSONResponse:
     lid = _parse_id(log_id)
     service.delete_log(lid)
     return success_response({"id": lid, "deleted": True, "message": "Đã xóa nhật ký thông báo thành công"})
+
+async def find_key_word(keyword: str = Query(..., description="Từ khóa tìm kiếm")) -> JSONResponse:
+    logs = service.find_key_word(keyword)
+    return success_response([log_to_dict(n) for n in logs])

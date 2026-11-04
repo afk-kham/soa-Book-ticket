@@ -150,3 +150,10 @@ class NotificationService:
     def delete_log(self, log_id: int) -> None:
         if not self._store("xóa", self.repo.delete, log_id):
             raise ApiError(404, "Không tìm thấy nhật ký thông báo để xóa")
+
+    # GET /api/notify/logs/find?keyword=
+    def find_key_word(self, keyword: str) -> list[NotificationLog]:
+        keyword = keyword.strip()
+        if keyword == "":
+            raise ApiError(400, "Từ khóa tìm kiếm không được để trống")
+        return self._store("đọc", self.repo.find_key_word, keyword)
