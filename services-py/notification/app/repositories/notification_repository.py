@@ -59,3 +59,17 @@ class NotificationRepository:
     def delete(self, log_id: int) -> bool:
         with get_connection() as conn:
             return conn.execute("DELETE FROM notification_logs WHERE id = ?", (log_id,)).rowcount > 0
+
+    def find_key_word(self, keyword: str) -> "list[NotificationLog]":  # chuỗi: method list() ở trên che builtin
+        """Bản ghi có message chứa từ khóa (không phân biệt hoa thường), mới nhất trước.
+
+        LOWER/LIKE của SQLite chỉ xử lý ASCII ("đặt" không khớp "Đặt") và coi % _ là ký tự đại diện,
+        nên so khớp bằng INSTR trên chuỗi đã casefold của Python.
+        """
+        with get_connection() as conn:
+            conn.create_function("FOLD", 1, str.casefold, deterministic=True)
+            rows = conn.execute(
+                f"SELECT {_COLUMNS} FROM notification_logs WHERE INSTR(FOLD(message), ?) > 0 "
+                "ORDER BY sent_at DESC, id DESC",
+                (keyword.casefold(),)).fetchall()
+            return [_row(r) for r in rows]

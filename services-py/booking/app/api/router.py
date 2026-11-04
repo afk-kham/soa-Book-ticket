@@ -1,6 +1,6 @@
 """Router của Booking Service: chỉ khai báo path/method/mã HTTP và nối sang Controller.
 
-Chỉ các endpoint có trong API_CONTRACT §5. KHÔNG có PUT/DELETE CRUD chung (sẽ phá nghiệp vụ đặt/trả/hủy).
+Đặt/trả/hủy là hành động nên dùng POST. PUT chỉ đổi ghế của đơn đang giữ, DELETE xóa hẳn đơn.
 Body được Controller tự đọc để giữ đúng thông báo lỗi của hợp đồng, nên phải khai báo tay cho Swagger.
 """
 from fastapi import APIRouter, Depends, Query, Request
@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from app.api.deps import get_booking_controller
 from app.controllers import BookingController
-from app.schemas import CancelBookingRequest, CreateBookingRequest, PayBookingRequest
+from app.schemas import CancelBookingRequest, CreateBookingRequest, PayBookingRequest, UpdateBookingRequest
 
 api_router = APIRouter()
 
@@ -66,6 +66,28 @@ async def get_booking(
     request: Request, booking_id: int, controller: BookingController = Depends(get_booking_controller)
 ):
     return controller.get(request, booking_id)
+
+
+@api_router.put(
+    "/api/booking/{booking_id:int}",
+    tags=["booking"],
+    summary="Đổi ghế của đơn đang giữ ghế (PENDING)",
+    openapi_extra=_body(UpdateBookingRequest),
+)
+async def update_booking(
+    request: Request, booking_id: int, controller: BookingController = Depends(get_booking_controller)
+):
+    return await controller.update(request, booking_id)
+
+
+@api_router.delete("/api/booking/{booking_id:int}", tags=["booking"], summary="Xóa hẳn đơn (chủ đơn hoặc ADMIN)")
+async def delete_booking(
+    request: Request,
+    booking_id: int,
+    username: str | None = Query(default=None, description="Bỏ qua khi bật JWT_REQUIRED: lấy từ token"),
+    controller: BookingController = Depends(get_booking_controller),
+):
+    return controller.delete(request, booking_id, username)
 
 
 @api_router.post(

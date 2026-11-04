@@ -43,6 +43,8 @@ Cột *Cũ* = đã xác minh trong code cũ; *Py* = trạng thái bản Python. 
 | Booking | `POST /api/booking/{id}/cancel` | ✅ | ✅ | `tests/test_booking_flow.py` | TV4 | |
 | Booking | `GET /api/booking` | ✅ | ✅ | `tests/test_booking_api.py` | TV4 | |
 | Booking | `GET /api/booking/{id}` | ✅ | ✅ | `tests/test_booking_api.py` | TV4 | |
+| Booking | `PUT /api/booking/{id}` (đổi ghế) | — (mới) | ✅ | `tests/test_booking_flow.py` | TV4 | |
+| Booking | `DELETE /api/booking/{id}` | — (mới) | ✅ | `tests/test_booking_flow.py` | TV4 | |
 | Booking | `GET /api/booking/seats` | ✅ | ✅ | `tests/test_booking_api.py` | TV4 | |
 | Booking | `GET /api/booking/availability` | ✅ | ✅ | `tests/test_booking_api.py` | TV4 | |
 | Booking | `GET /health` (ping DB) | ✅ | ✅ | `tests/test_booking_api.py` | TV4 | |

@@ -120,7 +120,13 @@ Admin.crudPage({
           return;
         }
         var src = val.indexOf("http") === 0 ? val : (val.indexOf("assets/") === 0 ? "../" + val : "../assets/posters/" + val);
-        posterPreview.innerHTML = '<img src="' + src + '" style="width:40px;height:60px;object-fit:cover;border-radius:4px" onerror="this.src=\'../assets/posters/inception.jpg\'"><div class="small text-secondary">Xem trước áp phích</div>';
+        posterPreview.innerHTML = '<img src="' + Admin.esc(src) + '" style="width:40px;height:60px;object-fit:cover;border-radius:4px"><div class="small text-secondary">Xem trước áp phích</div>';
+        // Không tìm thấy ảnh: báo rõ, không thay bằng poster phim khác (dễ tưởng đó là poster của phim này)
+        posterPreview.firstChild.onerror = function () {
+          this.style.display = "none";
+          this.nextSibling.className = "small text-warning";
+          this.nextSibling.textContent = "Không tìm thấy ảnh poster — kiểm tra lại tên tệp hoặc URL";
+        };
         posterPreview.style.display = "flex";
       }
       posterInp.oninput = updatePosterPreview;

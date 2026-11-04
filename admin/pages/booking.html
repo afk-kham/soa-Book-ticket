@@ -323,7 +323,9 @@ document.getElementById("btn-reload").onclick = load;
 // MODAL BÁN VÉ TẠI QUẦY (POS) HOÀN CHỈNH VỚI SƠ ĐỒ GHẾ
 // =============================================================================
 document.getElementById("btn-new").onclick = async function () {
-  await lookups();
+  // Booking chỉ nhận tài khoản có trong User Service: khách vãng lai ghi dưới tài khoản quầy
+  var COUNTER_ACCOUNT = "admin";
+  var users = (await Promise.all([lookups(), Admin.tryApi("user", "/api/users", [])]))[1] || [];
   var mIds = Object.keys(movies);
   if (!mIds.length) {
     Admin.toast("Không tìm thấy phim nào trong hệ thống", "error");
@@ -339,10 +341,21 @@ document.getElementById("btn-new").onclick = async function () {
   m.className = "modal pos-modal";
   m.style.maxWidth = "560px";
 
+  // Chỉ suất chưa bắt đầu (Booking từ chối suất đã chiếu: SHOWTIME_CLOSED), gần nhất trước
   function getShowtimesForMovie(mId) {
+    var now = Date.now();
     return Object.values(shows).filter(function (s) {
-      return String(s.movieId) === String(mId);
-    });
+      return String(s.movieId) === String(mId) && !(new Date(String(s.time).replace(" ", "T")).getTime() <= now);
+    }).sort(function (a, b) { return String(a.time).localeCompare(String(b.time)); });
+  }
+
+  function showtimeOptions(list) {
+    if (!list.length) return '<option value="">(Phim này chưa có suất chiếu sắp tới)</option>';
+    return list.map(function (s) {
+      var t = Admin.fmtTime(s.time);
+      return '<option value="' + s.id + '">' + esc(s.cinema) + " · " + esc(s.room) + " · " + t.slice(8, 10) + "/" + t.slice(5, 7) +
+        " " + t.slice(11, 16) + " (" + Admin.money(s.price) + ")</option>";
+    }).join("");
   }
 
   async function updateSeatGrid() {
@@ -417,11 +430,10 @@ document.getElementById("btn-new").onclick = async function () {
     }).join("");
 
     currentShowtimes = getShowtimesForMovie(defaultMovieId);
-    var stOptions = currentShowtimes.length
-      ? currentShowtimes.map(function (s) {
-          return '<option value="' + s.id + '">' + esc(s.cinema) + " · P" + esc(s.room) + " · " + Admin.fmtTime(s.time).slice(11, 16) + " (" + Admin.money(s.price) + ")</option>";
-        }).join("")
-      : '<option value="">(Phim này chưa có suất chiếu)</option>';
+    var stOptions = showtimeOptions(currentShowtimes);
+    var userOptions = users.map(function (u) {
+      return '<option value="' + esc(u.username) + '">' + (u.role === "ADMIN" ? "Quản trị" : "Khách hàng") + "</option>";
+    }).join("");
 
     m.innerHTML =
       '<h3>Bán vé tại quầy (POS)</h3>' +
@@ -443,8 +455,12 @@ document.getElementById("btn-new").onclick = async function () {
           '<div id="pos-seat-grid-host"></div>' +
         '</div>' +
         '<div class="mb-3">' +
-          '<label class="form-label small text-secondary">Tên khách hàng</label>' +
-          '<input type="text" class="form-control" id="pos-username" value="guest" required placeholder="Tên khách hoặc số điện thoại">' +
+          '<label class="form-label small text-secondary" for="pos-username">Tài khoản khách hàng</label>' +
+          '<input type="text" class="form-control" id="pos-username" list="pos-user-list" autocomplete="off" value="' +
+            esc(COUNTER_ACCOUNT) + '" placeholder="' + esc(COUNTER_ACCOUNT) + ' (khách vãng lai)">' +
+          '<datalist id="pos-user-list">' + userOptions + '</datalist>' +
+          '<div class="small text-secondary mt-1">Khách vãng lai: để ' + esc(COUNTER_ACCOUNT) +
+            '. Khách có tài khoản: chọn tên của khách để vé hiện trong "Vé của tôi".</div>' +
         '</div>' +
         '<div class="actions mt-4">' +
           '<button type="button" class="secondary" id="pos-cancel">Đóng</button>' +
@@ -458,17 +474,18 @@ document.getElementById("btn-new").onclick = async function () {
     document.getElementById("pos-movie").onchange = function () {
       defaultMovieId = this.value;
       currentShowtimes = getShowtimesForMovie(defaultMovieId);
-      var stSelect = document.getElementById("pos-showtime");
-      stSelect.innerHTML = currentShowtimes.length
-        ? currentShowtimes.map(function (s) {
-            return '<option value="' + s.id + '">' + esc(s.cinema) + " · P" + esc(s.room) + " · " + Admin.fmtTime(s.time).slice(11, 16) + " (" + Admin.money(s.price) + ")</option>";
-          }).join("")
-        : '<option value="">(Phim này chưa có suất chiếu)</option>';
+      document.getElementById("pos-showtime").innerHTML = showtimeOptions(currentShowtimes);
       updateSeatGrid();
     };
 
     // Lắng nghe đổi suất
     document.getElementById("pos-showtime").onchange = updateSeatGrid;
+
+    // Trình duyệt chỉ gợi ý tài khoản khớp chữ đang có trong ô: xóa giá trị mặc định khi bấm vào để hiện đủ danh sách,
+    // bỏ trống thì trả lại tài khoản quầy
+    var userInput = document.getElementById("pos-username");
+    userInput.onfocus = function () { if (this.value === COUNTER_ACCOUNT) this.value = ""; };
+    userInput.onblur = function () { if (!this.value.trim()) this.value = COUNTER_ACCOUNT; };
 
     // Đóng modal
     document.getElementById("pos-cancel").onclick = function () {
@@ -478,7 +495,7 @@ document.getElementById("btn-new").onclick = async function () {
     // Xác nhận bán vé
     document.getElementById("pos-submit").onclick = async function () {
       var stId = document.getElementById("pos-showtime").value;
-      var uname = document.getElementById("pos-username").value.trim() || "guest";
+      var uname = document.getElementById("pos-username").value.trim() || COUNTER_ACCOUNT;
 
       if (!stId) {
         Admin.toast("Vui lòng chọn một suất chiếu hợp lệ", "error");
@@ -506,7 +523,8 @@ document.getElementById("btn-new").onclick = async function () {
         bg.classList.remove("open");
         load();
       } catch (err) {
-        Admin.toast("Không thể bán vé: " + err.message, "error");
+        var hint = err.code === "USER_NOT_FOUND" ? ". Khách vãng lai hãy để " + COUNTER_ACCOUNT : "";
+        Admin.toast("Không thể bán vé: " + err.message + hint, "error");
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-cash me-1"></i> Thu tiền & Xuất vé';
       }

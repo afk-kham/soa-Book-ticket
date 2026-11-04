@@ -54,6 +54,18 @@ def _outcome(transaction: dict, method: str) -> PaymentOutcome:
     )
 
 
+def _covers(transaction: dict, total_price: int) -> bool:
+    """Giao dịch PAID trả đủ tiền đơn. Payment ghi amount do bên gọi gửi (Client tự gửi khi tạo link VNPAY,
+    ai cũng gọi được POST /api/payment), nên không được tin chỉ vì status = PAID."""
+    amount = transaction.get("amount")
+    return (
+        transaction.get("status") == PAYMENT_PAID
+        and isinstance(amount, (int, float))
+        and not isinstance(amount, bool)
+        and amount >= total_price
+    )
+
+
 class BookingService:
     def __init__(self, repository: BookingRepository, upstream: UpstreamClient):
         self._repo = repository
@@ -223,6 +235,32 @@ class BookingService:
             self._repo.try_update_status(booking_id, PENDING, CANCELLED)
         return BookingResult(self._find(booking_id), None, NOTIFICATION_SKIPPED)
 
+    # ------------------------------------------------------------------ đổi ghế / xóa
+    def update_seats(self, booking_id: int, username: str, seats: list[str], is_admin: bool = False) -> Booking:
+        """Đổi ghế của đơn đang giữ. Giá tính lại theo đơn giá cũ (không gọi Showtime), hạn giữ ghế giữ nguyên."""
+        with self._repo.transaction() as tx:
+            self._expire_holds(tx)
+            booking = self._owned(booking_id, username, is_admin, tx)
+            if booking.status == PAID:
+                raise BookingError("ALREADY_PAID", f"Đơn #{booking_id} đã thanh toán, không thể đổi ghế")
+            if booking.status == CANCELLED:
+                raise BookingError("BOOKING_CANCELLED", f"Đơn #{booking_id} đã hết hạn giữ ghế hoặc đã bị hủy")
+            taken = tx.taken_seats(booking.showtime_id) - set(booking.seats)  # ghế của chính đơn này chọn lại được
+            clash = [seat for seat in seats if seat in taken]
+            if clash:
+                raise BookingError("SEAT_TAKEN", f"Ghế đã có người đặt: {', '.join(clash)}")
+            unit_price = booking.total_price // len(booking.seats)
+            tx.update_seats(booking_id, seats, unit_price * len(seats))
+            return self._find(booking_id, tx)
+
+    def delete_booking(self, booking_id: int, username: str, is_admin: bool = False) -> Booking:
+        """Xóa hẳn đơn ở mọi trạng thái, trả về đơn vừa xóa. id không bị dùng lại (AUTOINCREMENT)."""
+        with self._repo.transaction() as tx:
+            self._expire_holds(tx)
+            booking = self._owned(booking_id, username, is_admin, tx)
+            tx.delete(booking_id)
+        return booking
+
     # ------------------------------------------------------------------ đọc
     def list_bookings(self, username: str | None, status: str | None, showtime_id: int | None) -> list[Booking]:
         self.expire_holds()
@@ -249,8 +287,10 @@ class BookingService:
             raise BookingError("NOT_FOUND", f"Không tìm thấy đơn đặt vé có id {booking_id}")
         return booking
 
-    def _owned(self, booking_id: int, username: str, is_admin: bool) -> Booking:
-        booking = self._find(booking_id)
+    def _owned(
+        self, booking_id: int, username: str, is_admin: bool, repo: BookingRepository | None = None
+    ) -> Booking:
+        booking = self._find(booking_id, repo)
         if not is_admin and booking.username != username:
             raise BookingError("FORBIDDEN", "Bạn không có quyền thao tác với đơn này")
         return booking
@@ -271,41 +311,54 @@ class BookingService:
             )
         except BookingError:
             # Có thể Payment đã ghi giao dịch nhưng phản hồi bị mất: hỏi lại trước khi kết luận
-            known = await self._reconcile(booking.id, method, headers)
+            known = await self._reconcile(booking, method, headers)
             if known is not None:
                 return known
             raise
         if reply.ok and isinstance(reply.data, dict) and "status" in reply.data:
             return _outcome(reply.data, method)
         if reply.status == 409:  # ALREADY_PAID: đơn đã trả trước đó
-            known = await self._reconcile(booking.id, method, headers)
+            known = await self._reconcile(booking, method, headers)
             if known is not None and known.status == PAYMENT_PAID:
                 return known
+            if known is not None:  # Payment báo đã trả nhưng không có giao dịch PAID nào đủ tiền
+                raise BookingError(
+                    "PAYMENT_SERVICE_ERROR", f"Giao dịch đã ghi nhận cho đơn #{booking.id} không đủ số tiền của đơn"
+                )
         raise BookingError("PAYMENT_SERVICE_ERROR", f"Payment Service từ chối giao dịch ({self._reason(reply)})")
 
     @staticmethod
     def _reason(reply: Reply) -> str:
         return reply.message or f"HTTP {reply.status}"
 
-    async def _reconcile(self, booking_id: int, method: str, headers: dict | None) -> PaymentOutcome | None:
-        """Giao dịch đã ghi nhận của đơn: ưu tiên giao dịch PAID, không có thì lấy giao dịch mới nhất."""
+    async def _reconcile(self, booking: Booking, method: str, headers: dict | None) -> PaymentOutcome | None:
+        """Giao dịch đã ghi nhận của đơn: ưu tiên giao dịch PAID trả đủ tiền, không có thì lấy giao dịch mới nhất.
+        PAID mà thiếu tiền được đọc thành FAILED: đơn vẫn PENDING, không chốt vé."""
         try:
             reply = await self._upstream.send(
                 "GET",
                 f"{config.PAYMENT_SERVICE_URL.rstrip('/')}/api/payment",
                 "Payment Service",
                 "PAYMENT_SERVICE_UNAVAILABLE",
-                params={"bookingId": booking_id},
+                params={"bookingId": booking.id},
                 headers=headers,
                 timeout=RECONCILE_TIMEOUT_SECONDS,
             )
         except BookingError:
             return None
-        if not reply.ok or not isinstance(reply.data, list) or not reply.data:
+        if not reply.ok or not isinstance(reply.data, list):
             return None
-        paid = (tx for tx in reply.data if isinstance(tx, dict) and tx.get("status") == PAYMENT_PAID)
-        transaction = next(paid, reply.data[0])
-        return _outcome(transaction, method) if isinstance(transaction, dict) else None
+        transactions = [tx for tx in reply.data if isinstance(tx, dict)]
+        if not transactions:
+            return None
+        paid = next((tx for tx in transactions if _covers(tx, booking.total_price)), None)
+        if paid is not None:
+            return _outcome(paid, method)
+        latest = _outcome(transactions[0], method)
+        if latest.status == PAYMENT_PAID:
+            logger.warning("Đơn #%s: giao dịch PAID không đủ %s đ, không chốt đơn", booking.id, booking.total_price)
+            return PaymentOutcome(status=PAYMENT_FAILED, method=method, transaction_id=latest.transaction_id)
+        return latest
 
     async def _notify(self, username: str, booking_id: int) -> str:
         """Gửi thông báo xác nhận (best-effort) -> SENT | FAILED."""

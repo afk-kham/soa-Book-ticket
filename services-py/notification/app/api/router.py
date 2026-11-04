@@ -27,6 +27,8 @@ R("/api/notify", c.notify, methods=["POST"], summary="Gửi thông báo giả l�
 R("/api/notify/logs", c.list_logs, methods=["GET"], summary="Danh sách nhật ký (mới nhất trước)")
 R("/api/notify/logs", c.create_log, methods=["POST"], status_code=201, summary="Tạo bản ghi nhật ký",
   openapi_extra=_body(CreateLogRequest))
+# Phải khai báo TRƯỚC /logs/{log_id}: route khớp theo thứ tự, nếu sau thì "find" bị hiểu là log_id (400)
+R("/api/notify/logs/find", c.find_key_word, methods=["GET"], summary="Tìm kiếm theo từ khóa trong nội dung")
 R("/api/notify/logs/{log_id}", c.get_log, methods=["GET"], summary="Chi tiết một bản ghi")
 R("/api/notify/logs/{log_id}", c.update_log, methods=["PUT"], summary="Cập nhật bản ghi (mọi trường tùy chọn)",
   openapi_extra=_body(UpdateLogRequest))

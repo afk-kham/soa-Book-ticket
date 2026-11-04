@@ -5,6 +5,7 @@ from app.schemas.booking import (
     CancelBookingRequest,
     CreateBookingRequest,
     PayBookingRequest,
+    UpdateBookingRequest,
 )
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     "CancelBookingRequest",
     "CreateBookingRequest",
     "PayBookingRequest",
+    "UpdateBookingRequest",
 ]

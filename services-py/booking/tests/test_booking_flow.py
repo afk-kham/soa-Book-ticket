@@ -448,11 +448,37 @@ def test_pay_when_payment_says_already_paid_recovers_the_transaction(client, ups
 def test_reconcile_prefers_paid_over_newer_failed(client, upstreams, order):
     booking = hold(client, order)
     upstreams.transactions += [
-        {"id": "1", "bookingId": booking["id"], "status": "PAID"},
-        {"id": "2", "bookingId": booking["id"], "status": "FAILED"},
+        {"id": "1", "bookingId": booking["id"], "amount": 180000, "status": "PAID"},
+        {"id": "2", "bookingId": booking["id"], "amount": 180000, "status": "FAILED"},
     ]
     upstreams.lose_payment_reply = True
     r = client.post(f"/api/booking/{booking['id']}/pay", json={"username": "user1", "paymentMethod": "MOMO"})
+    assert r.json()["data"]["payment"]["transactionId"] == "1"
+
+
+@pytest.mark.parametrize("amount", [1000, 179999, None, "180000", True])
+def test_underpaid_transaction_does_not_settle_order(client, upstreams, order, amount):
+    """Ai cũng gọi được POST /api/payment (Client tự gửi amount khi tạo link VNPAY): Payment ghi PAID 1.000 đ
+    rồi trả 409 cho Booking. Đối soát phải so số tiền, không chốt đơn 180.000 đ chỉ vì status = PAID."""
+    booking = hold(client, order)
+    upstreams.transactions.append(
+        {"id": "9", "bookingId": booking["id"], "amount": amount, "method": "MOMO", "status": "PAID", "paidAt": "x"}
+    )
+    r = client.post(f"/api/booking/{booking['id']}/pay", json={"username": "user1", "paymentMethod": "VNPAY"})
+    assert is_error(r, 502, "PAYMENT_SERVICE_ERROR")
+    assert "không đủ số tiền" in r.json()["message"]
+    assert client.get(f"/api/booking/{booking['id']}").json()["data"]["status"] == "PENDING"
+    assert upstreams.service_calls("notification") == []
+
+
+def test_underpaid_paid_is_skipped_when_a_full_payment_exists(client, upstreams, order):
+    booking = hold(client, order)
+    upstreams.transactions += [
+        {"id": "1", "bookingId": booking["id"], "amount": 180000, "status": "PAID"},
+        {"id": "2", "bookingId": booking["id"], "amount": 1000, "status": "PAID"},
+    ]
+    r = client.post(f"/api/booking/{booking['id']}/pay", json={"username": "user1", "paymentMethod": "MOMO"})
+    assert r.json()["data"]["status"] == "PAID"
     assert r.json()["data"]["payment"]["transactionId"] == "1"
 
 
@@ -549,6 +575,135 @@ def test_cancel_unknown_order_is_404(client):
 def test_cancel_without_username_is_400(client, order):
     booking = hold(client, order)
     assert is_error(client.post(f"/api/booking/{booking['id']}/cancel", json={}), 400, "VALIDATION_ERROR")
+
+
+# ------------------------------------------------------------------ đổi ghế (PUT)
+def test_update_changes_seats_and_recomputes_price(client, upstreams, order):
+    booking = hold(client, order)
+    calls_before = len(upstreams.calls)
+    r = client.put(f"/api/booking/{booking['id']}", json={"username": "user1", "seats": ["a3", "A4", "A5"]})
+    assert r.status_code == 200
+    data = r.json()["data"]
+    assert data["seats"] == ["A3", "A4", "A5"]
+    assert data["totalPrice"] == 270000  # đơn giá cũ 90000 x 3 ghế
+    assert data["status"] == "PENDING"
+    assert data["expiresAt"] == booking["expiresAt"]  # đổi ghế không kéo dài hạn giữ
+    assert "payment" not in data
+    assert seats_of(client) == ["A3", "A4", "A5"]
+    assert len(upstreams.calls) == calls_before  # không gọi service nào
+
+
+def test_update_may_keep_some_of_its_own_seats(client, order):
+    booking = hold(client, order)
+    r = client.put(f"/api/booking/{booking['id']}", json={"username": "user1", "seats": ["A2", "A3"]})
+    assert r.json()["data"]["seats"] == ["A2", "A3"]
+
+
+def test_update_to_seat_of_other_order_is_409_and_nothing_changes(client, order):
+    hold(client, order, username="user2", seats=["B1"])
+    booking = hold(client, order)
+    r = client.put(f"/api/booking/{booking['id']}", json={"username": "user1", "seats": ["A1", "B1"]})
+    assert is_error(r, 409, "SEAT_TAKEN")
+    assert "B1" in r.json()["message"]
+    assert rows("SELECT seats, total_price FROM bookings WHERE id = ?", booking["id"])[0]["seats"] == "A1,A2"
+
+
+def test_update_paid_order_is_409(client, order):
+    booking = client.post("/api/booking", json=order()).json()["data"]
+    r = client.put(f"/api/booking/{booking['id']}", json={"username": "user1", "seats": ["A3"]})
+    assert is_error(r, 409, "ALREADY_PAID")
+
+
+@pytest.mark.parametrize("make_cancelled", [
+    lambda c, b: c.post(f"/api/booking/{b}/cancel", json={"username": "user1"}),
+    lambda _, b: age_booking(b, 11),
+])
+def test_update_cancelled_or_expired_order_is_409(client, order, make_cancelled):
+    booking = hold(client, order)
+    make_cancelled(client, booking["id"])
+    r = client.put(f"/api/booking/{booking['id']}", json={"username": "user1", "seats": ["A3"]})
+    assert is_error(r, 409, "BOOKING_CANCELLED")
+
+
+def test_update_by_someone_else_is_403(client, order):
+    booking = hold(client, order)
+    r = client.put(f"/api/booking/{booking['id']}", json={"username": "user2", "seats": ["A3"]})
+    assert is_error(r, 403, "FORBIDDEN")
+    assert rows()[0]["seats"] == "A1,A2"
+
+
+def test_update_unknown_order_is_404(client):
+    assert is_error(client.put("/api/booking/99", json={"username": "user1", "seats": ["A1"]}), 404, "NOT_FOUND")
+
+
+@pytest.mark.parametrize(
+    "body, message",
+    [
+        ({"seats": ["A1"]}, "username là bắt buộc"),
+        ({"username": "user1"}, 'seats là bắt buộc, ví dụ ["A1","A2"]'),
+        ({"username": "user1", "seats": []}, "Mỗi đơn đặt từ 1 đến 10 ghế"),
+        ({"username": "user1", "seats": ["A1", "a1"]}, "Danh sách ghế bị trùng"),
+        ({"username": "user1", "seats": ["ZZ"]}, "Mã ghế không hợp lệ (ví dụ A1, B12)"),
+    ],
+)
+def test_update_validation(client, order, body, message):
+    booking = hold(client, order)
+    r = client.put(f"/api/booking/{booking['id']}", json=body)
+    assert is_error(r, 400, "VALIDATION_ERROR")
+    assert r.json()["message"] == message
+
+
+def test_update_with_malformed_body_is_400(client, order):
+    booking = hold(client, order)
+    r = client.put(f"/api/booking/{booking['id']}", content=b"{not json")
+    assert is_error(r, 400, "VALIDATION_ERROR")
+
+
+# ------------------------------------------------------------------ xóa (DELETE)
+def test_delete_removes_order_and_frees_seats(client, upstreams, order):
+    booking = hold(client, order)
+    calls_before = len(upstreams.calls)
+    r = client.delete(f"/api/booking/{booking['id']}?username=user1")
+    assert r.status_code == 200
+    assert r.json()["data"]["id"] == booking["id"]
+    assert r.json()["data"]["seats"] == ["A1", "A2"]
+    assert rows() == []
+    assert is_error(client.get(f"/api/booking/{booking['id']}"), 404, "NOT_FOUND")
+    assert seats_of(client) == []
+    assert len(upstreams.calls) == calls_before
+
+
+def test_delete_paid_order_is_allowed(client, order):
+    booking = client.post("/api/booking", json=order()).json()["data"]
+    r = client.delete(f"/api/booking/{booking['id']}?username=user1")
+    assert r.json()["data"]["status"] == "PAID"
+    assert rows() == []
+
+
+def test_deleted_id_is_never_reused(client, order):
+    """Payment/Notification vẫn giữ id cũ: đơn mới không được trùng id đã xóa."""
+    hold(client, order, seats=["A1"])
+    second = hold(client, order, seats=["A2"])
+    client.delete(f"/api/booking/{second['id']}?username=user1")
+    assert hold(client, order, seats=["A3"])["id"] == second["id"] + 1
+
+
+def test_delete_by_someone_else_is_403_and_keeps_order(client, order):
+    booking = hold(client, order)
+    assert is_error(client.delete(f"/api/booking/{booking['id']}?username=user2"), 403, "FORBIDDEN")
+    assert len(rows()) == 1
+
+
+def test_delete_unknown_order_is_404(client):
+    assert is_error(client.delete("/api/booking/99?username=user1"), 404, "NOT_FOUND")
+
+
+@pytest.mark.parametrize("query", ["", "?username=", "?username=%20"])
+def test_delete_without_username_is_400(client, order, query):
+    booking = hold(client, order)
+    r = client.delete(f"/api/booking/{booking['id']}{query}")
+    assert is_error(r, 400, "VALIDATION_ERROR")
+    assert len(rows()) == 1
 
 
 # ------------------------------------------------------------------ hết hạn giữ ghế

@@ -16,6 +16,7 @@ from app.schemas import (
     CancelBookingRequest,
     CreateBookingRequest,
     PayBookingRequest,
+    UpdateBookingRequest,
 )
 from app.services import BookingService
 
@@ -146,6 +147,23 @@ class BookingController:
         body = _validated(CancelBookingRequest, data)
         result = self._service.cancel_booking(booking_id, body.username, _is_admin(claims))
         return success(200, BookingResultResponse.from_result(result).model_dump(by_alias=True))
+
+    async def update(self, request: Request, booking_id: int) -> EnvelopeResponse:
+        claims = _identity(request)
+        data = await _read_json(request)
+        if claims:
+            data["username"] = claims["sub"]
+        body = _validated(UpdateBookingRequest, data)
+        booking = self._service.update_seats(booking_id, body.username, body.seats, _is_admin(claims))
+        return success(200, BookingResponse.from_entity(booking).model_dump(by_alias=True))
+
+    def delete(self, request: Request, booking_id: int, username: str | None) -> EnvelopeResponse:
+        claims = _identity(request)
+        username = claims["sub"] if claims else (username or "").strip()  # DELETE không có body: lấy từ query
+        if not username:
+            raise validation_error("username là bắt buộc")
+        booking = self._service.delete_booking(booking_id, username, _is_admin(claims))
+        return success(200, BookingResponse.from_entity(booking).model_dump(by_alias=True))
 
     def list_bookings(
         self, request: Request, username: str | None, status: str | None, showtime_id: str | None

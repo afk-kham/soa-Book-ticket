@@ -14,6 +14,9 @@ from app.services.payment_service import ServiceError, create_payment
 
 VN_TZ = timezone(timedelta(hours=7))
 _IPV4 = re.compile(r"\d{1,3}(\.\d{1,3}){3}")
+LINK_LIFETIME = timedelta(minutes=15)
+# Link hết hạn sớm hơn hạn giữ ghế để kịp chuyển về Client và Booking chốt đơn trước khi đơn bị hủy
+RETURN_MARGIN = timedelta(minutes=1)
 
 
 def _query(params: dict) -> str:
@@ -28,13 +31,33 @@ def configured() -> bool:
     return bool(config.VNPAY_TMN_CODE and config.VNPAY_HASH_SECRET)
 
 
-def build_payment_url(booking_id: int, amount: int, client_ip: str) -> tuple[str, str]:
-    """Trả (paymentUrl, txnRef). txnRef duy nhất mỗi lần thử: <bookingId>_<epoch>."""
+def _parse_time(value: str) -> datetime:
+    """expiresAt của Booking: "YYYY-MM-DD HH:MM:SS" theo giờ Việt Nam, hoặc ISO-8601 có múi giờ."""
+    try:
+        parsed = datetime.fromisoformat(value.strip())
+    except ValueError:
+        raise ServiceError(400, "VALIDATION_ERROR", "expiresAt không đúng định dạng thời gian") from None
+    return parsed.replace(tzinfo=VN_TZ) if parsed.tzinfo is None else parsed
+
+
+def build_payment_url(booking_id: int, amount: int, client_ip: str, expires_at: str | None = None) -> tuple[str, str]:
+    """Trả (paymentUrl, txnRef). txnRef duy nhất mỗi lần thử: <bookingId>_<epoch>.
+
+    Có expires_at (hạn giữ ghế) thì link hết hạn trước đó RETURN_MARGIN, để không thể trả tiền cho đơn đã bị hủy.
+    """
     if not configured():
         raise ServiceError(503, "VNPAY_NOT_CONFIGURED", "Chưa cấu hình VNPAY_TMN_CODE / VNPAY_HASH_SECRET")
     if amount <= 0:
         raise ServiceError(400, "VALIDATION_ERROR", "amount phải lớn hơn 0")
     now = datetime.now(VN_TZ)
+    expire = now + LINK_LIFETIME
+    if expires_at is not None:
+        pay_by = _parse_time(expires_at).astimezone(VN_TZ) - RETURN_MARGIN
+        if pay_by <= now:
+            raise ServiceError(409, "HOLD_EXPIRED",
+                               "Đơn sắp hết thời gian giữ ghế nên không thể chuyển sang VNPAY. "
+                               "Vui lòng chọn phương thức khác hoặc đặt lại.")
+        expire = min(expire, pay_by)
     txn_ref = f"{booking_id}_{int(time.time())}"
     params = {
         "vnp_Version": "2.1.0",
@@ -42,7 +65,7 @@ def build_payment_url(booking_id: int, amount: int, client_ip: str) -> tuple[str
         "vnp_TmnCode": config.VNPAY_TMN_CODE,
         "vnp_Amount": amount * 100,  # VNPAY tính theo đơn vị nhỏ nhất (x100)
         "vnp_CreateDate": now.strftime("%Y%m%d%H%M%S"),
-        "vnp_ExpireDate": (now + timedelta(minutes=15)).strftime("%Y%m%d%H%M%S"),
+        "vnp_ExpireDate": expire.strftime("%Y%m%d%H%M%S"),
         "vnp_CurrCode": "VND",
         "vnp_IpAddr": client_ip if _IPV4.fullmatch(client_ip or "") else "127.0.0.1",
         "vnp_Locale": "vn",

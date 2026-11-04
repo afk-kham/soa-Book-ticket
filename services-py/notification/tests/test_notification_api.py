@@ -93,7 +93,7 @@ def test_list_bad_filter_400(client, q):
 def test_swagger_lists_only_one_route_per_function(client):
     """Swagger gọn: đủ CRUD, không có GET / trùng danh sách, PATCH ẩn (vẫn hoạt động)."""
     paths = client.get("/openapi.json").json()["paths"]
-    assert sorted(paths) == ["/api/notify", "/api/notify/logs", "/api/notify/logs/{log_id}", "/health"]
+    assert sorted(paths) == ["/api/notify", "/api/notify/logs", "/api/notify/logs/find", "/api/notify/logs/{log_id}", "/health"]
     assert sorted(paths["/api/notify/logs/{log_id}"]) == ["delete", "get", "put"]
     assert sorted(paths["/api/notify/logs"]) == ["get", "post"]
     err(client.get("/"), 404, "NOT_FOUND")
@@ -122,6 +122,49 @@ def test_create_log_rejects_recipient_and_content_fields(client):
     err(client.post("/api/notify/logs", json={"recipient": "a@b.vn", "bookingId": 3, "channel": "EMAIL"}), 400, "VALIDATION_ERROR")
     err(client.post("/api/notify/logs", json={"username": "u", "bookingId": 3, "channel": "EMAIL", "content": "x"}),
         400, "VALIDATION_ERROR")
+
+
+# ---------- GET /api/notify/logs/find ----------
+def _log(client, message, booking_id=9):
+    r = client.post("/api/notify/logs", json={"username": "u", "bookingId": booking_id, "channel": "EMAIL", "message": message})
+    return r.json()["data"]["id"]
+
+
+def _find(client, keyword):
+    r = client.get("/api/notify/logs/find", params={"keyword": keyword})
+    assert r.status_code == 200, r.text
+    return [x["id"] for x in r.json()["data"]]
+
+
+def test_find_is_not_treated_as_log_id(client):
+    """Hồi quy: route khai báo sau /logs/{log_id} thì "find" bị hiểu là id và luôn trả 400."""
+    a = _log(client, "Vé xem phim Mai")
+    assert _find(client, "Mai") == [a]
+    assert _find(client, "khong-co-tu-nay") == []
+
+
+def test_find_ignores_case_including_vietnamese(client):
+    a = _log(client, "Vé PHIM Mai")
+    assert _find(client, "phim") == [a]
+    assert _find(client, "VÉ") == [a, 1]  # cả bản ghi seed "Đặt vé..."
+    assert 1 in _find(client, "đặt vé")  # bản ghi seed: "Đặt vé thành công cho đơn #1"
+
+
+def test_find_treats_percent_and_underscore_literally(client):
+    a = _log(client, "Giảm 100% hôm nay")
+    b = _log(client, "ma_giam")
+    assert _find(client, "%") == [a]
+    assert _find(client, "_") == [b]
+
+
+def test_find_newest_first_and_trims_keyword(client):
+    a, b = _log(client, "khuyen mai"), _log(client, "khuyen mai 2")
+    assert _find(client, "  khuyen  ") == [b, a]
+
+
+@pytest.mark.parametrize("url", ["/api/notify/logs/find", "/api/notify/logs/find?keyword=", "/api/notify/logs/find?keyword=%20%20"])
+def test_find_requires_keyword_400(client, url):
+    err(client.get(url), 400, "VALIDATION_ERROR")
 
 
 # ---------- GET /api/notify/logs/{id} ----------

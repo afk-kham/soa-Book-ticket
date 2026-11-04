@@ -33,3 +33,5 @@ class VnpayCreateRequest(BaseModel):
 
     bookingId: StrictInt = Field(gt=0, le=9223372036854775807)
     amount: StrictInt = Field(gt=0, le=2000000000)
+    # Hạn giữ ghế của đơn (trường expiresAt Booking trả về); link VNPAY không được sống lâu hơn
+    expiresAt: StrictStr | None = Field(default=None, max_length=40)

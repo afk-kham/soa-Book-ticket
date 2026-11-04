@@ -292,6 +292,26 @@ def test_user_cannot_cancel_someone_elses_order_with_token(client, jwt_on, order
     assert is_error(r, 403, "FORBIDDEN")
 
 
+def test_update_uses_token_identity_not_body(client, jwt_on, order):
+    client.post("/api/booking", json=order(payNow=False), headers=bearer("user1"))
+    forged = {"username": "user1", "seats": ["A3"]}
+    assert is_error(client.put("/api/booking/1", json=forged, headers=bearer("user2")), 403, "FORBIDDEN")
+    assert is_error(client.put("/api/booking/1", json=forged), 401, "UNAUTHORIZED")
+    r = client.put("/api/booking/1", json={"seats": ["A3"]}, headers=bearer("user1"))
+    assert r.json()["data"]["seats"] == ["A3"]
+    r = client.put("/api/booking/1", json={"seats": ["A4"]}, headers=bearer("admin", "ADMIN"))
+    assert r.json()["data"]["seats"] == ["A4"]
+
+
+def test_delete_uses_token_identity_not_query(client, jwt_on, order):
+    client.post("/api/booking", json=order(payNow=False, seats=["A1"]), headers=bearer("user1"))
+    client.post("/api/booking", json=order(payNow=False, seats=["A2"]), headers=bearer("user1"))
+    assert is_error(client.delete("/api/booking/1?username=user1", headers=bearer("user2")), 403, "FORBIDDEN")
+    assert is_error(client.delete("/api/booking/1?username=user1"), 401, "UNAUTHORIZED")
+    assert client.delete("/api/booking/1", headers=bearer("user1")).status_code == 200
+    assert client.delete("/api/booking/2", headers=bearer("admin", "ADMIN")).status_code == 200
+
+
 def test_seat_map_stays_public_with_jwt_on(client, jwt_on):
     assert client.get("/api/booking/seats?showtimeId=1").status_code == 200
     assert client.get("/api/booking/availability?showtimeIds=1").status_code == 200

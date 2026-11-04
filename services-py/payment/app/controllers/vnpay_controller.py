@@ -13,7 +13,7 @@ from app.services import ServiceError, vnpay
 def create_vnpay_url(payload: VnpayCreateRequest, request: Request) -> JSONResponse:
     try:
         ip = request.client.host if request.client else ""
-        url, ref = vnpay.build_payment_url(payload.bookingId, payload.amount, ip)
+        url, ref = vnpay.build_payment_url(payload.bookingId, payload.amount, ip, payload.expiresAt)
         return JSONResponse(status_code=201, content={"status": "success", "data": {"paymentUrl": url, "txnRef": ref}})
     except ServiceError as exc:
         return _error(exc.status_code, exc.code, exc.message)

@@ -201,7 +201,7 @@ Cấu hình trong `.env` (không commit): `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`,
 
 | Endpoint | Mô tả |
 |---|---|
-| `POST /api/payment/vnpay/create` `{bookingId, amount}` | 201 + `{paymentUrl, txnRef}` (URL ký HMAC-SHA512). 400 sai dữ liệu, 503 `VNPAY_NOT_CONFIGURED` |
+| `POST /api/payment/vnpay/create` `{bookingId, amount, expiresAt?}` | 201 + `{paymentUrl, txnRef}` (URL ký HMAC-SHA512). Link sống 15 phút; có `expiresAt` (hạn giữ ghế Booking trả, `YYYY-MM-DD HH:MM:SS` giờ VN hoặc ISO-8601 có múi giờ) thì hết hạn sớm hơn hạn giữ ghế 1 phút. 400 sai dữ liệu, 409 `HOLD_EXPIRED` khi đơn còn dưới 1 phút giữ ghế, 503 `VNPAY_NOT_CONFIGURED` |
 | `GET /api/payment/vnpay/return` | VNPAY chuyển trình duyệt về đây: kiểm tra chữ ký, mã `00` mới ghi giao dịch `PAID` (method `VNPAY`), rồi chuyển về Client `#/vnpay-return/<id>/ok\|fail` |
 
 Luồng: Client lấy `paymentUrl` → người dùng thanh toán trên VNPAY → Payment ghi giao dịch → Client gọi `POST /api/booking/{id}/pay` (`paymentMethod=VNPAY`); Payment trả 409 `ALREADY_PAID` nên Booking đối soát theo giao dịch đã ghi và chốt đơn `PAID` + gửi thông báo.

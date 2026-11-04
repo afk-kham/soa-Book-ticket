@@ -108,6 +108,17 @@ class BookingRepository:
         with self._connection() as conn:
             conn.execute("UPDATE bookings SET status = ? WHERE id = ?", (status, booking_id))
 
+    def update_seats(self, booking_id: int, seats: list[str], total_price: int) -> None:
+        with self._connection() as conn:
+            conn.execute(
+                "UPDATE bookings SET seats = ?, total_price = ? WHERE id = ?",
+                (",".join(seats), total_price, booking_id),
+            )
+
+    def delete(self, booking_id: int) -> None:
+        with self._connection() as conn:
+            conn.execute("DELETE FROM bookings WHERE id = ?", (booking_id,))
+
     def try_update_status(self, booking_id: int, current: str, new: str) -> bool:
         """Đổi trạng thái chỉ khi đơn đang ở ``current`` (tránh ghi đè khi hai yêu cầu chạy song song)."""
         with self._connection() as conn:
