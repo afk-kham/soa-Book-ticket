@@ -660,6 +660,8 @@ button.small { padding: 4px 10px; font-size: 12px; }
   animation: pop 0.2s ease;
 }
 .toast.error { border-left-color: var(--cinema-err); }
+/* Bootstrap cũng định nghĩa .toast:not(.show) { display:none }: hiện lại riêng thông báo của Admin */
+#toasts > .toast { display: flex; }
 .alert {
   display: flex;
   gap: 12px;
