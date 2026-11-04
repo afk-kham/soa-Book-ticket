@@ -13,8 +13,8 @@ Bạn **chỉ** sở hữu: `services-py/user/`, `database/user/` (schema/seed c
 
 Bảng đầy đủ (request/response/mã HTTP/lỗi) ở [API_CONTRACT.md](../API_CONTRACT.md) mục 4. Quy tắc phải giữ nguyên (đọc từ `services/user/` — mã cũ là nguồn đối chiếu):
 
-- Endpoint trong contract: `POST /api/register`, `POST /api/login`, `GET /api/users` (+`?username=`), `GET /api/users/{id}`. **Không có PUT/DELETE** — chỉ thêm khi nhóm duyệt contract + chính sách xóa (ảnh hưởng booking/log).
-- Đăng ký: `username` 3–50 ký tự `[A-Za-z0-9_.]`, `password` 6–72, `email` tùy chọn (≤ 100, hợp lệ); `role` **luôn `USER`**, bỏ qua `role` client gửi; trùng username → 409 `CONFLICT`.
+- Endpoint trong contract: `POST /api/register`, `POST /api/login`, `GET /api/users` (+`?username=`), `GET /api/users/{id}`, và CRUD cho Admin (TV3 đã đồng ý): `POST /api/users` (chọn `role`), `PUT|PATCH /api/users/{id}` (sửa một phần), `DELETE /api/users/{id}`. Không xóa/hạ quyền được quản trị viên cuối cùng (409).
+- Đăng ký (`/api/register`): `username` 3–50 ký tự `[A-Za-z0-9_.]`, `password` 6–72, `email` tùy chọn (≤ 100, hợp lệ); `role` **luôn `USER`**, bỏ qua `role` client gửi (chỉ `POST /api/users` của Admin mới chọn được `role`); trùng username → 409 `CONFLICT`.
 - Đăng nhập: BCrypt (`$2a$`, cost 10); sai user và sai mật khẩu **cùng một thông báo** (401 `UNAUTHORIZED`); `token = "demo-token-<username>"` (giữa kỳ).
 - **Không bao giờ** trả `passwordHash`; `GET /api/users?username=x` trả mảng 0/1 phần tử.
 - Hash BCrypt trong seed (`admin/Admin@123`, `user1/User@123`, `user2/User@123`) phải đăng nhập được bằng thư viện Python — kiểm tra khi chọn thư viện (D-11).

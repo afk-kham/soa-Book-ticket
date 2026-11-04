@@ -56,9 +56,9 @@ def test_wrong_method_405_envelope(client):
     r = client.get("/api/login")
     err(r, 405, "METHOD_NOT_ALLOWED")
     assert "POST" in r.headers["allow"]
-    err(client.delete("/api/users/1"), 405, "METHOD_NOT_ALLOWED")
-    err(client.put("/api/users/1", json={}), 405, "METHOD_NOT_ALLOWED")
-    err(client.post("/api/users", json={}), 405, "METHOD_NOT_ALLOWED")
+    err(client.post("/api/users/1", json={}), 405, "METHOD_NOT_ALLOWED")
+    err(client.delete("/api/users"), 405, "METHOD_NOT_ALLOWED")
+    err(client.put("/api/login", json={}), 405, "METHOD_NOT_ALLOWED")
 
 
 def test_content_type_is_json_utf8(client):

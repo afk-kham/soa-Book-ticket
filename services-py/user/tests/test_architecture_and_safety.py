@@ -84,4 +84,5 @@ def test_no_extra_endpoints_beyond_contract():
     assert api == {
         ("POST", "/api/register"), ("POST", "/api/login"),
         ("GET", "/api/users"), ("GET", "/api/users/{user_id}"), ("GET", "/health"),
+        ("POST", "/api/users"), ("PUT", "/api/users/{user_id}"), ("DELETE", "/api/users/{user_id}"),
     }
