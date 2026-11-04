@@ -112,6 +112,16 @@ class CancelBookingRequest(_Schema):
         return {"username": _owner(raw)}
 
 
+class UpdateBookingRequest(_Schema):
+    username: str = Field(description="Bỏ qua khi bật JWT_REQUIRED: lấy từ token")
+    seats: list[str] = Field(description='Danh sách ghế mới, cùng quy tắc như lúc đặt, ví dụ ["A5","A6"]')
+
+    @model_validator(mode="before")
+    @classmethod
+    def _check(cls, raw: dict) -> dict:
+        return {"username": _owner(raw), "seats": _seats(raw)}
+
+
 class BookingResponse(_Schema):
     id: int
     movie_id: int

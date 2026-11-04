@@ -68,6 +68,8 @@ sequenceDiagram
 - `POST /api/booking {payNow:false}` → lưu `PENDING` + `expiresAt`, **không** gọi Payment/Notification (`notification: SKIPPED`).
 - `POST /api/booking/{id}/pay` → kiểm tra chủ đơn → Payment → `PAID` + Notification; thất bại/Payment sập → đơn **vẫn `PENDING`** để thử lại.
 - `POST /api/booking/{id}/cancel` → `PENDING` → `CANCELLED` (nhả ghế); đơn `PAID` → 409 `PAID_NOT_CANCELLABLE`.
+- `PUT /api/booking/{id}` → đổi ghế của đơn `PENDING`, tính lại giá theo đơn giá cũ; không gọi service nào.
+- `DELETE /api/booking/{id}?username=` → xóa hẳn đơn ở mọi trạng thái; không gọi service nào.
 - Đơn `PENDING` quá `HOLD_MINUTES` tự `CANCELLED` (Booking quét trước mỗi lần đọc/ghi liên quan).
 
 ### 4.3 Showtime ↔ Movie

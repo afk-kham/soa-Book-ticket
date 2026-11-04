@@ -84,6 +84,8 @@ Kết quả thao tác (`Result`) = `Booking` + `payment:{status, method, transac
 | `POST /api/booking/{id}/cancel` | Hủy đơn `PENDING` (nhả ghế); đơn đã `CANCELLED` trả lại nguyên trạng | `{username}` | `Result` (`notification:"SKIPPED"`) | 200 | 400; 403; 404; 409 `PAID_NOT_CANCELLABLE` | ✅ |
 | `GET /api/booking` | Danh sách; lọc `?username=&status=&showtimeId=` | — | `[Booking]` | 200 | 400 (`status` ∉ 3 giá trị, `showtimeId` không hợp lệ) | ✅ |
 | `GET /api/booking/{id}` | Chi tiết | — | `Booking` | 200 | 404 `NOT_FOUND` | ✅ |
+| `PUT /api/booking/{id}` | Đổi ghế của đơn `PENDING`: giá = đơn giá cũ × số ghế mới (không gọi Showtime), `expiresAt` không đổi | `{username, seats}` (cùng quy tắc ghế như lúc đặt) | `Booking` | 200 | 400; 403; 404; 409 `ALREADY_PAID` / `BOOKING_CANCELLED` / `SEAT_TAKEN` | ✅ |
+| `DELETE /api/booking/{id}?username=` | Xóa hẳn đơn ở mọi trạng thái (nhả ghế); id không bị dùng lại | — (`username` trên query, bỏ qua khi bật JWT) | `Booking` vừa xóa | 200 | 400 (thiếu `username`); 403; 404 | ✅ |
 | `GET /api/booking/seats?showtimeId=` | Ghế đang giữ (PENDING/PAID) của suất | — | `{showtimeId, seats:[str]}` (sắp tăng) | 200 | 400 | ✅ |
 | `GET /api/booking/availability?showtimeIds=1,2,3` | Số ghế đã giữ của nhiều suất (1–500 id) | — | `[{showtimeId, taken}]` | 200 | 400 | ✅ |
 | `GET /health` | Kiểm tra sống, **có ping DB** | — | `{service:"booking-service", port:5004}` | 200 | 500 nếu DB lỗi | ✅ |
