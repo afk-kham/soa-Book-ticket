@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.router import api_router
 from app.core import config
+from app.core.request_id import RequestIdMiddleware
 from app.core.errors import ApiError, error_response
 
 logger = logging.getLogger("notification")
@@ -63,6 +64,7 @@ async def validation_error_handler(_: Request, __: RequestValidationError):
     return error_response(400, "Yêu cầu không hợp lệ")
 
 
+app.add_middleware(RequestIdMiddleware, service=config.SERVICE_NAME)  # X-Request-ID + nhật ký truy cập
 app.include_router(api_router)
 
 

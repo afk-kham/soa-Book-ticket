@@ -7,15 +7,16 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.router import api_router
 from app.core import config
+from app.core.request_id import RequestIdMiddleware
 
 MAX_BODY_BYTES = 1024 * 1024
 
 app = FastAPI(
     title="Payment Service",
     version="0.1.0",
-    docs_url=None,
+    docs_url="/docs",  # Swagger UI
     redoc_url=None,
-    openapi_url=None,
+    openapi_url="/openapi.json",
 )
 
 app.add_middleware(
@@ -24,6 +25,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["Content-Type", "Authorization"],
 )
+app.add_middleware(RequestIdMiddleware, service=config.SERVICE_NAME)  # X-Request-ID + nhật ký truy cập
 app.include_router(api_router)
 
 
