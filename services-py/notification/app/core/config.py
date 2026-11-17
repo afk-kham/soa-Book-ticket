@@ -14,3 +14,13 @@ DB_PATH = os.environ.get("DB_PATH", "./data/notification.db")
 # Biến riêng của service (URL service khác đọc từ env, KHÔNG hard-code rải rác trong source)
 JWT_SECRET = os.environ.get("JWT_SECRET", "")
 INTERNAL_KEY = os.environ.get("INTERNAL_KEY", "")
+
+# Email THẬT qua SMTP (để trống SMTP_HOST = chỉ giả lập, ghi log). Ví dụ Gmail: smtp.gmail.com:587 + mật khẩu ứng dụng.
+SMTP_HOST = os.environ.get("SMTP_HOST", "")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+SMTP_FROM = os.environ.get("SMTP_FROM", "")
+SMTP_STARTTLS = os.environ.get("SMTP_STARTTLS", "true").strip().lower() in ("1", "true", "yes")
+SMTP_SSL = os.environ.get("SMTP_SSL", "false").strip().lower() in ("1", "true", "yes")
+SMTP_TIMEOUT = int(os.environ.get("SMTP_TIMEOUT", "10"))

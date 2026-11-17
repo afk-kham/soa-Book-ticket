@@ -1,4 +1,4 @@
 """Package schemas."""
-from app.schemas.payment import PaymentCreateRequest, PaymentResponse, VnpayCreateRequest
+from app.schemas.payment import OtpCreateRequest, PaymentCreateRequest, PaymentResponse, VnpayCreateRequest
 
-__all__ = ["PaymentCreateRequest", "PaymentResponse", "VnpayCreateRequest"]
+__all__ = ["PaymentCreateRequest", "PaymentResponse", "VnpayCreateRequest", "OtpCreateRequest"]

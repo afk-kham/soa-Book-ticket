@@ -60,6 +60,9 @@
     SHOWTIME_NOT_FOUND: "Suất chiếu không còn tồn tại, vui lòng chọn suất khác.",
     BOOKING_CANCELLED: "Đơn đã hết thời gian giữ ghế hoặc đã bị hủy.",
     ALREADY_PAID: "Đơn này đã được thanh toán.",
+    NOTIFICATION_SERVICE_ERROR: "Chưa gửi được mã OTP qua email. Vui lòng thử lại sau ít phút.",
+    NOTIFICATION_SERVICE_UNAVAILABLE: "Dịch vụ gửi email đang tạm gián đoạn. Vui lòng thử lại sau ít phút.",
+    EMAIL_REQUIRED: "Tài khoản chưa có email để nhận mã OTP. Vui lòng đăng ký tài khoản có email.",
     FORBIDDEN: "Bạn không có quyền xem đơn đặt vé này.",
     NOT_FOUND: "Không tìm thấy thông tin yêu cầu.",
     INTERNAL_ERROR: "Hệ thống đang bận. Vui lòng thử lại sau ít phút."
@@ -1346,6 +1349,58 @@
   /* =============================================================================
      THANH TOÁN (10 PHÚT GIỮ GHẾ, VIETQR, MOMO, VNPAY)
   ============================================================================= */
+  /* Khối xác thực OTP qua email (dùng ở trang thanh toán và trang xác nhận QR thử) */
+  function otpHtml() {
+    return '<div class="otp-box p-3 rounded border border-secondary">' +
+      '<div class="small text-secondary mb-2"><i class="bi bi-shield-lock-fill text-warning me-1"></i> Xác thực OTP qua email</div>' +
+      '<div class="d-flex gap-2">' +
+        '<input class="form-control bg-secondary-subtle border-secondary text-light font-monospace" id="otp" inputmode="numeric" ' +
+          'maxlength="8" autocomplete="one-time-code" placeholder="Nhập mã OTP">' +
+        '<button type="button" class="btn btn-outline-warning text-nowrap" id="sendOtp">Gửi mã OTP</button>' +
+      "</div>" +
+      '<div class="small mt-2" id="otp-msg">Bấm <b>Gửi mã OTP</b>, mã sẽ được gửi tới email của bạn.</div>' +
+    "</div>";
+  }
+
+  function bindOtp(bookingId, username) {
+    var btn = $("#sendOtp"), msg = $("#otp-msg"), input = $("#otp"), left = 0, sent = false;
+    if (!btn) return;
+    function paint() {
+      btn.disabled = left > 0;
+      btn.textContent = left > 0 ? "Gửi lại (" + left + "s)" : sent ? "Gửi lại mã" : "Gửi mã OTP";
+    }
+    btn.onclick = async function () {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang gửi...';
+      try {
+        var r = await call("booking", "POST", "/api/booking/" + encodeURIComponent(bookingId) + "/otp", { username: username });
+        sent = true;
+        left = 30;
+        msg.className = "small mt-2 text-success";
+        msg.innerHTML = "Đã gửi mã OTP tới <b>" + esc(r.maskedEmail) + "</b> (hiệu lực " + Math.round(r.expiresInSeconds / 60) + " phút)." +
+          (r.devOtp ? ' <span class="text-warning">Chế độ demo — mã: <b class="font-monospace">' + esc(r.devOtp) + "</b></span>" : "") +
+          (r.delivery === "SIMULATED" && !r.devOtp ? ' <span class="text-secondary">(giả lập: mã được ghi trong log Notification)</span>' : "");
+        if (r.devOtp) input.value = r.devOtp;
+        var errEl = $("#err");
+        if (errEl) errEl.innerHTML = "";
+        input.focus();
+      } catch (e) {
+        if (e.code === "OTP_TOO_SOON") left = 15;
+        msg.className = "small mt-2 text-danger";
+        msg.textContent = "⚠ " + e.message;
+      }
+      paint();
+    };
+    every(function () { if (left > 0) { left--; paint(); } }, 1000);
+    paint();
+  }
+
+  function otpValue() {
+    var el = $("#otp");
+    var v = el ? el.value.trim() : "";
+    return /^[0-9]{4,8}$/.test(v) ? v : "";
+  }
+
   async function pay(id) {
     if (needLogin()) return;
     var alive = current();
@@ -1417,6 +1472,8 @@
           "</div>" +
 
           orderSummary(o) +
+
+          '<div id="otp-wrap" class="mb-3">' + otpHtml() + "</div>" +
 
           '<div id="err"></div>' +
 
@@ -1545,9 +1602,14 @@
         method = r.value;
         sessionStorage.setItem("soa.method", method);
         $("#paid").innerHTML = payLabel();
+        syncOtp();
         box();
       };
     });
+
+    function syncOtp() {
+      $("#otp-wrap").style.display = method === "VNPAY" ? "none" : "";
+    }
 
     function payLabel() {
       return method === "VNPAY"
@@ -1571,9 +1633,18 @@
           location.href = v.paymentUrl;
           return;
         }
+        var code = otpValue();
+        if (!code) {
+          $("#err").innerHTML = '<div class="alert alert-warning small mb-3">⚠ Vui lòng bấm <b>Gửi mã OTP</b> rồi nhập mã nhận được qua email trước khi thanh toán.</div>';
+          busy = false;
+          btn.disabled = false;
+          btn.innerHTML = payLabel();
+          return;
+        }
         var r = await call("booking", "POST", "/api/booking/" + id + "/pay", {
           username: user.username,
-          paymentMethod: method
+          paymentMethod: method,
+          otp: code
         });
         if (r.status === "PAID") {
           sessionStorage.setItem("soa.paid." + id, JSON.stringify({
@@ -1618,6 +1689,8 @@
     };
 
     $("#paid").innerHTML = payLabel();
+    syncOtp();
+    bindOtp(id, user.username);
     box();
     tick();
     every(tick, 1000);
@@ -1698,6 +1771,7 @@
           '<div class="soa-info-row"><span class="soa-info-label">Khách hàng</span><b class="soa-info-value">' + esc(b.username) + '</b></div>' +
           '<div class="soa-info-row"><span class="soa-info-label">Ghế đã chọn</span><b class="soa-info-value text-warning">' + esc(b.seats.join(", ")) + '</b></div>' +
           '<div class="soa-info-row"><span class="soa-info-label">Tổng tiền</span><b class="soa-info-value fs-4 text-warning">' + money(b.totalPrice) + '</b></div>' +
+          '<div class="text-start mt-3">' + otpHtml() + "</div>" +
           '<div id="sandboxErr"></div>' +
           '<button type="button" class="btn btn-primary btn-lg w-100 py-3 mt-4 fw-bold shadow" id="btnConfirmSandbox">' +
             '<i class="bi bi-check-circle-fill me-2"></i> Xác nhận thanh toán thử' +
@@ -1708,15 +1782,22 @@
     );
 
     var confirmBtn = $("#btnConfirmSandbox");
+    bindOtp(id, b.username);
     if (confirmBtn) {
       confirmBtn.onclick = async function () {
+        var code = otpValue();
+        if (!code) {
+          $("#sandboxErr").innerHTML = '<div class="alert alert-warning py-2 small mt-3">Vui lòng bấm Gửi mã OTP rồi nhập mã nhận được qua email.</div>';
+          return;
+        }
         confirmBtn.disabled = true;
         confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Đang xác nhận...';
         $("#sandboxErr").innerHTML = "";
         try {
           var res = await call("booking", "POST", "/api/booking/" + id + "/pay", {
             username: b.username,
-            paymentMethod: "BANK_TRANSFER"
+            paymentMethod: "BANK_TRANSFER",
+            otp: code
           });
           if (res.status === "PAID") {
             sessionStorage.setItem("soa.paid." + id, JSON.stringify({
@@ -1732,7 +1813,7 @@
           confirmBtn.disabled = false;
           confirmBtn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> Xác nhận thanh toán thử';
         } catch (e) {
-          var errMsg = "Hệ thống thanh toán đang bảo trì tạm thời. Đơn đặt vé của bạn vẫn được giữ an toàn. Vui lòng thử lại sau.";
+          var errMsg = /^OTP_/.test(e.code || "") ? e.message : "Hệ thống thanh toán đang bảo trì tạm thời. Đơn đặt vé của bạn vẫn được giữ an toàn. Vui lòng thử lại sau.";
           $("#sandboxErr").innerHTML = '<div class="alert alert-danger py-2 small mt-3">⚠ ' + errMsg + '</div>';
           confirmBtn.disabled = false;
           confirmBtn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> Xác nhận thanh toán thử';
@@ -2123,7 +2204,7 @@
             "</div>" +
 
             (reg ? '<div class="mb-3">' +
-              '<label class="form-label small text-secondary" for="e">Email <span class="text-muted">(không bắt buộc)</span></label>' +
+              '<label class="form-label small text-secondary" for="e">Email <span class="text-muted">(nhận mã OTP khi thanh toán)</span></label>' +
               '<input class="form-control bg-secondary-subtle border-secondary text-light" id="e" type="email" autocomplete="email" placeholder="email@domain.com">' +
             "</div>" : "") +
 
@@ -2162,7 +2243,7 @@
     $("#auth").onsubmit = async function (ev) {
       ev.preventDefault();
       var u = $("#u").value.trim(), p = $("#p").value, err = $("#err"), btn = $("#go"), label = btn.textContent;
-      var problem = !u ? "Vui lòng nhập tên đăng nhập." : !p ? "Vui lòng nhập mật khẩu." : reg && p.length < 6 ? "Mật khẩu cần ít nhất 6 ký tự." : "";
+      var problem = !u ? "Vui lòng nhập tên đăng nhập." : !p ? "Vui lòng nhập mật khẩu." : reg && p.length < 6 ? "Mật khẩu cần ít nhất 6 ký tự." : reg && !($("#e") && $("#e").value.trim()) ? "Vui lòng nhập email để nhận mã OTP thanh toán." : "";
 
       if (problem) {
         err.innerHTML = '<div class="alert alert-danger py-2 px-3 small mb-3">⚠ ' + problem + "</div>";

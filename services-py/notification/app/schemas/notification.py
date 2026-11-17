@@ -16,6 +16,15 @@ class NotifyRequest(_Request):
     username: StrictStr = ""
     booking_id: StrictInt = Field(0, alias="bookingId")
     channel: StrictStr = ""
+    email: StrictStr | None = None  # tùy chọn: có SMTP thì gửi email thật tới địa chỉ này
+
+
+class OtpNotifyRequest(_Request):
+    username: StrictStr = ""
+    booking_id: StrictInt = Field(0, alias="bookingId")
+    email: StrictStr = ""
+    otp: StrictStr = ""
+    ttl_seconds: StrictInt = Field(300, alias="ttlSeconds")
 
 
 class CreateLogRequest(_Request):
@@ -39,4 +48,4 @@ def log_to_dict(n: NotificationLog) -> dict:
 
 def notify_to_dict(n: NotificationLog) -> dict:
     return {"notificationId": n.id, "bookingId": n.booking_id, "username": n.username,
-            "channel": n.channel, "deliveryStatus": "SIMULATED", "message": n.message, "sentAt": n.sent_at}
+            "channel": n.channel, "deliveryStatus": n.delivery, "message": n.message, "sentAt": n.sent_at}

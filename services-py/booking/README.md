@@ -266,3 +266,7 @@ Mọi path, method, tên trường, mã HTTP và mã lỗi giữ nguyên. Các �
 | Showtime trả thiếu `price`/`movieId` | 500 | 502 `SHOWTIME_SERVICE_ERROR` | Lỗi của đối tác, đúng nhóm mã trong hợp đồng |
 | Id đơn vượt `INT` trên đường dẫn | 500 | 404 `NOT_FOUND` | Mã cũ tràn số khi parse |
 | Chế độ `BOOKING_STORE=memory` | Có | Bỏ | Test dùng SQLite tạm |
+
+
+## OTP thanh toán
+`POST /api/booking/{id}/otp` `{username}`: Booking lấy email của chủ đơn (User) → nhờ **Payment** sinh OTP → nhờ **Notification** gửi email → trả `{maskedEmail, expiresInSeconds, delivery}`. `POST /api/booking/{id}/pay` nhận thêm `otp`. `OTP_REQUIRED=true` bắt buộc OTP và cấm `payNow:true`. `OTP_DEBUG=true` trả mã `devOtp` trong phản hồi **chỉ để demo**, phải tắt khi chạy thật. Nhập sai OTP không hủy đơn (vẫn `PENDING`). Test: `tests/test_otp.py`.

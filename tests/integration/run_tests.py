@@ -3,6 +3,7 @@
 Kiểm thử tích hợp 6 service (chỉ dùng thư viện chuẩn Python 3.8+, không cần cài thêm).
 
   python tests/integration/run_tests.py                      # kịch bản bình thường (cả 6 service đang chạy)
+  python tests/integration/run_tests.py --otp                # stack bật OTP (OTP_REQUIRED=true, OTP_DEBUG=true): thanh toán qua mã OTP
   python tests/integration/run_tests.py --expect-down payment        # TẮT Payment trước, rồi chạy: Booking phải trả 503 và nhả ghế
   python tests/integration/run_tests.py --expect-down notification   # TẮT Notification: đơn vẫn PAID, notification = FAILED
   python tests/integration/run_tests.py --expect-down showtime|movie|user   # TẮT service đó: Booking phải trả 503
@@ -16,6 +17,7 @@ HOST = os.environ.get("HOST", "localhost")
 URL = {k: f"http://{HOST}:{p}" for k, p in
        dict(movie=5001, showtime=5002, user=5003, booking=5004, payment=5005, notification=5006).items()}
 PASS = FAIL = 0
+OTP = os.environ.get("OTP") == "1"  # bật bằng --otp: stack chạy với OTP_REQUIRED=true và OTP_DEBUG=true
 
 
 def call(svc, method, path, body=None, timeout=20):
@@ -33,6 +35,31 @@ def call(svc, method, path, body=None, timeout=20):
             return e.code, None
     except (urllib.error.URLError, ConnectionError, TimeoutError) as e:
         raise ConnectionError(f"{svc} không truy cập được: {e}")
+
+
+def otp_for(bid, uname):
+    """Chế độ OTP: xin mã (Payment sinh -> Notification gửi email) rồi lấy devOtp. Rỗng nếu không ở chế độ OTP."""
+    if not OTP:
+        return {}
+    for _ in range(40):
+        r = call("booking", "POST", f"/api/booking/{bid}/otp", {"username": uname})
+        if r[0] == 200:
+            return {"otp": r[1]["data"].get("devOtp", "")}
+        if r[1] and r[1].get("code") == "OTP_TOO_SOON":
+            time.sleep(1)  # đợi hết khoảng cách gửi lại (OTP_RESEND_SECONDS)
+            continue
+        break
+    return {"otp": ""}
+
+
+def book_paid(uname, st, seats, method):
+    """Đặt vé và thanh toán. Chế độ OTP không cho đặt-và-trả-ngay nên đi qua giữ ghế -> OTP -> /pay."""
+    base = {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": seats}
+    if not OTP:
+        return call("booking", "POST", "/api/booking", {**base, "paymentMethod": method})
+    held = call("booking", "POST", "/api/booking", {**base, "payNow": False})
+    hid = held[1]["data"]["id"]
+    return call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": method, **otp_for(hid, uname)})
 
 
 def check(name, cond, detail=""):
@@ -103,8 +130,8 @@ def normal():
     if st is None:
         return
     seats = free_seats(st["id"])
-    r = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": seats, "paymentMethod": "MOMO"})
-    check("đặt vé -> 201", is_ok(r, 201), r[1])
+    r = book_paid(uname, st, seats, "MOMO")
+    check("đặt vé -> 201" if not OTP else "giữ ghế + OTP + thanh toán -> 200", is_ok(r, 200 if OTP else 201), r[1])
     d = r[1]["data"] if r[1] and r[1].get("data") else {}
     check("đơn PAID, tổng tiền = giá suất × số ghế (giá lấy từ Showtime)", d.get("status") == "PAID" and d.get("totalPrice") == st["price"] * len(seats), d)
     check("Notification gửi thành công", d.get("notification") == "SENT", d.get("notification"))
@@ -117,7 +144,7 @@ def normal():
     check("ghế vừa đặt hiện trong danh sách ghế đã giữ", set(seats) <= set(call("booking", "GET", f"/api/booking/seats?showtimeId={st['id']}")[1]["data"]["seats"]))
 
     print("\n[5] Các tình huống lỗi nghiệp vụ")
-    dup = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": [seats[0]]})
+    dup = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": [seats[0]], **({"payNow": False} if OTP else {})})
     check("đặt ghế đã có người -> 409 SEAT_TAKEN", is_err(dup, 409, "SEAT_TAKEN"))
     check("username không tồn tại -> 404 USER_NOT_FOUND", is_err(call("booking", "POST", "/api/booking", {"username": "khong_ton_tai", "movieId": st["movieId"], "showtimeId": st["id"], "seats": ["Z1"]}), 404, "USER_NOT_FOUND"))
     check("showtime không tồn tại -> 404 SHOWTIME_NOT_FOUND", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": 1, "showtimeId": 99999, "seats": ["Z1"]}), 404, "SHOWTIME_NOT_FOUND"))
@@ -128,12 +155,16 @@ def normal():
 
     print("\n[6] Thanh toán thất bại -> đơn CANCELLED, ghế được nhả")
     s2 = free_seats(st["id"], 1)
-    r = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": s2, "paymentMethod": "KHONGHOPLE"})
-    d = r[1]["data"] if r[1] and r[1].get("data") else {}
-    check("Payment FAILED -> đơn CANCELLED (HTTP 201 vì đơn đã được ghi nhận)", r[0] == 201 and d.get("status") == "CANCELLED" and d.get("payment", {}).get("status") == "FAILED", r[1])
-    check("ghế của đơn bị hủy được nhả lại", s2[0] not in call("booking", "GET", f"/api/booking/seats?showtimeId={st['id']}")[1]["data"]["seats"])
-    again = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": s2, "paymentMethod": "MOMO"})
-    check("đặt lại đúng ghế đó với phương thức hợp lệ -> PAID", is_ok(again, 201) and again[1]["data"]["status"] == "PAID")
+    if OTP:
+        r = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": s2})
+        check("đặt-và-trả-ngay khi bắt OTP -> 400 OTP_REQUIRED, không lưu đơn", is_err(r, 400, "OTP_REQUIRED") and s2[0] not in call("booking", "GET", f"/api/booking/seats?showtimeId={st['id']}")[1]["data"]["seats"], r[1])
+    else:
+        r = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": s2, "paymentMethod": "KHONGHOPLE"})
+        d = r[1]["data"] if r[1] and r[1].get("data") else {}
+        check("Payment FAILED -> đơn CANCELLED (HTTP 201 vì đơn đã được ghi nhận)", r[0] == 201 and d.get("status") == "CANCELLED" and d.get("payment", {}).get("status") == "FAILED", r[1])
+        check("ghế của đơn bị hủy được nhả lại", s2[0] not in call("booking", "GET", f"/api/booking/seats?showtimeId={st['id']}")[1]["data"]["seats"])
+    again = book_paid(uname, st, s2, "MOMO")
+    check("đặt lại đúng ghế đó với phương thức hợp lệ -> PAID", is_ok(again, 200 if OTP else 201) and again[1]["data"]["status"] == "PAID")
 
     print("\n[7] Giữ ghế rồi thanh toán sau (payNow=false) / hủy giữ chỗ")
     past = next((s for s in shows if s["time"] < time.strftime("%Y-%m-%d %H:%M:%S")), None)
@@ -148,9 +179,9 @@ def normal():
     av = call("booking", "GET", f"/api/booking/availability?showtimeIds={st['id']}")
     check("availability trả số ghế đã giữ của suất", is_ok(av, 200) and av[1]["data"][0]["showtimeId"] == st["id"] and av[1]["data"][0]["taken"] >= len(s3), av[1])
     check("người khác không thanh toán được đơn này -> 403", is_err(call("booking", "POST", f"/api/booking/{hid}/pay", {"username": "user2", "paymentMethod": "MOMO"}), 403, "FORBIDDEN"))
-    bad = call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "KHONGHOPLE"})
+    bad = call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "KHONGHOPLE", **otp_for(hid, uname)})
     check("thanh toán thất bại -> đơn VẪN PENDING (giữ ghế để thử lại)", is_ok(bad, 200) and bad[1]["data"]["status"] == "PENDING" and bad[1]["data"]["payment"]["status"] == "FAILED", bad[1])
-    ok = call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "BANK_TRANSFER"})
+    ok = call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "BANK_TRANSFER", **otp_for(hid, uname)})
     d = ok[1]["data"] if ok[1] and ok[1].get("data") else {}
     check("thanh toán chuyển khoản -> PAID, gửi thông báo", is_ok(ok, 200) and d.get("status") == "PAID" and d.get("expiresAt") is None and d.get("notification") == "SENT", d)
     check("thanh toán lại đơn đã PAID -> 409 ALREADY_PAID", is_err(call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "MOMO"}), 409, "ALREADY_PAID"))
@@ -163,6 +194,36 @@ def normal():
     check("thanh toán đơn đã hủy -> 409 BOOKING_CANCELLED", is_err(call("booking", "POST", f"/api/booking/{h2}/pay", {"username": uname, "paymentMethod": "MOMO"}), 409, "BOOKING_CANCELLED"))
     up = call("showtime", "GET", "/api/showtimes?upcoming=1")[1]["data"]
     check("showtime ?upcoming=1 chỉ trả suất chưa chiếu", up and all(x["time"] > time.strftime("%Y-%m-%d %H:%M:%S") for x in up))
+    if OTP:
+        otp_checks(uname, st)
+
+
+def otp_checks(uname, st):
+    print("\n[8] OTP xác nhận thanh toán (Booking -> Payment sinh mã -> Notification gửi email)")
+    s5 = free_seats(st["id"], 1)
+    hid = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": s5, "payNow": False})[1]["data"]["id"]
+    check("thanh toán không có OTP -> 400 OTP_REQUIRED, đơn vẫn PENDING",
+          is_err(call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "MOMO"}), 400, "OTP_REQUIRED")
+          and call("booking", "GET", f"/api/booking/{hid}")[1]["data"]["status"] == "PENDING")
+    check("thanh toán với OTP chưa được yêu cầu -> 400 OTP_INVALID",
+          is_err(call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "MOMO", "otp": "000000"}), 400, "OTP_INVALID"))
+    check("người khác không xin được OTP của đơn -> 403",
+          is_err(call("booking", "POST", f"/api/booking/{hid}/otp", {"username": "user2"}), 403, "FORBIDDEN"))
+    r = call("booking", "POST", f"/api/booking/{hid}/otp", {"username": uname})
+    d = r[1]["data"] if r[1] and r[1].get("data") else {}
+    check("xin OTP -> 200, gửi qua EMAIL, email được che", is_ok(r, 200) and d.get("channel") == "EMAIL" and "***" in d.get("maskedEmail", ""), r[1])
+    check("gửi lại OTP quá sớm -> 429 OTP_TOO_SOON", is_err(call("booking", "POST", f"/api/booking/{hid}/otp", {"username": uname}), 429, "OTP_TOO_SOON"))
+    code = d.get("devOtp", "")
+    wrong = "000000" if code != "000000" else "111111"
+    check("OTP sai -> 400 OTP_INVALID, đơn vẫn PENDING",
+          is_err(call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "MOMO", "otp": wrong}), 400, "OTP_INVALID")
+          and call("booking", "GET", f"/api/booking/{hid}")[1]["data"]["status"] == "PENDING")
+    ok = call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "MOMO", "otp": code})
+    check("OTP đúng -> PAID, có giao dịch + thông báo", is_ok(ok, 200) and ok[1]["data"]["status"] == "PAID" and ok[1]["data"]["notification"] == "SENT", ok[1])
+    check("OTP chỉ dùng một lần (đơn đã PAID) -> 409 ALREADY_PAID",
+          is_err(call("booking", "POST", f"/api/booking/{hid}/pay", {"username": uname, "paymentMethod": "MOMO", "otp": code}), 409, "ALREADY_PAID"))
+    logs = call("notification", "GET", f"/api/notify/logs?bookingId={hid}")[1]["data"]
+    check("nhật ký thông báo ghi việc gửi OTP nhưng KHÔNG chứa mã", any("OTP" in l["message"] for l in logs) and not any(code in l["message"] for l in logs))
 
 
 def down(service):
@@ -171,7 +232,17 @@ def down(service):
     uname = "user1"
     seat = [f"U{random.randint(1, 99)}"]
     t0 = time.time()
-    r = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": seat}, timeout=40)
+    r = call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": st["id"], "seats": seat, **({"payNow": False} if OTP else {})}, timeout=40)
+    if OTP and service in ("payment", "notification") and r[0] == 201:
+        hid = r[1]["data"]["id"]  # chế độ OTP: đơn đã giữ ghế, bước xin OTP phải báo dịch vụ sập
+        r = call("booking", "POST", f"/api/booking/{hid}/otp", {"username": uname}, timeout=40)
+        elapsed = time.time() - t0
+        code = f"{service.upper()}_SERVICE_UNAVAILABLE"
+        check(f"phản hồi trong < 15 giây (thực tế {elapsed:.1f}s) — có timeout", elapsed < 15)
+        check(f"xin OTP khi {service} tắt -> HTTP 503 + {code}", is_err(r, 503, code), r[1])
+        check("đơn vẫn PENDING (giữ ghế để thử lại)", call("booking", "GET", f"/api/booking/{hid}")[1]["data"]["status"] == "PENDING")
+        call("booking", "POST", f"/api/booking/{hid}/cancel", {"username": uname})
+        return
     elapsed = time.time() - t0
     check(f"phản hồi trong < 15 giây (thực tế {elapsed:.1f}s) — có timeout", elapsed < 15)
     if service == "notification":
@@ -189,7 +260,9 @@ def down(service):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--expect-down", choices=["movie", "showtime", "user", "payment", "notification"])
+    ap.add_argument("--otp", action="store_true", help="stack bật OTP_REQUIRED + OTP_DEBUG")
     a = ap.parse_args()
+    OTP = OTP or a.otp
     try:
         down(a.expect_down) if a.expect_down else normal()
     except ConnectionError as e:

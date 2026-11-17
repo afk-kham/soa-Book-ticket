@@ -90,9 +90,17 @@ class CreateBookingRequest(_Schema):
         }
 
 
+def _otp(raw: dict) -> str | None:
+    value = raw.get("otp")
+    if isinstance(value, int) and not isinstance(value, bool):
+        value = str(value)
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
 class PayBookingRequest(_Schema):
     username: str = Field(description="Bỏ qua khi bật JWT_REQUIRED: lấy từ token")
     payment_method: str = Field(description="Nhận cả tên cũ `method`")
+    otp: str | None = Field(default=None, description="Mã OTP nhận qua email (bắt buộc khi OTP_REQUIRED)")
 
     @model_validator(mode="before")
     @classmethod
@@ -100,7 +108,7 @@ class PayBookingRequest(_Schema):
         method = _payment_method(raw, "")
         if not method:
             raise ValueError("paymentMethod là bắt buộc")
-        return {"username": _owner(raw), "paymentMethod": method}
+        return {"username": _owner(raw), "paymentMethod": method, "otp": _otp(raw)}
 
 
 class CancelBookingRequest(_Schema):
@@ -169,3 +177,16 @@ class BookingResultResponse(BookingResponse):
             payment=PaymentResponse.from_entity(result.payment) if result.payment else None,
             notification=result.notification,
         )
+
+
+class OtpBookingRequest(CancelBookingRequest):
+    """Xin mã OTP cho một đơn: chỉ cần username (hoặc token JWT)."""
+
+
+class OtpResponse(_Schema):
+    booking_id: int
+    channel: str
+    masked_email: str
+    expires_in_seconds: int
+    delivery: str
+    dev_otp: str | None = None

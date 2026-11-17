@@ -341,6 +341,7 @@ def test_openapi_documents_every_business_endpoint_and_request_body(client):
         "/api/booking/availability",
         "/api/booking/{booking_id}",
         "/api/booking/{booking_id}/pay",
+        "/api/booking/{booking_id}/otp",
         "/api/booking/{booking_id}/cancel",
     }
     properties = paths["/api/booking"]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"]

@@ -29,6 +29,10 @@ from app.entities import (
 from app.repositories import BookingRepository
 from app.services.upstream import Reply, UpstreamClient
 
+_LOOKUP = object()  # chưa biết email người dùng
+OTP_ERROR_CODES = frozenset({"OTP_REQUIRED", "OTP_INVALID", "OTP_EXPIRED", "OTP_LOCKED", "OTP_TOO_SOON"})
+
+
 logger = logging.getLogger("booking-service")
 
 NOTIFICATION_TIMEOUT_SECONDS = 3
@@ -98,9 +102,11 @@ class BookingService:
         authorization: str | None = None,
     ) -> BookingResult:
         # 1) Xác thực tham chiếu logic bằng API của các service sở hữu dữ liệu
-        await self._ensure_user_exists(username)
+        user = await self._ensure_user_exists(username)
         await self._ensure_movie_exists(movie_id)
         price = await self._showtime_price(showtime_id, movie_id)
+        if pay_now and config.OTP_REQUIRED:  # kiểm tra dữ liệu trước; đặt-và-trả-ngay không có bước nhập OTP
+            raise BookingError("OTP_REQUIRED", "Thanh toán cần mã OTP: đặt vé với payNow=false, gọi /otp rồi /pay")
 
         # 2) Giữ ghế: lưu đơn PENDING. Giá lấy từ Showtime, không tin client
         pending = self._hold_seats(movie_id, showtime_id, username, seats, price * len(seats))
@@ -113,10 +119,12 @@ class BookingService:
         self._repo.update_status(pending.id, final_status)
 
         # 4) Thông báo (best-effort): Notification lỗi KHÔNG làm hỏng đơn đã PAID
-        notification = await self._notify(username, pending.id) if final_status == PAID else NOTIFICATION_SKIPPED
+        notification = (
+            await self._notify(username, pending.id, user.get("email")) if final_status == PAID else NOTIFICATION_SKIPPED
+        )
         return BookingResult(self._find(pending.id), payment, notification)
 
-    async def _ensure_user_exists(self, username: str) -> None:
+    async def _ensure_user_exists(self, username: str) -> dict:
         reply = await self._upstream.send(
             "GET",
             f"{config.USER_SERVICE_URL.rstrip('/')}/api/users",
@@ -128,6 +136,8 @@ class BookingService:
             raise BookingError("USER_SERVICE_ERROR", "User Service trả lỗi khi kiểm tra người dùng")
         if not isinstance(reply.data, list) or not reply.data:
             raise BookingError("USER_NOT_FOUND", f"Không tồn tại người dùng '{username}'")
+        user = reply.data[0]
+        return user if isinstance(user, dict) else {}
 
     async def _ensure_movie_exists(self, movie_id: int) -> None:
         reply = await self._upstream.send(
@@ -191,6 +201,7 @@ class BookingService:
         method: str,
         is_admin: bool = False,
         authorization: str | None = None,
+        otp: str | None = None,
     ) -> BookingResult:
         """Thanh toán đơn đang giữ ghế. Khác đặt-và-trả-ngay: thanh toán thất bại hoặc Payment tạm sập
         thì đơn VẪN PENDING để người dùng thử lại / đổi phương thức cho tới khi hết hạn giữ ghế."""
@@ -201,7 +212,7 @@ class BookingService:
         if booking.status == CANCELLED:
             raise BookingError("BOOKING_CANCELLED", f"Đơn #{booking_id} đã hết hạn giữ ghế hoặc đã bị hủy")
 
-        payment = await self._charge(booking, method, authorization)
+        payment = await self._charge(booking, method, authorization, otp)
         notification = NOTIFICATION_SKIPPED
         if payment.status == PAYMENT_PAID and self._settle_paid(booking):
             notification = await self._notify(booking.username, booking_id)
@@ -296,7 +307,9 @@ class BookingService:
         return booking
 
     # ------------------------------------------------------------------ gọi Payment / Notification
-    async def _charge(self, booking: Booking, method: str, authorization: str | None) -> PaymentOutcome:
+    async def _charge(
+        self, booking: Booking, method: str, authorization: str | None, otp: str | None = None
+    ) -> PaymentOutcome:
         """Gọi Payment, trả kết quả PAID|FAILED. Không đổi trạng thái đơn; lỗi -> BookingError."""
         # Chuyển tiếp nguyên token: Starlette giải mã header bằng latin-1 nên encode lại không làm đổi byte
         headers = {"Authorization": authorization.encode("latin-1")} if authorization else None
@@ -306,7 +319,8 @@ class BookingService:
                 f"{config.PAYMENT_SERVICE_URL.rstrip('/')}/api/payment",
                 "Payment Service",
                 "PAYMENT_SERVICE_UNAVAILABLE",
-                json={"bookingId": booking.id, "amount": booking.total_price, "method": method},
+                json={"bookingId": booking.id, "amount": booking.total_price, "method": method,
+                      **({"otp": otp} if otp else {})},
                 headers=headers,
             )
         except BookingError:
@@ -317,6 +331,8 @@ class BookingService:
             raise
         if reply.ok and isinstance(reply.data, dict) and "status" in reply.data:
             return _outcome(reply.data, method)
+        if reply.code in OTP_ERROR_CODES:  # OTP sai/hết hạn/bị khóa: đơn vẫn PENDING để nhập lại
+            raise BookingError(reply.code, reply.message or "Mã OTP không hợp lệ")
         if reply.status == 409:  # ALREADY_PAID: đơn đã trả trước đó
             known = await self._reconcile(booking, method, headers)
             if known is not None and known.status == PAYMENT_PAID:
@@ -360,16 +376,24 @@ class BookingService:
             return PaymentOutcome(status=PAYMENT_FAILED, method=method, transaction_id=latest.transaction_id)
         return latest
 
-    async def _notify(self, username: str, booking_id: int) -> str:
+    async def _notify(self, username: str, booking_id: int, email: object = _LOOKUP) -> str:
         """Gửi thông báo xác nhận (best-effort) -> SENT | FAILED."""
         headers = {"X-Internal-Key": config.INTERNAL_KEY} if config.INTERNAL_KEY else None
+        payload = {"username": username, "bookingId": booking_id, "channel": "EMAIL"}
+        if email is _LOOKUP:  # đơn trả sau: chưa có email trong tay thì tra User Service
+            try:
+                email = (await self._ensure_user_exists(username)).get("email")
+            except BookingError:
+                email = None  # không tra được email: vẫn gửi thông báo (giả lập)
+        if isinstance(email, str) and email:
+            payload["email"] = email  # có SMTP thì Notification gửi email thật
         try:
             reply = await self._upstream.send(
                 "POST",
                 f"{config.NOTIFICATION_SERVICE_URL.rstrip('/')}/api/notify",
                 "Notification Service",
                 "NOTIFICATION_SERVICE_UNAVAILABLE",
-                json={"username": username, "bookingId": booking_id, "channel": "EMAIL"},
+                json=payload,
                 headers=headers,
                 timeout=NOTIFICATION_TIMEOUT_SECONDS,
             )
@@ -379,3 +403,64 @@ class BookingService:
             return NOTIFICATION_SENT
         logger.warning("Không gửi được thông báo cho đơn #%d (đơn vẫn PAID)", booking_id)
         return NOTIFICATION_FAILED
+
+
+    # ------------------------------------------------------------------ OTP thanh toán
+    async def request_otp(
+        self, booking_id: int, username: str, is_admin: bool = False, authorization: str | None = None
+    ) -> dict:
+        """Xin mã OTP xác nhận thanh toán: Payment sinh mã, Notification gửi tới email của người dùng."""
+        self.expire_holds()
+        booking = self._owned(booking_id, username, is_admin)
+        if booking.status == PAID:
+            raise BookingError("ALREADY_PAID", f"Đơn #{booking_id} đã được thanh toán")
+        if booking.status == CANCELLED:
+            raise BookingError("BOOKING_CANCELLED", f"Đơn #{booking_id} đã hết hạn giữ ghế hoặc đã bị hủy")
+        user = await self._ensure_user_exists(booking.username)
+        email = user.get("email")
+        if not isinstance(email, str) or not email:
+            raise BookingError("EMAIL_REQUIRED", "Tài khoản chưa có email để nhận mã OTP")
+
+        headers = {"Authorization": authorization.encode("latin-1")} if authorization else None
+        issued = await self._upstream.send(
+            "POST",
+            f"{config.PAYMENT_SERVICE_URL.rstrip('/')}/api/payment/otp",
+            "Payment Service",
+            "PAYMENT_SERVICE_UNAVAILABLE",
+            json={"bookingId": booking_id},
+            headers=headers,
+        )
+        if issued.code in OTP_ERROR_CODES:
+            raise BookingError(issued.code, issued.message or "Chưa thể gửi lại mã OTP")
+        if not issued.ok or not isinstance(issued.data, dict) or not issued.data.get("otp"):
+            raise BookingError("PAYMENT_SERVICE_ERROR", f"Payment Service không tạo được OTP ({self._reason(issued)})")
+        otp, ttl = str(issued.data["otp"]), int(issued.data.get("ttlSeconds") or 300)
+
+        notify_headers = {"X-Internal-Key": config.INTERNAL_KEY} if config.INTERNAL_KEY else None
+        sent = await self._upstream.send(
+            "POST",
+            f"{config.NOTIFICATION_SERVICE_URL.rstrip('/')}/api/notify/otp",
+            "Notification Service",
+            "NOTIFICATION_SERVICE_UNAVAILABLE",
+            json={"username": booking.username, "bookingId": booking_id, "email": email, "otp": otp, "ttlSeconds": ttl},
+            headers=notify_headers,
+            timeout=NOTIFICATION_TIMEOUT_SECONDS,
+        )
+        if not sent.ok:
+            raise BookingError("NOTIFICATION_SERVICE_ERROR", "Không gửi được mã OTP qua email, vui lòng thử lại")
+        delivery = sent.data.get("deliveryStatus") if isinstance(sent.data, dict) else None
+        result = {
+            "bookingId": booking_id,
+            "channel": "EMAIL",
+            "maskedEmail": _mask_email(email),
+            "expiresInSeconds": ttl,
+            "delivery": delivery or "SIMULATED",
+        }
+        if config.OTP_DEBUG:
+            result["devOtp"] = otp
+        return result
+
+
+def _mask_email(email: str) -> str:
+    name, _, domain = email.partition("@")
+    return f"{name[:2]}***@{domain}" if domain else "***"

@@ -4,6 +4,8 @@ from app.schemas.booking import (
     BookingResultResponse,
     CancelBookingRequest,
     CreateBookingRequest,
+    OtpBookingRequest,
+    OtpResponse,
     PayBookingRequest,
     UpdateBookingRequest,
 )
@@ -13,6 +15,8 @@ __all__ = [
     "BookingResultResponse",
     "CancelBookingRequest",
     "CreateBookingRequest",
+    "OtpBookingRequest",
+    "OtpResponse",
     "PayBookingRequest",
     "UpdateBookingRequest",
 ]

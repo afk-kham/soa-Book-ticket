@@ -22,6 +22,7 @@ class Reply:
     status: int
     data: Any = None
     message: str | None = None
+    code: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -71,7 +72,11 @@ class UpstreamClient:
         if not isinstance(body, dict):
             return Reply(response.status_code)
         message = body.get("message")
-        return Reply(response.status_code, body.get("data"), message if isinstance(message, str) else None)
+        code = body.get("code")
+        return Reply(
+            response.status_code, body.get("data"), message if isinstance(message, str) else None,
+            code if isinstance(code, str) else None,
+        )
 
     async def aclose(self) -> None:
         await self._client.aclose()

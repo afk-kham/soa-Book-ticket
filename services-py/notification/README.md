@@ -201,3 +201,9 @@ Quy tắc chung (xem [ASSETS_GUIDE](../docs/ASSETS_GUIDE.md)): file cũ giữ ng
 - Giới hạn `bookingId ≤ 2147483647` xuất phát từ `INT` MySQL — giữ để không đổi hành vi.
 
 Danh sách đầy đủ và trạng thái: [OPEN_QUESTIONS.md](../docs/OPEN_QUESTIONS.md).
+
+
+## Email thật (SMTP) và OTP
+- Đặt `SMTP_HOST` (+ `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_STARTTLS`/`SMTP_SSL`) trong `.env` để gửi **email thật** (ví dụ Gmail: `smtp.gmail.com`, cổng 587, mật khẩu ứng dụng). Để trống = giả lập, chỉ ghi log. Lỗi SMTP → 500 `INTERNAL_ERROR` (không lộ chi tiết).
+- `POST /api/notify/otp` `{username, bookingId, email, otp, ttlSeconds?}` (nội bộ, Booking gọi): gửi mã OTP thanh toán. Nhật ký chỉ ghi "đã gửi OTP", **không lưu mã**. Giả lập thì mã chỉ xuất hiện trong log console (để demo).
+- `POST /api/notify` nhận thêm `email?`: có email + SMTP thì gửi email xác nhận đặt vé thật. `deliveryStatus` = `SENT`/`SIMULATED`. Test: `tests/test_otp_email.py` (SMTP giả bằng mock).

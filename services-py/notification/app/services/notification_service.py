@@ -4,13 +4,14 @@ Không biết HTTP (chỉ ném ApiError) và không viết SQL. Thông báo lỗ
 """
 import logging
 import re
+import smtplib
 from datetime import datetime, timezone
 
 from app.core.errors import ApiError
 from app.entities.notification_log import NotificationLog
 from app.repositories.notification_repository import NotificationRepository
-from app.schemas.notification import CreateLogRequest, NotifyRequest, UpdateLogRequest
-from app.services.sender import ConsoleSender
+from app.schemas.notification import CreateLogRequest, NotifyRequest, OtpNotifyRequest, UpdateLogRequest
+from app.services.sender import SENT, ConsoleSender, DeliverySender
 
 logger = logging.getLogger("notification")
 
@@ -22,6 +23,10 @@ _STORE_ERRORS = {
     "sửa": "Không thể cập nhật nhật ký thông báo",
     "xóa": "Không thể xóa nhật ký thông báo",
 }
+
+
+EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+OTP_RE = re.compile(r"[0-9]{4,8}")
 
 
 def compose_message(booking_id: int) -> str:
@@ -44,9 +49,9 @@ def _check_channel(channel: str) -> None:
 
 
 class NotificationService:
-    def __init__(self, repo: NotificationRepository | None = None, sender: ConsoleSender | None = None):
+    def __init__(self, repo: NotificationRepository | None = None, sender: DeliverySender | None = None):
         self.repo = repo or NotificationRepository()
-        self.sender = sender or ConsoleSender()
+        self.sender = sender or DeliverySender()
 
     def _store(self, action: str, fn, *args):
         """Gọi repository; lỗi CSDL được ghi log nội bộ và đổi thành 500 (không lộ chi tiết SQL)."""
@@ -63,14 +68,47 @@ class NotificationService:
         if username == "" or len(username) > 50:
             raise ApiError(400, "username phải có từ 1 đến 50 ký tự Unicode")
         _check_channel(channel)
+        email = (req.email or "").strip()
+        if email and (len(email) > 100 or not EMAIL_RE.fullmatch(email)):
+            raise ApiError(400, "email không hợp lệ")
         n = NotificationLog(0, req.booking_id, username, channel, compose_message(req.booking_id), now_utc())
-        try:
-            self.sender.send(n)
-        except Exception:
-            logger.exception("Gửi giả lập thất bại")
-            raise ApiError(500, "Không thể xử lý thông báo")
+        body = f"Xin chào {username},\n\n{n.message}.\n\nCảm ơn bạn đã đặt vé tại SOA Cinema."
+        n.delivery = self._deliver(n, email, f"SOA Cinema - Xác nhận đặt vé #{n.booking_id}", body)
         n.id = self._store("ghi", self.repo.insert, n.booking_id, n.username, n.channel, n.message, n.sent_at)
         return n
+
+    # POST /api/notify/otp
+    def send_otp(self, req: OtpNotifyRequest) -> NotificationLog:
+        """Gửi mã OTP thanh toán qua email. Nhật ký KHÔNG lưu mã (chỉ ghi đã gửi)."""
+        username, email, otp = req.username.strip(), req.email.strip(), req.otp.strip()
+        _check_booking_id(req.booking_id)
+        if username == "" or len(username) > 50:
+            raise ApiError(400, "username phải có từ 1 đến 50 ký tự Unicode")
+        if not email or len(email) > 100 or not EMAIL_RE.fullmatch(email):
+            raise ApiError(400, "email không hợp lệ")
+        if not OTP_RE.fullmatch(otp):
+            raise ApiError(400, "otp phải gồm 4 đến 8 chữ số")
+        if not 30 <= req.ttl_seconds <= 3600:
+            raise ApiError(400, "ttlSeconds phải từ 30 đến 3600")
+        n = NotificationLog(0, req.booking_id, username, "EMAIL",
+                            f"Đã gửi mã OTP xác nhận thanh toán cho đơn #{req.booking_id}", now_utc())
+        body = (f"Xin chào {username},\n\nMã OTP xác nhận thanh toán đơn #{req.booking_id} của bạn là: {otp}\n"
+                f"Mã có hiệu lực trong {req.ttl_seconds // 60} phút. Không chia sẻ mã này cho bất kỳ ai.\n\nSOA Cinema")
+        n.delivery = self._deliver(n, email, f"SOA Cinema - Mã OTP thanh toán đơn #{req.booking_id}", body)
+        if n.delivery != SENT:  # chỉ ở chế độ giả lập: in mã ra log để demo/kiểm thử (không lưu DB)
+            logger.info("SIMULATED OTP bookingId=%d email=%s otp=%s", req.booking_id, email, otp)
+        n.id = self._store("ghi", self.repo.insert, n.booking_id, n.username, n.channel, n.message, n.sent_at)
+        return n
+
+    def _deliver(self, n: NotificationLog, email: str, subject: str, body: str) -> str:
+        try:
+            return self.sender.deliver(n, email or None, subject, body)
+        except (smtplib.SMTPException, OSError):
+            logger.exception("Gửi email thất bại")
+            raise ApiError(500, "Không gửi được email")
+        except Exception:
+            logger.exception("Gửi thông báo thất bại")
+            raise ApiError(500, "Không thể xử lý thông báo")
 
     # GET /api/notify/logs
     def list_logs(self, booking_id: str | None, username: str | None, channel: str | None) -> list[NotificationLog]:

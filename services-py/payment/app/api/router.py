@@ -5,9 +5,9 @@ from fastapi import APIRouter, Body, Query, Request
 from fastapi.responses import JSONResponse
 
 from app.core import config
-from app.controllers import get_payments_controller, post_payment
+from app.controllers import get_payments_controller, post_otp, post_payment
 from app.controllers.vnpay_controller import create_vnpay_url, vnpay_return
-from app.schemas import PaymentCreateRequest, VnpayCreateRequest
+from app.schemas import OtpCreateRequest, PaymentCreateRequest, VnpayCreateRequest
 
 api_router = APIRouter()
 
@@ -20,6 +20,11 @@ def health():
 @api_router.post("/api/payment", status_code=201)
 def create_payment(payload: PaymentCreateRequest = Body(...)):
     return post_payment(payload)
+
+
+@api_router.post("/api/payment/otp", status_code=201)
+def create_otp(payload: OtpCreateRequest = Body(...)):
+    return post_otp(payload.bookingId)
 
 
 @api_router.post("/api/payment/vnpay/create", status_code=201)
