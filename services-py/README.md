@@ -118,6 +118,13 @@ docker compose down         # dừng (volume SQLite được giữ). KHÔNG dùn
 
 Biến `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD` (MySQL) và `MONGO_URI/MONGO_DB` (Payment) **không còn dùng** — thay bằng `DB_PATH`. Đây là thay đổi so với `API_CONTRACT.md` §1 → cần PR sửa hợp đồng (D-05).
 
+## 6b. Bật xác thực JWT (tùy chọn, đã chạy end-to-end)
+1. Chọn MỘT khóa >= 32 ký tự dùng chung (không commit): `JWT_SECRET=<khóa>` cho User và Booking (Docker: đặt trong `.env`; local: `services-py/<tên>/.env`).
+2. User phát **JWT HS256 thật** khi đăng nhập (claims `sub`, `userId`, `role`, `iat`, `exp` +2 giờ); không có khóa thì token demo.
+3. Booking: `JWT_REQUIRED=true` → mọi thao tác đặt/thanh toán/xin OTP/hủy lấy danh tính từ token (`username` trong body bị bỏ qua, người khác không thao tác được đơn của bạn), thiếu/sai/hết hạn → 401 `UNAUTHORIZED`.
+4. Client tự gửi `Authorization: Bearer <token>` cho Booking; gặp 401 thì xóa phiên và chuyển về trang đăng nhập.
+5. **Giới hạn hiện tại**: trang Admin chưa có màn hình đăng nhập quản trị nên **không dùng được khi `JWT_REQUIRED=true`** (Admin gọi Booking không kèm token). Vì vậy mặc định `JWT_REQUIRED=false`; bật khi demo luồng khách hàng. Các service Movie/Showtime/Payment/Notification chưa ép xác thực (Payment/Notification là API nội bộ).
+
 ## 7. Vị trí lưu database SQLite
 
 | Môi trường | Đường dẫn | Ghi chú |

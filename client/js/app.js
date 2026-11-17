@@ -60,6 +60,7 @@
     SHOWTIME_NOT_FOUND: "Suất chiếu không còn tồn tại, vui lòng chọn suất khác.",
     BOOKING_CANCELLED: "Đơn đã hết thời gian giữ ghế hoặc đã bị hủy.",
     ALREADY_PAID: "Đơn này đã được thanh toán.",
+    UNAUTHORIZED: "Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.",
     NOTIFICATION_SERVICE_ERROR: "Chưa gửi được mã OTP qua email. Vui lòng thử lại sau ít phút.",
     NOTIFICATION_SERVICE_UNAVAILABLE: "Dịch vụ gửi email đang tạm gián đoạn. Vui lòng thử lại sau ít phút.",
     EMAIL_REQUIRED: "Tài khoản chưa có email để nhận mã OTP. Vui lòng đăng ký tài khoản có email.",
@@ -78,9 +79,12 @@
   async function call(svc, method, path, body) {
     var res, json;
     try {
+      var headers = body ? { "Content-Type": "application/json" } : {};
+      // Booking xác minh JWT khi bật JWT_REQUIRED: gửi token của phiên đăng nhập (bị bỏ qua khi tắt)
+      if (svc === "booking" && user && user.token) headers["Authorization"] = "Bearer " + user.token;
       res = await fetch(API[svc] + path, {
         method: method,
-        headers: body ? { "Content-Type": "application/json" } : {},
+        headers: headers,
         body: body ? JSON.stringify(body) : undefined,
         cache: "no-store"
       });
@@ -95,6 +99,12 @@
       var err = new Error(friendly(code, json && json.message));
       err.code = code;
       err.httpStatus = res.status;
+      if (code === "UNAUTHORIZED" && svc === "booking" && user) {  // token hết hạn/không hợp lệ: đăng nhập lại
+        sessionStorage.removeItem("soa.user");
+        user = null;
+        sessionStorage.setItem("soa.next", location.hash);
+        location.hash = "#/login";
+      }
       throw err;
     }
     return json.data;
