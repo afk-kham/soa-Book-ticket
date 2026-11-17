@@ -35,6 +35,8 @@ jobs:
   integration:
     name: Tích hợp 6 service (OTP + giao dịch + chịu lỗi)
     runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Ho_Chi_Minh   # Showtime/Booking so giờ chiếu theo giờ VN; bộ test chọn "suất sắp tới" theo giờ máy
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
