@@ -15,6 +15,8 @@ from app.schemas import (
     BookingResultResponse,
     CancelBookingRequest,
     CreateBookingRequest,
+    OtpBookingRequest,
+    OtpResponse,
     PayBookingRequest,
     UpdateBookingRequest,
 )
@@ -40,6 +42,12 @@ _HTTP_STATUS = {
     "BOOKING_CANCELLED": 409,
     "PAID_NOT_CANCELLABLE": 409,
     "PAYLOAD_TOO_LARGE": 413,
+    "OTP_REQUIRED": 400,
+    "OTP_INVALID": 400,
+    "OTP_EXPIRED": 400,
+    "EMAIL_REQUIRED": 400,
+    "OTP_LOCKED": 429,
+    "OTP_TOO_SOON": 429,
 }
 
 
@@ -135,9 +143,21 @@ class BookingController:
             data["username"] = claims["sub"]
         body = _validated(PayBookingRequest, data)
         result = await self._service.pay_booking(
-            booking_id, body.username, body.payment_method, _is_admin(claims), request.headers.get("authorization")
+            booking_id, body.username, body.payment_method, _is_admin(claims), request.headers.get("authorization"),
+            body.otp,
         )
         return success(200, BookingResultResponse.from_result(result).model_dump(by_alias=True))
+
+    async def otp(self, request: Request, booking_id: int) -> EnvelopeResponse:
+        claims = _identity(request)
+        data = await _read_json(request)
+        if claims:
+            data["username"] = claims["sub"]
+        body = _validated(OtpBookingRequest, data)
+        result = await self._service.request_otp(
+            booking_id, body.username, _is_admin(claims), request.headers.get("authorization")
+        )
+        return success(200, OtpResponse(**result).model_dump(by_alias=True, exclude_none=True))
 
     async def cancel(self, request: Request, booking_id: int) -> EnvelopeResponse:
         claims = _identity(request)

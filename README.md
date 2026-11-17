@@ -15,6 +15,11 @@ giao tiếp với nhau **chỉ bằng HTTP + JSON**, cùng **Admin** dùng chung
 | [Admin](admin) | 8081 | HTML/CSS/JS | — | Nhóm trưởng |
 | [Client](client) | 8080 | HTML/CSS/JS | — | Nhóm trưởng |
 
+## Kiến trúc tổng quan
+![Kiến trúc microservices](docs/architecture/architecture.png)
+
+Client/Admin → (API Gateway tùy chọn) → 6 service độc lập, mỗi service một CSDL SQLite; **Booking điều phối** User/Movie/Showtime (tra cứu), Payment (giao dịch + OTP) và Notification (email OTP/xác nhận). Mỗi request mang `X-Request-ID` xuyên suốt log của mọi service. CI tự chạy test cho từng service và bộ kiểm thử tích hợp trên mỗi Pull Request (`.github/workflows/ci.yml`).
+
 ## Đọc theo thứ tự này
 1. [`ARCHITECTURE.md`](ARCHITECTURE.md) — kiến trúc và nguyên tắc bắt buộc
 2. [`API_CONTRACT.md`](API_CONTRACT.md) — **hợp đồng API chung** (mọi người phải theo)

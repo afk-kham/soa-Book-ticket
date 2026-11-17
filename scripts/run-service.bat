@@ -63,6 +63,10 @@ set "USER_SERVICE_URL=http://127.0.0.1:%P_USER%"
 set "PAYMENT_SERVICE_URL=http://127.0.0.1:%P_PAYMENT%"
 set "NOTIFICATION_SERVICE_URL=http://127.0.0.1:%P_NOTIFICATION%"
 if not defined DB_PATH set "DB_PATH=%CD%\data\%NAME%.db"
+rem Demo: thanh toan can OTP gui qua email. OTP_DEBUG tra ma trong phan hoi de demo (GIA LAP, TAT khi chay that). Ghi de bang .env.
+if not defined OTP_REQUIRED set "OTP_REQUIRED=true"
+if not defined OTP_DEBUG set "OTP_DEBUG=true"
+if not defined OTP_RESEND_SECONDS set "OTP_RESEND_SECONDS=10"
 
 set "DO_INIT="
 if defined INIT (

@@ -88,6 +88,7 @@ Mật khẩu băm BCrypt; `passwordHash` **không bao giờ** xuất hiện tron
 | POST | `/api/booking` | Đặt vé (xem dưới) → 201 |
 | POST | `/api/booking/{id}/pay` | Thanh toán đơn đang giữ ghế `{username, paymentMethod}` → 200. Thất bại / Payment tạm sập: đơn **vẫn PENDING** để thử lại. Đơn đã trả → 409 `ALREADY_PAID`; đã hủy/hết hạn → 409 `BOOKING_CANCELLED`; không phải chủ đơn → 403 `FORBIDDEN`. |
 | POST | `/api/booking/{id}/cancel` | Hủy đơn đang giữ ghế `{username}` → 200 (nhả ghế). Đơn đã trả → 409 `PAID_NOT_CANCELLABLE`. |
+| POST | `/api/booking/{id}/otp` | Xin mã OTP xác nhận thanh toán `{username}` → 200 `{bookingId, channel, maskedEmail, expiresInSeconds, delivery}` (`delivery` ∈ `SENT`/`SIMULATED`; `devOtp` chỉ có khi `OTP_DEBUG=true`). Mã gửi qua **email** của chủ đơn. Chỉ đơn `PENDING`; gửi lại quá sớm → 429 `OTP_TOO_SOON`; tài khoản chưa có email → 400 `EMAIL_REQUIRED`. |
 | GET | `/api/booking` | Danh sách; lọc `?username=&status=&showtimeId=` |
 | GET | `/api/booking/{id}` | Chi tiết |
 | PUT | `/api/booking/{id}` | Đổi ghế của đơn đang giữ `{username, seats}` → 200. Giá = đơn giá cũ × số ghế mới, hạn giữ ghế không đổi. Đơn đã trả → 409 `ALREADY_PAID`; đã hủy/hết hạn → 409 `BOOKING_CANCELLED`; ghế mới đã có người giữ → 409 `SEAT_TAKEN`. |
@@ -101,6 +102,7 @@ Mật khẩu băm BCrypt; `passwordHash` **không bao giờ** xuất hiện tron
 { "username": "user1", "movieId": 1, "showtimeId": 1, "seats": ["A5", "A6"], "paymentMethod": "MOMO" }
 ```
 Ghế dạng chữ hoa + 1–2 chữ số (`A1`, `B12`), 1–10 ghế, không trùng. `paymentMethod` mặc định `MOMO`.
+**OTP thanh toán:** khi `OTP_REQUIRED=true`, `/pay` phải kèm `"otp": "<6 số>"` và `payNow:true` bị từ chối (400 `OTP_REQUIRED`) — luồng là giữ ghế → `/otp` → `/pay`. Mã sai/hết hạn/bị khóa trả 400 `OTP_INVALID` / 400 `OTP_EXPIRED` / 429 `OTP_LOCKED` và **đơn vẫn `PENDING`** để nhập lại. VNPAY không cần OTP (cổng VNPAY tự xác thực).
 `"payNow": false` → chỉ **giữ ghế**: trả đơn `PENDING` kèm `expiresAt` (= `createdAt` + `HOLD_MINUTES`, mặc định 10 phút), chưa gọi Payment; người dùng thanh toán qua `/pay`. Quá hạn, Booking tự chuyển đơn sang `CANCELLED` và nhả ghế.
 Suất chiếu đã bắt đầu → 400 `SHOWTIME_CLOSED`.
 Giá **luôn lấy từ Showtime**; Booking không tin giá do client gửi.
@@ -119,14 +121,16 @@ Mọi đơn (kể cả `GET`) có thêm `expiresAt`: hạn giữ ghế của đ�
 ## 6. Payment Service — `:5005`
 | Method | Đường dẫn | Mô tả |
 |---|---|---|
-| POST | `/api/payment` | `{bookingId, amount, method}` (`method` ∈ `BANK_TRANSFER`, `MOMO`, `VNPAY`, `CASH`) → 201 `{id, bookingId, amount, method, status, paidAt}`. `status` = `PAID` hoặc `FAILED` (vẫn lưu). Đơn đã `PAID` mà gọi lại → **409 `ALREADY_PAID`**. |
+| POST | `/api/payment` | `{bookingId, amount, method}` (`method` ∈ `BANK_TRANSFER`, `MOMO`, `VNPAY`, `CASH`) → 201 `{id, bookingId, amount, method, status, paidAt}`. `status` = `PAID` hoặc `FAILED` (vẫn lưu). Đơn đã `PAID` mà gọi lại → **409 `ALREADY_PAID`**. Thêm `otp` (bắt buộc khi `OTP_REQUIRED=true`): thiếu → 400 `OTP_REQUIRED`; sai → 400 `OTP_INVALID`; hết hạn → 400 `OTP_EXPIRED`; sai quá số lần → 429 `OTP_LOCKED`. Mã dùng một lần. |
+| POST | `/api/payment/otp` | **Nội bộ (Booking gọi)** `{bookingId}` → 201 `{bookingId, otp, ttlSeconds}`. Sinh OTP 6 số (lưu băm có muối, hiệu lực `OTP_TTL_SECONDS`=300, tối đa `OTP_MAX_ATTEMPTS`=5 lần sai, gửi lại cách nhau `OTP_RESEND_SECONDS`=30 → 429 `OTP_TOO_SOON`). |
 | GET | `/api/payment` | Danh sách; lọc `?bookingId=` |
 | GET | `/health` | Kiểm tra sống |
 
 ## 7. Notification Service — `:5006`
 | Method | Đường dẫn | Mô tả |
 |---|---|---|
-| POST | `/api/notify` | `{username, bookingId, channel}` → `{notificationId, bookingId, username, channel, deliveryStatus, message, sentAt}`. Gửi giả lập, có ghi log. |
+| POST | `/api/notify/otp` | **Nội bộ (Booking gọi)** `{username, bookingId, email, otp, ttlSeconds?}` → 200 `{notificationId, ..., deliveryStatus}`. Gửi mã OTP qua email; nhật ký chỉ ghi "đã gửi OTP" (**không lưu mã**). |
+| POST | `/api/notify` | `{username, bookingId, channel, email?}` → `{notificationId, bookingId, username, channel, deliveryStatus, message, sentAt}`. Gửi giả lập, có ghi log. Có `email` (và SMTP đã cấu hình) thì gửi **email thật**; `deliveryStatus` = `SENT` (email thật) hoặc `SIMULATED`. |
 | GET | `/api/notify/logs` | Danh sách nhật ký gửi (mới nhất trước). Hỗ trợ lọc `?bookingId=&username=&channel=` |
 | POST | `/api/notify/logs` | `{username, bookingId, channel, message?}` → Tạo bản ghi nhật ký thông báo mới |
 | GET | `/api/notify/logs/{id}` | Chi tiết một bản ghi nhật ký thông báo theo ID |

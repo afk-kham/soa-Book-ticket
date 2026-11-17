@@ -8,7 +8,13 @@ from pydantic import BaseModel
 
 from app.api.deps import get_booking_controller
 from app.controllers import BookingController
-from app.schemas import CancelBookingRequest, CreateBookingRequest, PayBookingRequest, UpdateBookingRequest
+from app.schemas import (
+    CancelBookingRequest,
+    CreateBookingRequest,
+    OtpBookingRequest,
+    PayBookingRequest,
+    UpdateBookingRequest,
+)
 
 api_router = APIRouter()
 
@@ -100,6 +106,18 @@ async def pay_booking(
     request: Request, booking_id: int, controller: BookingController = Depends(get_booking_controller)
 ):
     return await controller.pay(request, booking_id)
+
+
+@api_router.post(
+    "/api/booking/{booking_id:int}/otp",
+    tags=["booking"],
+    summary="Xin mã OTP thanh toán (gửi qua email của chủ đơn)",
+    openapi_extra=_body(OtpBookingRequest),
+)
+async def request_otp(
+    request: Request, booking_id: int, controller: BookingController = Depends(get_booking_controller)
+):
+    return await controller.otp(request, booking_id)
 
 
 @api_router.post(

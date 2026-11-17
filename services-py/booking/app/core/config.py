@@ -42,3 +42,8 @@ JWT_SECRET = os.environ.get("JWT_SECRET", "")
 # Công tắc xác thực cuối kỳ (D-18): tắt thì danh tính lấy từ body như baseline
 JWT_REQUIRED = os.environ.get("JWT_REQUIRED", "false").strip().lower() == "true"
 INTERNAL_KEY = os.environ.get("INTERNAL_KEY", "")
+
+# OTP xác nhận thanh toán: bật thì /pay bắt buộc có `otp` và không cho đặt-và-trả-ngay (payNow).
+OTP_REQUIRED = os.environ.get("OTP_REQUIRED", "false").strip().lower() in ("1", "true", "yes")
+# CHỈ để demo/kiểm thử: trả mã OTP trong phản hồi /otp (`devOtp`). Phải TẮT khi chạy thật.
+OTP_DEBUG = os.environ.get("OTP_DEBUG", "false").strip().lower() in ("1", "true", "yes")

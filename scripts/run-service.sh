@@ -40,6 +40,8 @@ export MOVIE_SERVICE_URL=http://127.0.0.1:$P_MOVIE SHOWTIME_SERVICE_URL=http://1
 export USER_SERVICE_URL=http://127.0.0.1:$P_USER PAYMENT_SERVICE_URL=http://127.0.0.1:$P_PAYMENT
 export NOTIFICATION_SERVICE_URL=http://127.0.0.1:$P_NOTIFICATION
 export DB_PATH=${DB_PATH:-./data/$NAME.db}   # tương đối so với services-py/<tên> (đang đứng ở đó)
+# Demo: thanh toán cần OTP gửi qua email. OTP_DEBUG trả mã trong phản hồi để demo (GIẢ LẬP, TẮT khi chạy thật). Ghi đè bằng .env.
+export OTP_REQUIRED=${OTP_REQUIRED:-true} OTP_DEBUG=${OTP_DEBUG:-true} OTP_RESEND_SECONDS=${OTP_RESEND_SECONDS:-10}
 
 if [ ${#INIT[@]} -gt 0 ]; then
   if [ "$MODE" = "--init-only" ] || [ "$MODE" = "--force-init" ] || [ ! -f "$DB_PATH" ]; then

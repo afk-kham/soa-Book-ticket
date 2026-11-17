@@ -97,7 +97,8 @@ Giới hạn đã biết (kế thừa): không có giao dịch phân tán (dùng
 - Mỗi service đọc cấu hình từ biến môi trường (`app/core/config.py`); URL service khác **chỉ** nằm ở đó.
 - Trong Docker Compose: gọi nhau bằng **tên service + cổng nội bộ** (`http://movie:5001`); trình duyệt gọi bằng **cổng publish** `localhost:5001`.
 - Dockerfile: `python:3.12.12-slim-bookworm`, chạy bằng user không phải root, volume `/data`, `HEALTHCHECK` gọi `/health` bằng thư viện chuẩn (không cần `curl`).
-- Không có reverse proxy / API Gateway (ngoài phạm vi đã xác nhận).
+- **API Gateway** (nginx, `services-py/gateway/nginx.conf`, cổng 8000): một địa chỉ vào, định tuyến theo path tới 6 service, gắn `X-Request-ID`, giới hạn tốc độ theo IP, trả 503 đúng envelope khi service sập. **Tùy chọn**: Client/Admin vẫn gọi trực tiếp từng service như cũ; thêm `?gateway=http://localhost:8000` vào URL để đi qua Gateway.
+- **Truy vết**: mọi service có middleware `X-Request-ID` (`app/core/request_id.py`): nhận mã từ Gateway/client hoặc tự sinh, trả lại trong header và ghi một dòng truy cập `rid=… service=… METHOD path -> status ms` (không ghi body/query/header). Booking chuyển tiếp mã này khi gọi User/Movie/Showtime/Payment/Notification nên một lần đặt vé có **cùng một mã trong log của cả 6 service** (lọc `rid=<mã>` là thấy toàn bộ hành trình).
 
 ## 6. Dependency ngoài fastapi/uvicorn (đã pin trong khung)
 

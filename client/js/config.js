@@ -2,6 +2,15 @@
 (function () {
   var host = location.hostname || "localhost";
   window.API = { movie: "http://" + host + ":5001", showtime: "http://" + host + ":5002", user: "http://" + host + ":5003", booking: "http://" + host + ":5004", payment: "http://" + host + ":5005" };
+  // API Gateway (tùy chọn): mở trang với ?gateway=http://localhost:8000 để mọi lời gọi đi qua MỘT địa chỉ (?gateway=off để tắt).
+  var gw = (location.search.match(/[?&]gateway=([^&]+)/) || [])[1];
+  try {
+    if (gw === "off") sessionStorage.removeItem("soa.gateway");
+    else if (gw) sessionStorage.setItem("soa.gateway", decodeURIComponent(gw));
+    gw = sessionStorage.getItem("soa.gateway");
+  } catch (e) { gw = gw === "off" ? null : gw && decodeURIComponent(gw); }
+  if (gw) Object.keys(window.API).forEach(function (k) { window.API[k] = gw.replace(/\/+$/, ""); });
+  window.GATEWAY_URL = gw || "";
   // Sơ đồ phòng chiếu dùng chung cho mọi phòng (Showtime chưa lưu kích thước phòng). Ghế dạng <hàng><số>: A1..F10.
   window.SEAT_MAP = { rows: "ABCDEF", cols: 10, aisleAfter: [5], maxSeats: 10 };
   // Ảnh poster: trường "poster" của phim là URL, hoặc tên file trong thư mục này (thiếu .jpg/.png thì thử bản .svg cùng tên).

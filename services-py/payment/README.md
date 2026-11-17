@@ -207,3 +207,7 @@ Cấu hình trong `.env` (không commit): `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`,
 Luồng: Client lấy `paymentUrl` → người dùng thanh toán trên VNPAY → Payment ghi giao dịch → Client gọi `POST /api/booking/{id}/pay` (`paymentMethod=VNPAY`); Payment trả 409 `ALREADY_PAID` nên Booking đối soát theo giao dịch đã ghi và chốt đơn `PAID` + gửi thông báo.
 
 > Hai endpoint trên **chưa có trong `API_CONTRACT.md`** (mục 2 phía trên yêu cầu PR sửa hợp đồng được duyệt). Thẻ test sandbox: https://sandbox.vnpayment.vn/apis/vnpay-demo/
+
+
+## OTP xác nhận thanh toán
+`POST /api/payment/otp` (nội bộ, Booking gọi) sinh mã 6 số, lưu **băm SHA-256 có muối** (bảng `otp_challenges`, tạo lười), hiệu lực `OTP_TTL_SECONDS` (300 s), tối đa `OTP_MAX_ATTEMPTS` (5) lần sai, gửi lại cách nhau `OTP_RESEND_SECONDS` (30 s). `POST /api/payment` kèm `otp`: bắt buộc khi `OTP_REQUIRED=true`, nếu client gửi `otp` thì luôn được kiểm tra. Mã **dùng một lần**. Luồng VNPAY (`/vnpay/return`) không dùng OTP vì VNPAY tự xác thực. Mã lỗi: `OTP_REQUIRED`, `OTP_INVALID`, `OTP_EXPIRED` (400), `OTP_LOCKED`, `OTP_TOO_SOON` (429). Test: `tests/test_otp.py`.

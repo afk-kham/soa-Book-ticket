@@ -22,3 +22,9 @@ VNPAY_URL = os.environ.get("VNPAY_URL", "https://sandbox.vnpayment.vn/paymentv2/
 VNPAY_RETURN_URL = os.environ.get("VNPAY_RETURN_URL", f"http://localhost:{PORT}/api/payment/vnpay/return")
 # Trang Client để đưa người dùng quay lại sau khi VNPAY trả kết quả
 CLIENT_URL = os.environ.get("CLIENT_URL", "http://localhost:8080")
+
+# OTP xác nhận thanh toán. OTP_REQUIRED=1: POST /api/payment bắt buộc có `otp` hợp lệ (VNPAY tự xác thực nên không áp dụng).
+OTP_REQUIRED = os.environ.get("OTP_REQUIRED", "false").strip().lower() in ("1", "true", "yes")
+OTP_TTL_SECONDS = int(os.environ.get("OTP_TTL_SECONDS", "300"))
+OTP_MAX_ATTEMPTS = int(os.environ.get("OTP_MAX_ATTEMPTS", "5"))
+OTP_RESEND_SECONDS = int(os.environ.get("OTP_RESEND_SECONDS", "30"))

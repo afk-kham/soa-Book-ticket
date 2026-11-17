@@ -93,7 +93,7 @@ def test_list_bad_filter_400(client, q):
 def test_swagger_lists_only_one_route_per_function(client):
     """Swagger gọn: đủ CRUD, không có GET / trùng danh sách, PATCH ẩn (vẫn hoạt động)."""
     paths = client.get("/openapi.json").json()["paths"]
-    assert sorted(paths) == ["/api/notify", "/api/notify/logs", "/api/notify/logs/find", "/api/notify/logs/{log_id}", "/health"]
+    assert sorted(paths) == ["/api/notify", "/api/notify/logs", "/api/notify/logs/find", "/api/notify/logs/{log_id}", "/api/notify/otp", "/health"]
     assert sorted(paths["/api/notify/logs/{log_id}"]) == ["delete", "get", "put"]
     assert sorted(paths["/api/notify/logs"]) == ["get", "post"]
     err(client.get("/"), 404, "NOT_FOUND")

@@ -237,8 +237,14 @@ def test_options_returns_204(client):
     assert response.headers["access-control-allow-origin"] == "*"
 
 
-@pytest.mark.parametrize("path", ["/docs", "/docs/", "/redoc", "/redoc/", "/openapi.json"])
-def test_documentation_routes_are_disabled(client, path):
+def test_swagger_ui_and_openapi_are_available(client):
+    assert "Swagger UI" in client.get("/docs").text
+    paths = client.get("/openapi.json").json()["paths"]
+    assert "/api/payment" in paths and "/api/payment/vnpay/create" in paths
+
+
+@pytest.mark.parametrize("path", ["/redoc", "/redoc/"])
+def test_other_documentation_routes_are_disabled(client, path):
     response = client.get(path)
     assert response.status_code == 404
     assert response.json() == {

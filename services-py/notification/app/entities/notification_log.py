@@ -10,3 +10,4 @@ class NotificationLog:
     channel: str
     message: str
     sent_at: str  # ISO-8601 UTC "YYYY-MM-DDTHH:MM:SSZ"
+    delivery: str = "SIMULATED"  # SENT (email thật) | SIMULATED; không lưu DB

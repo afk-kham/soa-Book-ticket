@@ -4,11 +4,12 @@ import re
 from typing import TypeVar
 
 from fastapi import Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
 
 from app.core.errors import ApiError, success_response
-from app.schemas.notification import (CreateLogRequest, NotifyRequest, UpdateLogRequest,
+from app.schemas.notification import (CreateLogRequest, NotifyRequest, OtpNotifyRequest, UpdateLogRequest,
                                       log_to_dict, notify_to_dict)
 from app.services.notification_service import NotificationService
 
@@ -50,7 +51,12 @@ def _parse_id(raw: str) -> int:
 
 
 async def notify(request: Request) -> JSONResponse:
-    n = service.notify(await _parse(request, NotifyRequest))
+    n = await run_in_threadpool(service.notify, await _parse(request, NotifyRequest))  # SMTP chặn: không chạy trên event loop
+    return success_response(notify_to_dict(n))
+
+
+async def send_otp(request: Request) -> JSONResponse:
+    n = await run_in_threadpool(service.send_otp, await _parse(request, OtpNotifyRequest))
     return success_response(notify_to_dict(n))
 
 

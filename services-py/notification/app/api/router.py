@@ -6,7 +6,7 @@ from fastapi import APIRouter
 
 from app.controllers import notification_controller as c
 from app.core import config
-from app.schemas.notification import CreateLogRequest, NotifyRequest, UpdateLogRequest
+from app.schemas.notification import CreateLogRequest, NotifyRequest, OtpNotifyRequest, UpdateLogRequest
 
 api_router = APIRouter()
 
@@ -24,6 +24,8 @@ def _body(model):
 R = api_router.add_api_route
 R("/api/notify", c.notify, methods=["POST"], summary="Gửi thông báo giả lập + ghi log",
   openapi_extra=_body(NotifyRequest))
+R("/api/notify/otp", c.send_otp, methods=["POST"], summary="Gửi mã OTP thanh toán qua email",
+  openapi_extra=_body(OtpNotifyRequest))
 R("/api/notify/logs", c.list_logs, methods=["GET"], summary="Danh sách nhật ký (mới nhất trước)")
 R("/api/notify/logs", c.create_log, methods=["POST"], status_code=201, summary="Tạo bản ghi nhật ký",
   openapi_extra=_body(CreateLogRequest))

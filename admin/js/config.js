@@ -4,7 +4,14 @@ window.SOA = (function () {
   var host = location.hostname || "localhost";
   // label: tên hiển thị trên giao diện (không đưa cổng/CSDL/công nghệ lên màn hình quản trị — các thông tin đó ở README).
   function s(key, name, port, owner, ping, tech, db, label) { return { key: key, name: name, port: port, owner: owner, ping: ping, tech: tech, db: db, label: label, base: "http://" + host + ":" + port }; }
-  return {
+  // API Gateway (tùy chọn): ?gateway=http://localhost:8000 (hoặc đã đặt trước đó trong phiên) -> mọi service qua một địa chỉ; ?gateway=off để tắt.
+  var gw = (location.search.match(/[?&]gateway=([^&]+)/) || [])[1];
+  try {
+    if (gw === "off") sessionStorage.removeItem("soa.gateway");
+    else if (gw) sessionStorage.setItem("soa.gateway", decodeURIComponent(gw));
+    gw = sessionStorage.getItem("soa.gateway");
+  } catch (e) { gw = gw === "off" ? null : gw && decodeURIComponent(gw); }
+  var cfg = {
     services: {
       movie:        s("movie", "Movie", 5001, "TV1", "/api/movies", "Python", "movie_db · MySQL", "Phim"),
       showtime:     s("showtime", "Showtime", 5002, "TV2", "/api/showtimes", "PHP", "showtime_db · MySQL", "Lịch chiếu"),
@@ -17,4 +24,6 @@ window.SOA = (function () {
     // Trang đặt vé của khách (dùng để mở trang và lấy ảnh poster trong img/posters)
     clientBase: "http://" + host + ":8080"
   };
+  if (gw) Object.keys(cfg.services).forEach(function (k) { cfg.services[k].base = gw.replace(/\/+$/, ""); });
+  return cfg;
 })();

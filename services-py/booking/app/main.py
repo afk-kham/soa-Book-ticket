@@ -18,6 +18,7 @@ from app.api.deps import upstream
 from app.api.router import api_router
 from app.controllers import handle_booking_error
 from app.core import config
+from app.core.request_id import RequestIdMiddleware
 from app.core.errors import BookingError
 from app.core.http import register_http_handling
 from app.repositories import BookingRepository
@@ -53,6 +54,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Booking Service", version="1.0.0", lifespan=lifespan)
 register_http_handling(app, api_router)
 app.add_exception_handler(BookingError, handle_booking_error)
+app.add_middleware(RequestIdMiddleware, service=config.SERVICE_NAME)  # X-Request-ID + nhật ký truy cập
 app.include_router(api_router)
 
 
