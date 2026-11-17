@@ -204,3 +204,7 @@ Quy tắc chung (xem [ASSETS_GUIDE](../docs/ASSETS_GUIDE.md)): file cũ giữ ng
 - Ràng buộc UNIQUE `username` ở mức DB phải giữ để chống đăng ký đồng thời (code cũ bắt SQLState 23000 → 409).
 
 Danh sách đầy đủ và trạng thái: [OPEN_QUESTIONS.md](../docs/OPEN_QUESTIONS.md).
+
+
+## Token đăng nhập: JWT HS256
+`POST /api/login` trả `token`: nếu `JWT_SECRET` (>= 32 ký tự, **cả nhóm dùng chung một khóa**) được cấu hình thì là **JWT HS256 thật** (claims `sub`=username, `userId`, `role`, `iat`, `exp`=+2 giờ), không thì giữ token demo `demo-token-<username>`. Booking đọc `sub` từ token khi bật `JWT_REQUIRED=true` (không tin `username` trong body). Test: `tests/test_jwt_token.py`.

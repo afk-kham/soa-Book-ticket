@@ -70,6 +70,7 @@ services:
       UPSTREAM_TIMEOUT_SECONDS: "${UPSTREAM_TIMEOUT_SECONDS:-5}"
       HOLD_MINUTES: "${HOLD_MINUTES:-10}"
       JWT_SECRET: ${JWT_SECRET:-}
+      JWT_REQUIRED: "${JWT_REQUIRED:-false}"  # true: Booking xác minh Bearer JWT, lấy danh tính từ token
       INTERNAL_KEY: ${INTERNAL_KEY:-}
       OTP_REQUIRED: "${OTP_REQUIRED:-true}"  # thanh toán cần OTP qua email
       OTP_DEBUG: "${OTP_DEBUG:-true}"  # demo: trả mã trong phản hồi. TẮT khi chạy thật
