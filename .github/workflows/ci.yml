@@ -1,11 +1,11 @@
 name: CI
 
-# Chạy test tự động cho mọi Pull Request và mọi lần cập nhật develop/main.
+# Chạy test tự động cho mọi lần push và mọi Pull Request vào develop/main.
 on:
   pull_request:
     branches: [develop, main]
   push:
-    branches: [develop, main]
+    branches: ["**"]   # cả nhánh feature: biết kết quả ngay khi push, không cần đợi mở PR
 
 concurrency:
   group: ci-${{ github.ref }}
