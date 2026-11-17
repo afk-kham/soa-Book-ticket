@@ -22,7 +22,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type", "Authorization", "Idempotency-Key"],
 )
 app.include_router(api_router)
 
@@ -31,7 +31,7 @@ def cors_headers() -> dict[str, str]:
     return {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, Idempotency-Key",
         "Access-Control-Max-Age": "86400",
     }
 

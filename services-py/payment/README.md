@@ -211,3 +211,7 @@ Luồng: Client lấy `paymentUrl` → người dùng thanh toán trên VNPAY �
 
 ## OTP xác nhận thanh toán
 `POST /api/payment/otp` (nội bộ, Booking gọi) sinh mã 6 số, lưu **băm SHA-256 có muối** (bảng `otp_challenges`, tạo lười), hiệu lực `OTP_TTL_SECONDS` (300 s), tối đa `OTP_MAX_ATTEMPTS` (5) lần sai, gửi lại cách nhau `OTP_RESEND_SECONDS` (30 s). `POST /api/payment` kèm `otp`: bắt buộc khi `OTP_REQUIRED=true`, nếu client gửi `otp` thì luôn được kiểm tra. Mã **dùng một lần**. Luồng VNPAY (`/vnpay/return`) không dùng OTP vì VNPAY tự xác thực. Mã lỗi: `OTP_REQUIRED`, `OTP_INVALID`, `OTP_EXPIRED` (400), `OTP_LOCKED`, `OTP_TOO_SOON` (429). Test: `tests/test_otp.py`.
+
+
+## Idempotency-Key (retry an toàn)
+`POST /api/payment` nhận header `Idempotency-Key` (1–64 ký tự `[A-Za-z0-9._:-]`). Gửi lại **cùng khóa + cùng nội dung** (bookingId, amount, method) → trả lại đúng phản hồi 201 lần đầu kèm header `Idempotency-Replayed: true`, **không tạo giao dịch mới và không cần OTP mới** (replay được kiểm tra trước OTP). Cùng khóa nhưng khác nội dung → 409 `IDEMPOTENCY_KEY_REUSED`. Chỉ lưu kết quả 201; lỗi (OTP sai, 409…) được phép thử lại. Booking gửi khóa `pay-<đơn>-<phương thức>-<số tiền>`. Bảng `idempotency_keys` tạo lười. Test: `tests/test_idempotency.py`.
