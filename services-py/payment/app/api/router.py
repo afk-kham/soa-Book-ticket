@@ -1,7 +1,7 @@
 """Router của Payment Service."""
 import re
 
-from fastapi import APIRouter, Body, Query, Request
+from fastapi import APIRouter, Body, Header, Query, Request
 from fastapi.responses import JSONResponse
 
 from app.core import config
@@ -18,8 +18,11 @@ def health():
 
 
 @api_router.post("/api/payment", status_code=201)
-def create_payment(payload: PaymentCreateRequest = Body(...)):
-    return post_payment(payload)
+def create_payment(
+    payload: PaymentCreateRequest = Body(...),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", description="Gửi lại cùng khóa = cùng kết quả"),
+):
+    return post_payment(payload, idempotency_key)
 
 
 @api_router.post("/api/payment/otp", status_code=201)

@@ -313,6 +313,8 @@ class BookingService:
         """Gọi Payment, trả kết quả PAID|FAILED. Không đổi trạng thái đơn; lỗi -> BookingError."""
         # Chuyển tiếp nguyên token: Starlette giải mã header bằng latin-1 nên encode lại không làm đổi byte
         headers = {"Authorization": authorization.encode("latin-1")} if authorization else None
+        # Khóa idempotency theo (đơn, phương thức, số tiền): gửi lại một lần thanh toán thì Payment trả lại đúng kết quả cũ
+        charge_headers = {**(headers or {}), "Idempotency-Key": f"pay-{booking.id}-{method.lower()}-{booking.total_price}"[:64]}
         try:
             reply = await self._upstream.send(
                 "POST",
@@ -321,7 +323,7 @@ class BookingService:
                 "PAYMENT_SERVICE_UNAVAILABLE",
                 json={"bookingId": booking.id, "amount": booking.total_price, "method": method,
                       **({"otp": otp} if otp else {})},
-                headers=headers,
+                headers=charge_headers,
             )
         except BookingError:
             # Có thể Payment đã ghi giao dịch nhưng phản hồi bị mất: hỏi lại trước khi kết luận
