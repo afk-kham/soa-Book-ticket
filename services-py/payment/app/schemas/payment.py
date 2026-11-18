@@ -8,6 +8,7 @@ class PaymentCreateRequest(BaseModel):
     bookingId: StrictInt = Field(gt=0, le=9223372036854775807)
     amount: StrictInt = Field(ge=-9223372036854775808, le=9223372036854775807)
     method: StrictStr = Field(min_length=1, max_length=100)
+    otp: StrictStr | None = Field(default=None, max_length=12)
 
     @field_validator("method")
     @classmethod
@@ -35,3 +36,9 @@ class VnpayCreateRequest(BaseModel):
     amount: StrictInt = Field(gt=0, le=2000000000)
     # Hạn giữ ghế của đơn (trường expiresAt Booking trả về); link VNPAY không được sống lâu hơn
     expiresAt: StrictStr | None = Field(default=None, max_length=40)
+
+
+class OtpCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    bookingId: StrictInt = Field(gt=0, le=9223372036854775807)

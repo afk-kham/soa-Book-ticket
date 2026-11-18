@@ -71,6 +71,8 @@ services:
       HOLD_MINUTES: "${HOLD_MINUTES:-10}"
       JWT_SECRET: ${JWT_SECRET:-}
       INTERNAL_KEY: ${INTERNAL_KEY:-}
+      OTP_REQUIRED: "${OTP_REQUIRED:-true}"  # thanh toán cần OTP qua email
+      OTP_DEBUG: "${OTP_DEBUG:-true}"  # demo: trả mã trong phản hồi. TẮT khi chạy thật
     volumes:
       - booking_data:/data  # SQLite của riêng booking
 
@@ -85,6 +87,8 @@ services:
       PORT: "5005"
       DB_PATH: /data/payment.db
       JWT_SECRET: ${JWT_SECRET:-}
+      OTP_REQUIRED: "${OTP_REQUIRED:-true}"
+      OTP_RESEND_SECONDS: "${OTP_RESEND_SECONDS:-10}"
     volumes:
       - payment_data:/data  # SQLite của riêng payment
 
@@ -100,6 +104,11 @@ services:
       DB_PATH: /data/notification.db
       JWT_SECRET: ${JWT_SECRET:-}
       INTERNAL_KEY: ${INTERNAL_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}  # để trống = giả lập; điền để gửi email thật
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - notification_data:/data  # SQLite của riêng notification
 

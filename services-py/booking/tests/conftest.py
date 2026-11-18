@@ -35,6 +35,11 @@ class FakeUpstreams:
         future = clock.format_time(clock.now() + timedelta(days=1))
         past = clock.format_time(clock.now() - timedelta(hours=1))
         self.users = {"user1", "user2"}
+        self.emails: dict[str, str] = {}  # email của người dùng (mặc định không có)
+        self.otp_required = False
+        self.otp_codes: dict[int, str] = {}
+        self.otp_too_soon = False
+        self.broken_otp_mail = False
         self.movies = {1, 2}
         self.showtimes = {
             1: {"id": 1, "movieId": 1, "cinema": "CGV", "room": "P1", "time": future, "price": 90000},
@@ -62,7 +67,7 @@ class FakeUpstreams:
 
     def _user(self, request):
         username = request.url.params.get("username")
-        rows = [{"id": 2, "username": username, "email": None, "role": "USER"}] if username in self.users else []
+        rows = [{"id": 2, "username": username, "email": self.emails.get(username), "role": "USER"}] if username in self.users else []
         return _ok(rows)
 
     def _movie(self, request):
@@ -80,6 +85,17 @@ class FakeUpstreams:
             booking_id = int(request.url.params["bookingId"])
             return _ok([t for t in reversed(self.transactions) if t["bookingId"] == booking_id])
         body = json.loads(request.content)
+        if request.url.path.endswith("/otp"):
+            if self.otp_too_soon:
+                return _err(429, "OTP_TOO_SOON", "Vui lòng chờ 20 giây rồi yêu cầu gửi lại mã OTP")
+            self.otp_codes[body["bookingId"]] = "123456"
+            return _ok({"bookingId": body["bookingId"], "otp": "123456", "ttlSeconds": 300}, 201)
+        if self.otp_required or "otp" in body:
+            if "otp" not in body:
+                return _err(400, "OTP_REQUIRED", "Cần nhập mã OTP để xác nhận thanh toán")
+            if self.otp_codes.get(body["bookingId"]) != body["otp"]:
+                return _err(400, "OTP_INVALID", "Mã OTP không đúng")
+            del self.otp_codes[body["bookingId"]]
         if self.on_payment:
             self.on_payment(body)
         if any(t["bookingId"] == body["bookingId"] and t["status"] == "PAID" for t in self.transactions):
@@ -99,6 +115,8 @@ class FakeUpstreams:
         return _ok(transaction, 201)
 
     def _notification(self, request):
+        if self.broken_otp_mail and request.url.path.endswith("/otp"):
+            return _err(500, "INTERNAL_ERROR", "Không gửi được email")
         return _ok({"notificationId": 1, "deliveryStatus": "SIMULATED"})
 
 
