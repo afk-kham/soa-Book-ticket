@@ -11,6 +11,7 @@ import httpx
 
 from app.core import config
 from app.core.errors import BookingError
+from app.core.request_id import request_id_var
 
 logger = logging.getLogger("booking-service")
 
@@ -53,6 +54,9 @@ class UpstreamClient:
         timeout: float | None = None,
     ) -> Reply:
         """Gửi request. Không kết nối được hoặc quá hạn -> BookingError(unavailable_code)."""
+        rid = request_id_var.get()
+        if rid != "-":  # chuyển tiếp mã truy vết: cùng một mã trong log của mọi service tham gia
+            headers = {**(headers or {}), "X-Request-ID": rid}
         try:
             response = await self._client.request(
                 method,

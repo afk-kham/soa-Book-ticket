@@ -1,0 +1,71 @@
+name: CI
+
+# Chạy test tự động cho mọi lần push và mọi Pull Request vào develop/main.
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: ["**"]   # cả nhánh feature: biết kết quả ngay khi push, không cần đợi mở PR
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Unit test (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [movie, showtime, user, booking, payment, notification]
+    defaults:
+      run:
+        working-directory: services-py/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services-py/${{ matrix.service }}/requirements*.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  integration:
+    name: Tích hợp 6 service (OTP + giao dịch + chịu lỗi)
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Ho_Chi_Minh   # Showtime/Booking so giờ chiếu theo giờ VN; bộ test chọn "suất sắp tới" theo giờ máy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Khởi động 6 service
+        run: bash scripts/start-all.sh
+      - name: Chờ các service sẵn sàng
+        run: |
+          for port in 5001 5002 5003 5004 5005 5006; do
+            for i in $(seq 1 120); do
+              curl -fsS "http://127.0.0.1:$port/health" >/dev/null 2>&1 && break
+              sleep 2
+            done
+            curl -fsS "http://127.0.0.1:$port/health" >/dev/null || { echo "Service cổng $port không lên"; tail -n 40 .run/*.log; exit 1; }
+          done
+      - name: Chạy bộ kiểm thử tích hợp (OTP bật theo mặc định của scripts)
+        run: python tests/integration/run_tests.py --otp
+      - name: Nhật ký service khi lỗi
+        if: failure()
+        run: tail -n 60 .run/*.log
+
+  client-syntax:
+    name: Kiểm tra cú pháp JavaScript (Client/Admin)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: |
+          for f in client/js/*.js admin/js/*.js; do node --check "$f"; done

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core import config
+from app.core.request_id import RequestIdMiddleware
 
 
 logger = logging.getLogger("showtime-service")
@@ -34,6 +35,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["Content-Type", "Authorization"],
 )
+app.add_middleware(RequestIdMiddleware, service=config.SERVICE_NAME)  # X-Request-ID + nhật ký truy cập
 app.include_router(api_router)
 
 

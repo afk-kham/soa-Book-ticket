@@ -101,7 +101,7 @@ docker compose down         # dừng (volume SQLite được giữ). KHÔNG dùn
 
 - Cổng **publish ra host** (`5001:5001`…) khác khái niệm với cổng **nội bộ container**. Hiện hai giá trị trùng số; nếu đổi `*_HOST_PORT` thì chỉ đổi phía host, URL giữa các container vẫn là `http://movie:5001`.
 - Không có `depends_on` giữa các service nghiệp vụ (tắt một service, các service còn lại vẫn chạy — yêu cầu SOA).
-- Admin/Client **chưa** nằm trong Compose (chạy như cũ: `python3 -m http.server 8080/8081`). Không có reverse proxy / API Gateway.
+- Compose gồm cả **API Gateway** (nginx, `:8000`), **Client** (`:8080`) và **Admin** (`:8081`) — `docker compose up --build` chạy trọn hệ thống. Gateway chỉ là lớp vào tùy chọn (thêm `?gateway=http://localhost:8000` vào URL Client/Admin); gọi trực tiếp `:5001..5006` vẫn dùng được. Cấu hình định tuyến: `gateway/nginx.conf`.
 
 ## 6. Bảng cổng và biến môi trường
 

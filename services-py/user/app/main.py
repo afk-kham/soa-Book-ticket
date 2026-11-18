@@ -11,6 +11,7 @@ from fastapi import FastAPI
 
 from app.api.router import api_router
 from app.core import config
+from app.core.request_id import RequestIdMiddleware
 from app.core.http import register_http_handling
 from app.db import init_schema
 
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="User Service", version="1.0.0", lifespan=lifespan, strict_content_type=False)
 register_http_handling(app)
+app.add_middleware(RequestIdMiddleware, service=config.SERVICE_NAME)  # X-Request-ID + nhật ký truy cập
 app.include_router(api_router)
 
 
