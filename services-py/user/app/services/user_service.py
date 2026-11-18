@@ -2,14 +2,21 @@
 
 Không viết SQL, không biết HTTP. Chỉ gọi xuống Repository.
 """
+import time
+
 import bcrypt
+import jwt
+
+from app.core import config
 
 from app.entities import User, UserAccount
 from app.repositories import DuplicateUsernameError, UserRepository
 from app.services.errors import InvalidCredentialsError, LastAdminError, UsernameTakenError, UserNotFoundError
 
 BCRYPT_ROUNDS = 10  # cost 10, tiền tố $2a$ - khớp hash trong seed cũ
-DEMO_TOKEN_PREFIX = "demo-token-"  # giữa kỳ (D-18 chưa chốt JWT)
+DEMO_TOKEN_PREFIX = "demo-token-"  # khi chưa cấu hình JWT_SECRET
+JWT_TTL_SECONDS = 2 * 60 * 60  # 2 giờ (kế hoạch v2.1 §5)
+MIN_SECRET_BYTES = 32
 
 _dummy_hash: bytes | None = None
 
@@ -114,5 +121,10 @@ class UserService:
 
     @staticmethod
     def _issue_token(account: UserAccount) -> str:
-        # Giữa kỳ: token demo theo hợp đồng. Cuối kỳ (D-18) thay bằng JWT HS256 - xem README.
-        return f"{DEMO_TOKEN_PREFIX}{account.username}"
+        """JWT HS256 (sub, userId, role, iat, exp +2 giờ) khi JWT_SECRET >= 32 byte; chưa cấu hình thì token demo."""
+        secret = config.JWT_SECRET
+        if len(secret.encode("utf-8")) < MIN_SECRET_BYTES:
+            return f"{DEMO_TOKEN_PREFIX}{account.username}"
+        now = int(time.time())
+        claims = {"sub": account.username, "userId": account.id, "role": account.role, "iat": now, "exp": now + JWT_TTL_SECONDS}
+        return jwt.encode(claims, secret, algorithm="HS256")
