@@ -85,21 +85,57 @@ def verify_signature(params: dict) -> bool:
     return hmac.compare_digest(_sign(signed).lower(), given.lower())
 
 
-def handle_return(params: dict) -> tuple[int | None, bool]:
-    """Xử lý tham số VNPAY trả về. Trả (bookingId, thành_công); chỉ ghi giao dịch khi chữ ký hợp lệ và mã 00."""
+def _process_vnpay_callback(params: dict) -> tuple[int | None, bool, bool]:
+    """Dùng chung cho return & IPN: kiểm tra chữ ký, parse tham số, ghi giao dịch nếu thành công.
+
+    Trả về (booking_id, signature_valid, payment_ok).
+    Ném ServiceError("ALREADY_PAID") khi đơn đã được thanh toán trước đó.
+    """
     ref = str(params.get("vnp_TxnRef", ""))
     booking_id = int(ref.split("_")[0]) if re.fullmatch(r"[0-9]+_[0-9]+", ref) else None
     if booking_id is None or not verify_signature(params):
-        return None, False
+        return None, False, False
     if params.get("vnp_ResponseCode") != "00" or params.get("vnp_TransactionStatus", "00") != "00":
-        return booking_id, False
+        return booking_id, True, False
     try:
-        amount = int(params.get("vnp_Amount", "0")) // 100
-    except ValueError:
-        return booking_id, False
+        amount = int(params["vnp_Amount"]) // 100
+    except (KeyError, TypeError, ValueError):
+        return booking_id, True, False
+    create_payment(booking_id, amount, "VNPAY")
+    return booking_id, True, True
+
+
+def handle_return(params: dict) -> tuple[int | None, bool]:
+    """Xử lý tham số VNPAY trả về. Trả (bookingId, thành_công); chỉ ghi giao dịch khi chữ ký hợp lệ và mã 00."""
     try:
-        create_payment(booking_id, amount, "VNPAY")
+        booking_id, sig_ok, paid_ok = _process_vnpay_callback(params)
     except ServiceError as exc:
-        if exc.code != "ALREADY_PAID":  # tải lại trang kết quả: giao dịch đã ghi, vẫn coi là thành công
-            raise
-    return booking_id, True
+        if exc.code == "ALREADY_PAID":  # tải lại trang kết quả: giao dịch đã ghi, vẫn coi là thành công
+            ref = str(params.get("vnp_TxnRef", ""))
+            return int(ref.split("_")[0]), True
+        raise
+    if not sig_ok:
+        return None, False
+    return booking_id, paid_ok
+
+
+def handle_ipn(params: dict) -> dict[str, str]:
+    """Xử lý IPN webhook từ VNPAY (server-to-server), trả về JSON phẳng theo chuẩn RspCode/Message."""
+    if not configured():
+        return {"RspCode": "99", "Message": "VNPAY not configured"}
+    ref = str(params.get("vnp_TxnRef", ""))
+    if not re.fullmatch(r"[0-9]+_[0-9]+", ref) or "vnp_ResponseCode" not in params or "vnp_Amount" not in params:
+        if params.get("vnp_SecureHash") and not verify_signature(params):
+            return {"RspCode": "97", "Message": "Invalid Checksum"}
+        return {"RspCode": "99", "Message": "Missing or invalid parameters"}
+    try:
+        _, sig_ok, _ = _process_vnpay_callback(params)
+    except ServiceError as exc:
+        if exc.code == "ALREADY_PAID":
+            return {"RspCode": "02", "Message": "Order already confirmed"}
+        return {"RspCode": "99", "Message": "Confirm failed"}
+    except Exception:
+        return {"RspCode": "99", "Message": "Unknown error"}
+    if not sig_ok:
+        return {"RspCode": "97", "Message": "Invalid Checksum"}
+    return {"RspCode": "00", "Message": "Confirm Success"}

@@ -131,3 +131,37 @@ def test_return_bad_signature_records_nothing(client):
 
 def test_return_garbage_redirects_home(client):
     assert client.get("/api/payment/vnpay/return").headers["location"] == "http://client.test/#/my"
+
+
+def test_ipn_success_and_duplicate_returns_00_then_02(client):
+    params = _signed({"vnp_TxnRef": "7_1", "vnp_Amount": "9000000", "vnp_ResponseCode": "00", "vnp_TransactionStatus": "00"})
+    r1 = client.get("/api/payment/vnpay/ipn", params=params)
+    assert r1.status_code == 200
+    assert r1.json() == {"RspCode": "00", "Message": "Confirm Success"}
+    tx = client.get("/api/payment?bookingId=7").json()["data"]
+    assert len(tx) == 1 and tx[0]["status"] == "PAID" and tx[0]["amount"] == 90000
+
+    r2 = client.get("/api/payment/vnpay/ipn", params=params)
+    assert r2.status_code == 200
+    assert r2.json()["RspCode"] == "02"
+    assert len(client.get("/api/payment?bookingId=7").json()["data"]) == 1
+
+
+def test_ipn_bad_signature_returns_97_and_records_nothing(client):
+    params = _signed({"vnp_TxnRef": "7_1", "vnp_Amount": "9000000", "vnp_ResponseCode": "00"})
+    params["vnp_Amount"] = "100"
+    r = client.get("/api/payment/vnpay/ipn", params=params)
+    assert r.status_code == 200 and r.json()["RspCode"] == "97"
+    assert client.get("/api/payment").json()["data"] == []
+
+
+def test_ipn_missing_params_returns_99(client):
+    r = client.get("/api/payment/vnpay/ipn", params={"vnp_TxnRef": "7_1"})
+    assert r.status_code == 200 and r.json()["RspCode"] == "99"
+
+
+def test_ipn_not_configured_returns_99_without_crash(client, monkeypatch):
+    monkeypatch.setattr(config, "VNPAY_HASH_SECRET", "")
+    params = {"vnp_TxnRef": "7_1", "vnp_Amount": "9000000", "vnp_ResponseCode": "00", "vnp_SecureHash": "abc"}
+    r = client.get("/api/payment/vnpay/ipn", params=params)
+    assert r.status_code == 200 and r.json()["RspCode"] == "99"

@@ -31,3 +31,12 @@ def vnpay_return(request: Request):
     if booking_id is None:
         return RedirectResponse(f"{base}/#/my", status_code=302)
     return RedirectResponse(f"{base}/#/vnpay-return/{quote(str(booking_id))}/{'ok' if ok else 'fail'}", status_code=302)
+
+
+def vnpay_ipn(request: Request) -> JSONResponse:
+    """Webhook IPN server-to-server từ VNPAY; luôn trả JSON phẳng theo định dạng RspCode/Message."""
+    try:
+        result = vnpay.handle_ipn(dict(request.query_params))
+    except Exception:
+        result = {"RspCode": "99", "Message": "Unknown error"}
+    return JSONResponse(status_code=200, content=result)
