@@ -103,9 +103,22 @@ class NotificationService:
     def _deliver(self, n: NotificationLog, email: str, subject: str, body: str) -> str:
         try:
             return self.sender.deliver(n, email or None, subject, body)
-        except (smtplib.SMTPException, OSError):
-            logger.exception("Gửi email thất bại")
-            raise ApiError(500, "Không gửi được email")
+        except (smtplib.SMTPRecipientsRefused, smtplib.SMTPSenderRefused):
+            logger.exception("Địa chỉ email bị từ chối khi gửi thông báo")
+            raise ApiError(400, "Địa chỉ email không hợp lệ hoặc bị máy chủ từ chối", "EMAIL_REJECTED")
+        except smtplib.SMTPAuthenticationError:
+            logger.exception("Xác thực máy chủ gửi email thất bại")
+            raise ApiError(502, "Dịch vụ gửi email tạm thời gặp sự cố xác thực", "EMAIL_PROVIDER_ERROR")
+        except smtplib.SMTPException:
+            logger.exception("Máy chủ gửi email trả lỗi")
+            raise ApiError(502, "Dịch vụ gửi email tạm thời gặp sự cố", "EMAIL_PROVIDER_ERROR")
+        except (TimeoutError, OSError):
+            logger.exception("Không kết nối được tới máy chủ gửi email")
+            raise ApiError(
+                503,
+                "Không thể kết nối tới dịch vụ gửi email, vui lòng thử lại sau",
+                "EMAIL_PROVIDER_UNAVAILABLE",
+            )
         except Exception:
             logger.exception("Gửi thông báo thất bại")
             raise ApiError(500, "Không thể xử lý thông báo")
