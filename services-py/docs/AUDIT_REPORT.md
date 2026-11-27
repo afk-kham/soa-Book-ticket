@@ -63,7 +63,7 @@ Nguy cơ mất dữ liệu cần lưu ý: `database/movie|showtime|booking/schem
 | `client/` | `index.html`, `css/client.css`, `js/{app,barcode,config,movie-extras,qr}.js`, `assets/*.jpg`, `img/posters/*.svg` | **Không đụng** |
 | `docs/` | ERD/DFD/UC (`.drawio`, `.png`, `.mmd`), báo cáo (`.docx`, `.pdf`, `.md`), `anh-ket-qua/*.png`, `source-giua-ky/` (C#) | **Không đụng** |
 | `design/figma-plugin/` | `code.js`, `manifest.json`, README | **Không đụng** |
-| Gốc repo | 16 ảnh chụp màn hình `admin_*.png`, `client_*.png`, `test_before_client_1440.png` (nằm lẻ ở thư mục gốc) | **Không đụng**; đề xuất gom vào `docs/screenshots/` — làm thủ công (xem `ASSETS_GUIDE.md`) |
+| Gốc repo | 16 ảnh chụp màn hình kiểm tra giao diện *(nằm lẻ trước đây)* | Đã cách ly khỏi gốc repo trong đợt dọn cấu trúc |
 | `scripts/`, `tests/integration/`, `ui-seed/` | Script khởi động/MySQL, test tích hợp, seed qua API | **Không đụng** (vẫn trỏ tới service cũ) |
 
 Repo có 147 file ảnh/tài liệu nặng (`png/jpg/jpeg/svg/docx/pdf/drawio`), `.git` ≈ 19 MB. Gói khung **không chứa file nhị phân nào**.
