@@ -147,7 +147,9 @@ Lớp nào cũng **chỉ gọi xuống** lớp dưới nó. Không import code c
 | `SHOWTIME_SERVICE_URL` | `http://localhost:5002` | `http://showtime:5002` | URL Showtime Service |
 | `PAYMENT_SERVICE_URL` | `http://localhost:5005` | `http://payment:5005` | URL Payment Service |
 | `NOTIFICATION_SERVICE_URL` | `http://localhost:5006` | `http://notification:5006` | URL Notification Service |
-| `UPSTREAM_TIMEOUT_SECONDS` | `5` | `5` | Timeout gọi service khác (mặc định 5; Notification 3) |
+| `UPSTREAM_TIMEOUT_SECONDS` | `5` | `5` | Timeout gọi service khác (mặc định `5`) |
+| `RECONCILE_TIMEOUT_SECONDS` | `2` | `2` | Timeout hỏi lại Payment khi đối soát giao dịch (mặc định `2`) |
+| `NOTIFICATION_TIMEOUT_SECONDS` | `3` | `3` | Timeout gọi Notification Service (mặc định `3`) |
 | `HOLD_MINUTES` | `10` | `10` | Số phút giữ ghế đơn `PENDING` (mặc định 10) |
 | `APP_TIMEZONE` | `Asia/Ho_Chi_Minh` | chưa khai báo, dùng mặc định | Múi giờ của `createdAt`, hạn giữ ghế và phép so giờ chiếu. **Phải trùng với Showtime** |
 | `JWT_REQUIRED` | `false` | chưa khai báo, dùng mặc định | Công tắc xác thực cuối kỳ (D-18). Muốn bật trong Compose, nhóm trưởng cần thêm biến này vào `docker-compose.yml` |

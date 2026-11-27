@@ -34,7 +34,9 @@ def test_result_has_exact_contract_fields(client, order):
     data = client.post("/api/booking", json=order()).json()["data"]
     assert list(data) == [
         "id", "movieId", "showtimeId", "username", "seats", "totalPrice", "status",
-        "createdAt", "expiresAt", "payment", "notification",
+        "createdAt", "expiresAt",
+        "movieTitle", "movieGenre", "unitPrice", "cinema", "room", "showTime",
+        "payment", "notification",
     ]
 
 
@@ -170,6 +172,7 @@ def test_list_item_has_no_payment_fields_and_is_sorted_by_id(client, order):
     assert [b["id"] for b in data] == [1, 2]
     assert list(data[0]) == [
         "id", "movieId", "showtimeId", "username", "seats", "totalPrice", "status", "createdAt", "expiresAt",
+        "movieTitle", "movieGenre", "unitPrice", "cinema", "room", "showTime",
     ]
 
 
@@ -350,3 +353,110 @@ def test_openapi_documents_every_business_endpoint_and_request_body(client):
     assert {"get", "put", "delete"} == set(detail)
     assert {"username", "seats"} == set(detail["put"]["requestBody"]["content"]["application/json"]["schema"]["properties"])
     assert "username" in {p["name"] for p in detail["delete"]["parameters"]}
+
+
+def test_booking_enriches_movie_and_showtime_snapshot_and_preserves_call_order(client, upstreams, order, monkeypatch):
+    import httpx
+
+    def custom_movie(request):
+        movie_id = int(request.url.path.rsplit("/", 1)[1])
+        return httpx.Response(200, json={"status": "success", "data": {"id": movie_id, "title": "Mai", "genre": "Tâm lý"}})
+
+    monkeypatch.setattr(upstreams, "_movie", custom_movie)
+    res = client.post("/api/booking", json=order(seats=["A1", "A2"]))
+    assert res.status_code == 201
+    data = res.json()["data"]
+    assert data["movieTitle"] == "Mai"
+    assert data["movieGenre"] == "Tâm lý"
+    assert data["unitPrice"] == 90000
+    assert data["totalPrice"] == 180000
+    assert data["cinema"] == "CGV"
+    assert data["room"] == "P1"
+    assert data["showTime"] == upstreams.showtimes[1]["time"]
+
+    ports = {5001: "movie", 5002: "showtime", 5003: "user", 5005: "payment", 5006: "notification"}
+    assert [ports[r.url.port] for r in upstreams.calls] == ["user", "movie", "showtime", "payment", "notification"]
+
+    # GET list, GET detail, pay, cancel đều trả các trường làm giàu dữ liệu
+    listed = client.get("/api/booking").json()["data"][0]
+    fetched = client.get(f"/api/booking/{data['id']}").json()["data"]
+    for item in (listed, fetched):
+        assert item["movieTitle"] == "Mai"
+        assert item["movieGenre"] == "Tâm lý"
+        assert item["unitPrice"] == 90000
+        assert item["cinema"] == "CGV"
+        assert item["room"] == "P1"
+        assert item["showTime"] == upstreams.showtimes[1]["time"]
+
+    hold = client.post("/api/booking", json=order(seats=["B1"], payNow=False)).json()["data"]
+    paid = client.post(f"/api/booking/{hold['id']}/pay", json={"username": "user1", "paymentMethod": "MOMO"}).json()["data"]
+    assert paid["movieTitle"] == "Mai"
+    assert paid["unitPrice"] == 90000
+
+    hold2 = client.post("/api/booking", json=order(seats=["B2"], payNow=False)).json()["data"]
+    cancelled = client.post(f"/api/booking/{hold2['id']}/cancel", json={"username": "user1"}).json()["data"]
+    assert cancelled["cinema"] == "CGV"
+    assert cancelled["room"] == "P1"
+
+
+def test_booking_allows_missing_optional_enrichment_fields_as_null(client, upstreams, order, monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(upstreams, "_movie", lambda req: httpx.Response(200, json={"status": "success", "data": {"id": 1}}))
+    upstreams.showtimes[1] = {"id": 1, "movieId": 1, "price": 90000}
+    res = client.post("/api/booking", json=order())
+    assert res.status_code == 201
+    data = res.json()["data"]
+    assert data["movieTitle"] is None
+    assert data["movieGenre"] is None
+    assert data["cinema"] is None
+    assert data["room"] is None
+    assert data["showTime"] is None
+    assert data["unitPrice"] == 90000
+
+
+def test_booking_reads_legacy_rows_with_null_enrichment_and_idempotent_migration(tmp_path, monkeypatch):
+    import sqlite3
+    from fastapi.testclient import TestClient
+    from app.core import config
+    from app.db import init_schema
+    from app.main import app
+
+    db_file = tmp_path / "legacy_booking.db"
+    conn = sqlite3.connect(db_file)
+    conn.execute(
+        """
+        CREATE TABLE bookings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            movie_id INTEGER NOT NULL,
+            showtime_id INTEGER NOT NULL,
+            username TEXT NOT NULL COLLATE NOCASE,
+            seats TEXT NOT NULL,
+            total_price INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        "INSERT INTO bookings (id, movie_id, showtime_id, username, seats, total_price, status, created_at) "
+        "VALUES (10, 1, 1, 'user1', 'C1', 90000, 'PAID', '2026-10-01 10:00:00')"
+    )
+    conn.commit()
+    conn.close()
+
+    monkeypatch.setattr(config, "DB_PATH", str(db_file))
+    init_schema()
+    init_schema()  # chạy lần 2 phải idempotent
+
+    with TestClient(app) as test_client:
+        res = test_client.get("/api/booking/10")
+        assert res.status_code == 200
+        data = res.json()["data"]
+        assert data["id"] == 10
+        assert data["movieTitle"] is None
+        assert data["movieGenre"] is None
+        assert data["unitPrice"] is None
+        assert data["cinema"] is None
+        assert data["room"] is None
+        assert data["showTime"] is None

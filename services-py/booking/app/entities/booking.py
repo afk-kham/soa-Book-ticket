@@ -29,6 +29,12 @@ class Booking:
     total_price: int
     status: str
     created_at: str
+    movie_title: str | None = None
+    movie_genre: str | None = None
+    unit_price: int | None = None
+    cinema: str | None = None
+    room: str | None = None
+    show_time: str | None = None
 
     @property
     def expires_at(self) -> str | None:

@@ -21,6 +21,7 @@ from app.core import config
 from app.core.request_id import RequestIdMiddleware
 from app.core.errors import BookingError
 from app.core.http import register_http_handling
+from app.db import migrate_if_exists
 from app.repositories import BookingRepository
 from app.services import BookingService
 
@@ -43,6 +44,7 @@ async def _sweep_expired_holds() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    migrate_if_exists()
     sweeper = asyncio.create_task(_sweep_expired_holds())
     yield
     sweeper.cancel()

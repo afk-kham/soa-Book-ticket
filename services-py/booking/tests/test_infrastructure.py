@@ -34,6 +34,7 @@ def test_schema_is_idempotent_and_has_contract_columns(isolated_db):
     conn.close()
     assert columns == [
         "id", "movie_id", "showtime_id", "username", "seats", "total_price", "status", "created_at",
+        "movie_title", "movie_genre", "unit_price", "cinema", "room", "show_time",
     ]
     assert {"idx_bookings_showtime_status", "idx_bookings_username"} <= indexes
 
@@ -320,3 +321,14 @@ def test_seat_map_stays_public_with_jwt_on(client, jwt_on):
 
 def test_jwt_off_ignores_token_and_keeps_baseline(client, order):
     assert client.post("/api/booking", json=order(), headers={"Authorization": "Bearer rac"}).status_code == 201
+
+
+def test_timeout_config_defaults_and_invalid_env_fallback(monkeypatch):
+    assert config.UPSTREAM_TIMEOUT_SECONDS == 5
+    assert config.RECONCILE_TIMEOUT_SECONDS == 2
+    assert config.NOTIFICATION_TIMEOUT_SECONDS == 3
+    for bad in ("", "abc", "0", "-5", "1.5"):
+        monkeypatch.setenv("RECONCILE_TIMEOUT_SECONDS", bad)
+        assert config._positive_int("RECONCILE_TIMEOUT_SECONDS", 2) == 2
+    monkeypatch.setenv("NOTIFICATION_TIMEOUT_SECONDS", "7")
+    assert config._positive_int("NOTIFICATION_TIMEOUT_SECONDS", 3) == 7

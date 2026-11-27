@@ -140,6 +140,12 @@ class BookingResponse(_Schema):
     status: str
     created_at: str
     expires_at: str | None
+    movie_title: str | None = None
+    movie_genre: str | None = None
+    unit_price: int | None = None
+    cinema: str | None = None
+    room: str | None = None
+    show_time: str | None = None
 
     @classmethod
     def from_entity(cls, booking: Booking) -> "BookingResponse":
@@ -153,6 +159,12 @@ class BookingResponse(_Schema):
             status=booking.status,
             created_at=booking.created_at,
             expires_at=booking.expires_at,
+            movie_title=booking.movie_title,
+            movie_genre=booking.movie_genre,
+            unit_price=booking.unit_price,
+            cinema=booking.cinema,
+            room=booking.room,
+            show_time=booking.show_time,
         )
 
 

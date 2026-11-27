@@ -35,8 +35,8 @@ OTP_ERROR_CODES = frozenset({"OTP_REQUIRED", "OTP_INVALID", "OTP_EXPIRED", "OTP_
 
 logger = logging.getLogger("booking-service")
 
-NOTIFICATION_TIMEOUT_SECONDS = 3
-RECONCILE_TIMEOUT_SECONDS = 2
+NOTIFICATION_TIMEOUT_SECONDS = config.NOTIFICATION_TIMEOUT_SECONDS
+RECONCILE_TIMEOUT_SECONDS = config.RECONCILE_TIMEOUT_SECONDS
 
 
 def _starts_at(value: object) -> datetime | None:
@@ -103,13 +103,25 @@ class BookingService:
     ) -> BookingResult:
         # 1) Xác thực tham chiếu logic bằng API của các service sở hữu dữ liệu
         user = await self._ensure_user_exists(username)
-        await self._ensure_movie_exists(movie_id)
-        price = await self._showtime_price(showtime_id, movie_id)
+        movie = await self._ensure_movie_exists(movie_id)
+        price, showtime = await self._showtime_details(showtime_id, movie_id)
         if pay_now and config.OTP_REQUIRED:  # kiểm tra dữ liệu trước; đặt-và-trả-ngay không có bước nhập OTP
             raise BookingError("OTP_REQUIRED", "Thanh toán cần mã OTP: đặt vé với payNow=false, gọi /otp rồi /pay")
 
         # 2) Giữ ghế: lưu đơn PENDING. Giá lấy từ Showtime, không tin client
-        pending = self._hold_seats(movie_id, showtime_id, username, seats, price * len(seats))
+        pending = self._hold_seats(
+            movie_id,
+            showtime_id,
+            username,
+            seats,
+            price * len(seats),
+            movie_title=_optional_str(movie.get("title")),
+            movie_genre=_optional_str(movie.get("genre")),
+            unit_price=price,
+            cinema=_optional_str(showtime.get("cinema")),
+            room=_optional_str(showtime.get("room")),
+            show_time=_optional_str(showtime.get("time")),
+        )
         if not pay_now:  # chỉ giữ ghế: chưa gọi Payment
             return BookingResult(pending, None, NOTIFICATION_SKIPPED)
 
@@ -139,7 +151,7 @@ class BookingService:
         user = reply.data[0]
         return user if isinstance(user, dict) else {}
 
-    async def _ensure_movie_exists(self, movie_id: int) -> None:
+    async def _ensure_movie_exists(self, movie_id: int) -> dict:
         reply = await self._upstream.send(
             "GET",
             f"{config.MOVIE_SERVICE_URL.rstrip('/')}/api/movies/{movie_id}",
@@ -150,9 +162,10 @@ class BookingService:
             raise BookingError("MOVIE_NOT_FOUND", f"Không tồn tại phim movieId = {movie_id}")
         if not reply.ok:
             raise BookingError("MOVIE_SERVICE_ERROR", "Movie Service trả lỗi khi kiểm tra phim")
+        return reply.data if isinstance(reply.data, dict) else {}
 
-    async def _showtime_price(self, showtime_id: int, movie_id: int) -> int:
-        """Kiểm tra suất chiếu còn đặt được và trả giá một ghế."""
+    async def _showtime_details(self, showtime_id: int, movie_id: int) -> tuple[int, dict]:
+        """Kiểm tra suất chiếu còn đặt được và trả (giá một ghế, thông tin suất chiếu)."""
         reply = await self._upstream.send(
             "GET",
             f"{config.SHOWTIME_SERVICE_URL.rstrip('/')}/api/showtimes/{showtime_id}",
@@ -170,10 +183,22 @@ class BookingService:
         starts_at = _starts_at(showtime.get("time"))
         if starts_at is not None and starts_at <= clock.now():
             raise BookingError("SHOWTIME_CLOSED", "Suất chiếu đã bắt đầu, vui lòng chọn suất khác")
-        return price
+        return price, showtime
 
     def _hold_seats(
-        self, movie_id: int, showtime_id: int, username: str, seats: list[str], total_price: int
+        self,
+        movie_id: int,
+        showtime_id: int,
+        username: str,
+        seats: list[str],
+        total_price: int,
+        *,
+        movie_title: str | None = None,
+        movie_genre: str | None = None,
+        unit_price: int | None = None,
+        cinema: str | None = None,
+        room: str | None = None,
+        show_time: str | None = None,
     ) -> Booking:
         with self._repo.transaction() as tx:
             self._expire_holds(tx)  # nhả ghế của đơn quá hạn trước khi kiểm tra
@@ -182,7 +207,18 @@ class BookingService:
             if clash:
                 raise BookingError("SEAT_TAKEN", f"Ghế đã có người đặt: {', '.join(clash)}")
             return tx.insert_pending(
-                movie_id, showtime_id, username, seats, total_price, clock.format_time(clock.now())
+                movie_id,
+                showtime_id,
+                username,
+                seats,
+                total_price,
+                clock.format_time(clock.now()),
+                movie_title=movie_title,
+                movie_genre=movie_genre,
+                unit_price=unit_price,
+                cinema=cinema,
+                room=room,
+                show_time=show_time,
             )
 
     async def _charge_or_cancel(self, booking: Booking, method: str, authorization: str | None) -> PaymentOutcome:
@@ -466,3 +502,7 @@ class BookingService:
 def _mask_email(email: str) -> str:
     name, _, domain = email.partition("@")
     return f"{name[:2]}***@{domain}" if domain else "***"
+
+
+def _optional_str(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
