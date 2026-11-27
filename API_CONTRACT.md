@@ -40,7 +40,7 @@
 | 409 | Xung đột: `SEAT_TAKEN`, `CONFLICT` (trùng username), `ALREADY_PAID` |
 | 413 | Body quá lớn |
 | 500 | Lỗi nội bộ (`INTERNAL_ERROR`) |
-| 502 / 503 | Booking gọi service khác lỗi / không với tới được (`*_SERVICE_ERROR`, `*_SERVICE_UNAVAILABLE`) |
+| 502 / 503 | Service gọi service khác phản hồi lỗi / không với tới được (`*_SERVICE_ERROR`, `*_SERVICE_UNAVAILABLE`) |
 
 ## 2. Movie Service — `:5001`
 | Method | Đường dẫn | Mô tả |
@@ -112,11 +112,14 @@ Giá **luôn lấy từ Showtime**; Booking không tin giá do client gửi.
 { "status": "success", "data": {
   "id": 4, "movieId": 1, "showtimeId": 1, "username": "user1", "seats": ["A5","A6"],
   "totalPrice": 180000, "status": "PAID", "createdAt": "2026-10-06 10:00:00",
+  "expiresAt": null,
+  "movieTitle": "Mai", "movieGenre": "Tâm lý", "unitPrice": 90000,
+  "cinema": "CGV Vincom", "room": "P1", "showTime": "2026-10-10 18:00:00",
   "payment": { "status": "PAID", "method": "MOMO", "transactionId": "665f..." },
   "notification": "SENT" } }
 ```
 `status` ∈ `PENDING | PAID | CANCELLED`. `notification` ∈ `SENT | FAILED | SKIPPED` (SKIPPED khi thanh toán thất bại hoặc chỉ giữ ghế).
-Mọi đơn (kể cả `GET`) có thêm `expiresAt`: hạn giữ ghế của đơn `PENDING`, `null` với đơn khác.
+Mọi đơn (kể cả `GET`) có thêm `expiresAt` (hạn giữ ghế của đơn `PENDING`, `null` với đơn khác) và 6 trường làm giàu dữ liệu (`movieTitle`, `movieGenre` từ Movie Service; `unitPrice`, `cinema`, `room`, `showTime` từ Showtime Service; `null` với đơn dữ liệu cũ).
 
 ## 6. Payment Service — `:5005`
 | Method | Đường dẫn | Mô tả |
