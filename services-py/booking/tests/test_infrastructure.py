@@ -225,6 +225,16 @@ def test_token_is_forwarded_to_payment(client, upstreams, jwt_on, order):
     assert upstreams.service_calls("payment")[0].headers["authorization"] == headers["Authorization"]
 
 
+def _alg_none_token() -> str:
+    import base64
+    import json
+
+    def _b64(obj: dict) -> str:
+        return base64.urlsafe_b64encode(json.dumps(obj, separators=(",", ":")).encode("utf-8")).rstrip(b"=").decode("ascii")
+
+    return f"{_b64({'alg': 'none', 'typ': 'JWT'})}.{_b64({'sub': 'admin', 'userId': 1, 'role': 'ADMIN', 'iat': int(time.time()), 'exp': int(time.time()) + 3600})}."
+
+
 @pytest.mark.parametrize(
     "headers",
     [
@@ -236,10 +246,13 @@ def test_token_is_forwarded_to_payment(client, upstreams, jwt_on, order):
         {"Authorization": f"Bearer {token(secret='khoa-khac-cung-du-dai-it-nhat-32-ky-tu')}"},
         {"Authorization": f"Bearer {token(exp=int(time.time()) - 3600)}"},
         {"Authorization": f"Bearer {token(role=None)}"},
+        {"Authorization": f"Bearer {_alg_none_token()}"},
     ],
 )
 def test_missing_or_bad_token_is_401_before_anything_happens(client, upstreams, jwt_on, order, headers):
-    assert is_error(client.post("/api/booking", json=order(), headers=headers), 401, "UNAUTHORIZED")
+    res = client.post("/api/booking", json=order(), headers=headers)
+    assert is_error(res, 401, "UNAUTHORIZED")
+    assert res.headers.get("www-authenticate") == "Bearer"
     assert upstreams.calls == []
 
 
@@ -256,8 +269,12 @@ def test_short_secret_fails_closed(client, jwt_on, order, monkeypatch):
 
 def test_list_all_requires_admin(client, jwt_on):
     assert client.get("/api/booking", headers=bearer("admin", "ADMIN")).status_code == 200
-    assert is_error(client.get("/api/booking", headers=bearer("user1")), 403, "FORBIDDEN")
-    assert is_error(client.get("/api/booking"), 401, "UNAUTHORIZED")
+    r_forbidden = client.get("/api/booking", headers=bearer("user1"))
+    assert is_error(r_forbidden, 403, "FORBIDDEN")
+    assert "www-authenticate" not in r_forbidden.headers
+    r_unauth = client.get("/api/booking")
+    assert is_error(r_unauth, 401, "UNAUTHORIZED")
+    assert r_unauth.headers.get("www-authenticate") == "Bearer"
 
 
 def test_user_can_list_only_own_tickets_for_client_page(client, jwt_on):

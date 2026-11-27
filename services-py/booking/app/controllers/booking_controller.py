@@ -60,7 +60,11 @@ def _http_status(code: str) -> int:
 
 
 async def handle_booking_error(_: Request, exc: BookingError) -> EnvelopeResponse:
-    return error(_http_status(exc.code), exc.code, exc.message)
+    status = _http_status(exc.code)
+    resp = error(status, exc.code, exc.message)
+    if status == 401:
+        resp.headers["WWW-Authenticate"] = "Bearer"
+    return resp
 
 
 def _reject_json_constant(name: str) -> None:
