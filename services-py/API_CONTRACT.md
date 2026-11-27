@@ -101,6 +101,7 @@ Giao dịch: `{id:str, bookingId:int, amount:number, method:str, status:"PAID"|"
 |---|---|---|---|---|---|---|
 | `POST /api/payment` | Ghi nhận giao dịch (mô phỏng): `PAID` nếu `amount > 0` và `method ∈ {BANK_TRANSFER, MOMO, VNPAY, CASH}`, ngược lại `FAILED` (**vẫn lưu**, vẫn 201) | `{bookingId (số nguyên > 0), amount (số), method (chuỗi, không phân biệt hoa thường)}` | `Giao dịch` | 201 | 400 `VALIDATION_ERROR`; 409 `ALREADY_PAID` (đơn đã có giao dịch `PAID`); 413 | ✅ |
 | `GET /api/payment` | Danh sách, mới nhất trước (`paidAt` giảm); lọc `?bookingId=` | — | `[Giao dịch]` | 200 | 400 (`bookingId` sai) | ✅ |
+| `GET /api/payment/vnpay/ipn` | Webhook IPN VNPAY (server-to-server) | Query `vnp_*` kèm `vnp_SecureHash` | `{"RspCode":"00"\|"02"\|"97"\|"99","Message":"..."}` (JSON phẳng) | 200 | — | ✅ |
 | `GET /health` | Kiểm tra sống | — | `{service:"payment-service", port:5005}` | 200 | — | ✅ |
 | Khác | — | — | — | 404 / 405 (`Allow: GET, POST, OPTIONS` cho `/api/payment`) / `OPTIONS` 204 | | ✅ |
 
@@ -113,7 +114,7 @@ Kết quả gửi (`Notify`): `{notificationId, bookingId, username, channel, de
 
 | Method + Path | Mục đích | Request | Response `data` | HTTP | Lỗi | Trạng thái |
 |---|---|---|---|---|---|---|
-| `POST /api/notify` | Gửi giả lập + ghi log | `{username (1–50), bookingId (1…2147483647), channel (`EMAIL`\|`SMS`)}` — **trường lạ bị từ chối** | `Notify` | 200 | 400; 413 (body > 16 KiB); 500 | ⚠️ contract không nêu mã (code: 200) (D-13) |
+| `POST /api/notify` | Gửi giả lập + ghi log | `{username (1–50), bookingId (1…2147483647), channel (`EMAIL`\|`SMS`)}` — **trường lạ bị từ chối** | `Notify` | 200 | 400 (`VALIDATION_ERROR`/`EMAIL_REJECTED`); 413 (body > 16 KiB); 502 `EMAIL_PROVIDER_ERROR`; 503 `EMAIL_PROVIDER_UNAVAILABLE`; 500 | ⚠️ contract không nêu mã (code: 200) (D-13) |
 | `GET /api/notify/logs` | Danh sách, mới nhất trước; lọc `?bookingId=&username=&channel=` | — | `[Log]` | 200 | 400 | ✅ |
 | `POST /api/notify/logs` | Tạo bản ghi log | `{username, bookingId, channel, message?}` (không có `message` thì tự sinh) | `Log` | 201 | 400 | ✅ |
 | `GET /api/notify/logs/{id}` | Chi tiết | — | `Log` | 200 | 400 (id không phải số dương); 404 | ✅ |

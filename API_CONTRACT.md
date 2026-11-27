@@ -127,13 +127,14 @@ Mọi đơn (kể cả `GET`) có thêm `expiresAt` (hạn giữ ghế của đ�
 | POST | `/api/payment` | `{bookingId, amount, method}` (`method` ∈ `BANK_TRANSFER`, `MOMO`, `VNPAY`, `CASH`) → 201 `{id, bookingId, amount, method, status, paidAt}`. `status` = `PAID` hoặc `FAILED` (vẫn lưu). Đơn đã `PAID` mà gọi lại → **409 `ALREADY_PAID`**. Thêm `otp` (bắt buộc khi `OTP_REQUIRED=true`): thiếu → 400 `OTP_REQUIRED`; sai → 400 `OTP_INVALID`; hết hạn → 400 `OTP_EXPIRED`; sai quá số lần → 429 `OTP_LOCKED`. Mã dùng một lần. Header tùy chọn `Idempotency-Key`: gửi lại cùng khóa + cùng nội dung → trả lại kết quả cũ (`Idempotency-Replayed: true`), cùng khóa khác nội dung → 409 `IDEMPOTENCY_KEY_REUSED`. |
 | POST | `/api/payment/otp` | **Nội bộ (Booking gọi)** `{bookingId}` → 201 `{bookingId, otp, ttlSeconds}`. Sinh OTP 6 số (lưu băm có muối, hiệu lực `OTP_TTL_SECONDS`=300, tối đa `OTP_MAX_ATTEMPTS`=5 lần sai, gửi lại cách nhau `OTP_RESEND_SECONDS`=30 → 429 `OTP_TOO_SOON`). |
 | GET | `/api/payment` | Danh sách; lọc `?bookingId=` |
+| GET | `/api/payment/vnpay/ipn` | Webhook IPN server-to-server từ VNPAY (`vnp_*` + `vnp_SecureHash`), trả JSON phẳng `{"RspCode","Message"}` (`00`/`02`/`97`/`99`) |
 | GET | `/health` | Kiểm tra sống |
 
 ## 7. Notification Service — `:5006`
 | Method | Đường dẫn | Mô tả |
 |---|---|---|
 | POST | `/api/notify/otp` | **Nội bộ (Booking gọi)** `{username, bookingId, email, otp, ttlSeconds?}` → 200 `{notificationId, ..., deliveryStatus}`. Gửi mã OTP qua email; nhật ký chỉ ghi "đã gửi OTP" (**không lưu mã**). |
-| POST | `/api/notify` | `{username, bookingId, channel, email?}` → `{notificationId, bookingId, username, channel, deliveryStatus, message, sentAt}`. Gửi giả lập, có ghi log. Có `email` (và SMTP đã cấu hình) thì gửi **email thật**; `deliveryStatus` = `SENT` (email thật) hoặc `SIMULATED`. |
+| POST | `/api/notify` | `{username, bookingId, channel, email?}` → `{notificationId, bookingId, username, channel, deliveryStatus, message, sentAt}`. Gửi giả lập, có ghi log. Có `email` (và SMTP đã cấu hình) thì gửi **email thật**; `deliveryStatus` = `SENT` (email thật) hoặc `SIMULATED`. Lỗi SMTP: từ chối địa chỉ → 400 `EMAIL_REJECTED`, xác thực/SMTP → 502 `EMAIL_PROVIDER_ERROR`, kết nối/timeout → 503 `EMAIL_PROVIDER_UNAVAILABLE`. |
 | GET | `/api/notify/logs` | Danh sách nhật ký gửi (mới nhất trước). Hỗ trợ lọc `?bookingId=&username=&channel=` |
 | POST | `/api/notify/logs` | `{username, bookingId, channel, message?}` → Tạo bản ghi nhật ký thông báo mới |
 | GET | `/api/notify/logs/{id}` | Chi tiết một bản ghi nhật ký thông báo theo ID |
