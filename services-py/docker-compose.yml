@@ -90,6 +90,11 @@ services:
       JWT_SECRET: ${JWT_SECRET:-}
       OTP_REQUIRED: "${OTP_REQUIRED:-true}"
       OTP_RESEND_SECONDS: "${OTP_RESEND_SECONDS:-10}"
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
+      VNPAY_URL: ${VNPAY_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
     volumes:
       - payment_data:/data  # SQLite của riêng payment
 

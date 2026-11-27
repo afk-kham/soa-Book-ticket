@@ -95,12 +95,13 @@ cd services-py
 cp .env.example .env        # tùy chọn: chỉ để đổi cổng host nếu bị trùng
 docker compose config       # kiểm tra cấu hình hợp lệ
 docker compose up --build   # build + chạy cả 6 service
+docker compose logs -f      # theo dõi log tất cả container (hoặc: docker compose logs -f <service>)
 curl http://localhost:5001/health ... 5006
 docker compose down         # dừng (volume SQLite được giữ). KHÔNG dùng `down -v` nếu muốn giữ dữ liệu
 ```
 
 - Cổng **publish ra host** (`5001:5001`…) khác khái niệm với cổng **nội bộ container**. Hiện hai giá trị trùng số; nếu đổi `*_HOST_PORT` thì chỉ đổi phía host, URL giữa các container vẫn là `http://movie:5001`.
-- Không có `depends_on` giữa các service nghiệp vụ (tắt một service, các service còn lại vẫn chạy — yêu cầu SOA).
+- **Vì sao Compose cố ý KHÔNG dùng `depends_on`:** SOA yêu cầu mỗi service khởi động, chạy và dừng độc lập ("tắt một service thì các service còn lại vẫn chạy"). Booking áp dụng graceful degradation (ví dụ Notification lỗi vẫn giữ đơn `PAID`; phụ thuộc bắt buộc sập trả `503`), nên hệ thống không khóa cứng thứ tự khởi động bằng `depends_on`.
 - Compose gồm cả **API Gateway** (nginx, `:8000`), **Client** (`:8080`) và **Admin** (`:8081`) — `docker compose up --build` chạy trọn hệ thống. Gateway chỉ là lớp vào tùy chọn (thêm `?gateway=http://localhost:8000` vào URL Client/Admin); gọi trực tiếp `:5001..5006` vẫn dùng được. Cấu hình định tuyến: `gateway/nginx.conf`.
 
 ## 6. Bảng cổng và biến môi trường
@@ -149,11 +150,11 @@ Tên file: `movie.db`, `showtime.db`, `user.db`, `booking.db`, `payment.db`, `no
 ## 9. Chạy test
 
 ```bash
-cd services-py/<service> && python -m pytest -q      # test khung của service
-python3 tests/integration/run_tests.py                # test tích hợp gốc (thư mục gốc repo)
+cd services-py/<service> && python -m pytest -q      # test unit/API của từng service
+python tests/integration/run_tests.py                 # test tích hợp 6 service (thư mục gốc repo)
 ```
 
-Test khung chỉ chứng minh app khởi động + `/health` + không tự tạo file DB. **Chưa có test nghiệp vụ.** Bộ `tests/integration/run_tests.py` gốc nhắm vào các service cũ; chỉ dùng được với service Python khi service đó đã cài đặt đủ hành vi (hiện chưa).
+Mỗi service trong `services-py/` đều có bộ test unit/API (`pytest`). Bộ `tests/integration/run_tests.py` (cùng `tests/integration/test_e2e.py`) kiểm thử tích hợp end-to-end trên 6 service Python đang chạy, hỗ trợ cấu hình qua `SOA_HOST`, `SOA_PORT_OFFSET` hoặc `SOA_GATEWAY_URL`.
 Lưu ý: pytest in cảnh báo `StarletteDeprecationWarning` về `httpx` — chỉ là cảnh báo của TestClient, không ảnh hưởng chạy.
 
 ## 10. Phân công & quy trình Git
