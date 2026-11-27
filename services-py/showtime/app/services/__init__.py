@@ -49,7 +49,7 @@ async def _assert_movie_exists(movie_id: int) -> None:
         return
     url = f"{config.MOVIE_SERVICE_URL.rstrip('/')}/api/movies/{movie_id}"
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=config.UPSTREAM_TIMEOUT_SECONDS) as client:
             response = await client.get(url)
     except httpx.RequestError as exc:
         logger.warning("Không gọi được Movie Service để kiểm tra movieId: %s", exc)
@@ -67,8 +67,8 @@ async def _assert_movie_exists(movie_id: int) -> None:
         )
     if response.status_code != 200:
         raise ShowtimeServiceError(
-            503,
-            "MOVIE_SERVICE_UNAVAILABLE",
+            502,
+            "MOVIE_SERVICE_ERROR",
             "Movie Service trả lỗi khi kiểm tra movieId",
         )
 
@@ -142,7 +142,7 @@ def _movie_ids_from_response(data: object) -> list[int]:
 async def _schedule_movie_ids() -> list[int]:
     url = f"{config.MOVIE_SERVICE_URL.rstrip('/')}/api/movies"
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=config.UPSTREAM_TIMEOUT_SECONDS) as client:
             response = await client.get(url)
         if response.status_code == 200:
             movie_ids = _movie_ids_from_response(response.json())

@@ -76,7 +76,7 @@ def test_create_validates_fields_and_does_not_call_movie_for_invalid_payload(
 
 @pytest.mark.parametrize(
     ("movie_status", "expected_status", "expected_code"),
-    [(404, 400, "MOVIE_NOT_FOUND"), (502, 503, "MOVIE_SERVICE_UNAVAILABLE")],
+    [(404, 400, "MOVIE_NOT_FOUND"), (500, 502, "MOVIE_SERVICE_ERROR"), (502, 502, "MOVIE_SERVICE_ERROR")],
 )
 def test_movie_errors_are_mapped_to_contract(
     client, monkeypatch, movie_status, expected_status, expected_code
@@ -100,6 +100,42 @@ def test_movie_errors_are_mapped_to_contract(
     assert response.json()["code"] == expected_code
     assert requested_timeouts == [3.0]
     assert list_showtimes() == []
+
+
+def test_movie_lookup_unit19_four_cases(client, monkeypatch):
+    """Bảng 4 tình huống Unit 19 cho Showtime -> Movie: 200->201, 404->400, RequestError->503, 500/HTML->502."""
+    real_async_client = httpx.AsyncClient
+    monkeypatch.setattr(config, "VALIDATE_MOVIE", True)
+
+    def with_handler(handler):
+        monkeypatch.setattr(
+            services.httpx,
+            "AsyncClient",
+            lambda *, timeout: real_async_client(transport=httpx.MockTransport(handler), timeout=timeout),
+        )
+
+    # 1. Phim tồn tại (200) -> 201
+    with_handler(lambda req: httpx.Response(200, json={"status": "success", "data": {"id": 2}}, request=req))
+    r_ok = client.post("/api/showtimes", json=valid_payload())
+    assert r_ok.status_code == 201
+
+    # 2. Phim không tồn tại (404) -> 400 MOVIE_NOT_FOUND
+    with_handler(lambda req: httpx.Response(404, json={"status": "error", "code": "NOT_FOUND"}, request=req))
+    r_404 = client.post("/api/showtimes", json=valid_payload())
+    assert r_404.status_code == 400 and r_404.json()["code"] == "MOVIE_NOT_FOUND"
+
+    # 3. Mất kết nối / timeout (RequestError) -> 503 MOVIE_SERVICE_UNAVAILABLE
+    def raise_connect(req):
+        raise httpx.ConnectError("down", request=req)
+
+    with_handler(raise_connect)
+    r_down = client.post("/api/showtimes", json=valid_payload())
+    assert r_down.status_code == 503 and r_down.json()["code"] == "MOVIE_SERVICE_UNAVAILABLE"
+
+    # 4. Phản hồi bất thường (500 với JSON hỏng / HTML) -> 502 MOVIE_SERVICE_ERROR
+    with_handler(lambda req: httpx.Response(500, text="<html>broken{json", request=req))
+    r_bad = client.post("/api/showtimes", json=valid_payload())
+    assert r_bad.status_code == 502 and r_bad.json()["code"] == "MOVIE_SERVICE_ERROR"
 
 
 def test_update_checks_missing_id_before_invalid_body(client):
@@ -201,3 +237,14 @@ def test_options_is_no_content_and_errors_are_enveloped(client):
     assert method_not_allowed.status_code == 405
     assert method_not_allowed.json()["code"] == "METHOD_NOT_ALLOWED"
     assert "Allow" in method_not_allowed.headers
+
+
+@pytest.mark.parametrize("bad_value", ["", "   ", "abc", "0", "-1.5"])
+def test_upstream_timeout_falls_back_to_default_on_invalid_env(monkeypatch, bad_value):
+    monkeypatch.setenv("UPSTREAM_TIMEOUT_SECONDS", bad_value)
+    assert config._positive_float("UPSTREAM_TIMEOUT_SECONDS", 3.0) == 3.0
+
+
+def test_upstream_timeout_reads_valid_env(monkeypatch):
+    monkeypatch.setenv("UPSTREAM_TIMEOUT_SECONDS", "4.5")
+    assert config._positive_float("UPSTREAM_TIMEOUT_SECONDS", 3.0) == 4.5
