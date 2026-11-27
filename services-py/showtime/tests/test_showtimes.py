@@ -248,3 +248,64 @@ def test_upstream_timeout_falls_back_to_default_on_invalid_env(monkeypatch, bad_
 def test_upstream_timeout_reads_valid_env(monkeypatch):
     monkeypatch.setenv("UPSTREAM_TIMEOUT_SECONDS", "4.5")
     assert config._positive_float("UPSTREAM_TIMEOUT_SECONDS", 3.0) == 4.5
+
+
+def test_showtime_propagates_x_request_id_to_movie_on_create_and_auto_schedule(client, monkeypatch):
+    from app import services as showtime_service
+
+    monkeypatch.setattr(config, "VALIDATE_MOVIE", True)
+    monkeypatch.setattr(config, "AUTO_SCHEDULE_DAYS", 1)
+    seen_headers: list[tuple[str, str | None]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_headers.append((request.url.path, request.headers.get("x-request-id")))
+        if request.url.path == "/api/movies/1":
+            return httpx.Response(200, json={"status": "success", "data": {"id": 1}})
+        if request.url.path == "/api/movies":
+            return httpx.Response(200, json={"status": "success", "data": [{"id": 1}]})
+        return httpx.Response(404, json={"status": "error"})
+
+    transport = httpx.MockTransport(handler)
+    real_async_client = showtime_service.httpx.AsyncClient
+    monkeypatch.setattr(
+        showtime_service.httpx,
+        "AsyncClient",
+        lambda *args, **kwargs: real_async_client(transport=transport, **kwargs),
+    )
+
+    r1 = client.post(
+        "/api/showtimes",
+        json={"movieId": 1, "cinema": "CGV", "room": "P1", "time": "2030-01-01 18:00:00", "price": 90000},
+        headers={"X-Request-ID": "trace-create-123"},
+    )
+    assert r1.status_code == 201
+    r2 = client.get("/api/showtimes", headers={"X-Request-ID": "trace-list-456"})
+    assert r2.status_code == 200
+    assert ("/api/movies/1", "trace-create-123") in seen_headers
+    assert ("/api/movies", "trace-list-456") in seen_headers
+
+
+def test_showtime_omits_x_request_id_when_no_context(monkeypatch):
+    import asyncio
+    from app import services as showtime_service
+    from app.core.request_id import request_id_var
+
+    seen_headers: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_headers.append(dict(request.headers))
+        return httpx.Response(200, json={"status": "success", "data": {"id": 1}})
+
+    transport = httpx.MockTransport(handler)
+    real_async_client = showtime_service.httpx.AsyncClient
+    monkeypatch.setattr(
+        showtime_service.httpx,
+        "AsyncClient",
+        lambda *args, **kwargs: real_async_client(transport=transport, **kwargs),
+    )
+    token = request_id_var.set("-")
+    try:
+        asyncio.run(showtime_service._assert_movie_exists(1))
+    finally:
+        request_id_var.reset(token)
+    assert seen_headers and "x-request-id" not in seen_headers[0]
