@@ -43,7 +43,12 @@ for s in movie showtime user booking payment notification; do cp services/$s/.en
 bash scripts/start-all.sh                                           # Windows: scripts\start-all.bat
 
 # 4) Kiểm tra
-python3 tests/integration/run_tests.py
+python tests/integration/run_tests.py
+# Tùy chọn cấu hình địa chỉ/cổng/Gateway:
+#   SOA_HOST=192.168.1.10 SOA_PORT_OFFSET=11000 python tests/integration/run_tests.py
+#   SOA_GATEWAY_URL=http://localhost:8000 python tests/integration/run_tests.py
+# Bản pytest + httpx (CHỈ chạy trên môi trường cô lập vì tạo đơn thật; tự skip nếu hệ thống chưa bật):
+#   SOA_PORT_OFFSET=11000 python -m pytest -q tests/integration/test_e2e.py
 ```
 Mở **Client** http://localhost:8080 (đăng nhập `user1` / `User@123`) và **Admin** http://localhost:8081.
 Dừng: `bash scripts/stop-all.sh`. Chạy từng service riêng: xem `README.md` trong thư mục service.

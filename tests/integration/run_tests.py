@@ -8,16 +8,21 @@ Kiểm thử tích hợp 6 service (chỉ dùng thư viện chuẩn Python 3.8+,
   python tests/integration/run_tests.py --expect-down notification   # TẮT Notification: đơn vẫn PAID, notification = FAILED
   python tests/integration/run_tests.py --expect-down showtime|movie|user   # TẮT service đó: Booking phải trả 503
 
-Đổi địa chỉ máy chủ: HOST=192.168.1.10 python tests/integration/run_tests.py
+Đổi địa chỉ máy chủ: SOA_HOST=192.168.1.10 python tests/integration/run_tests.py (hỗ trợ cả HOST cũ)
+Đổi dải cổng:        SOA_PORT_OFFSET=11000 python tests/integration/run_tests.py
+Chạy qua Gateway:    SOA_GATEWAY_URL=http://localhost:8000 python tests/integration/run_tests.py
 """
 import argparse, json, os, random, sys, time
 import urllib.request, urllib.error
 
-HOST = os.environ.get("HOST", "localhost")
-URL = {k: f"http://{HOST}:{p}" for k, p in
-       dict(movie=5001, showtime=5002, user=5003, booking=5004, payment=5005, notification=5006).items()}
+HOST = os.environ.get("SOA_HOST") or os.environ.get("HOST", "localhost")
+PORT_OFFSET = int(os.environ.get("SOA_PORT_OFFSET", "0"))
+GATEWAY_URL = os.environ.get("SOA_GATEWAY_URL", "").strip().rstrip("/")
+_BASE_PORTS = dict(movie=5001, showtime=5002, user=5003, booking=5004, payment=5005, notification=5006)
+URL = {k: (GATEWAY_URL if GATEWAY_URL else f"http://{HOST}:{p + PORT_OFFSET}") for k, p in _BASE_PORTS.items()}
 PASS = FAIL = 0
 OTP = os.environ.get("OTP") == "1"  # bật bằng --otp: stack chạy với OTP_REQUIRED=true và OTP_DEBUG=true
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 def call(svc, method, path, body=None, timeout=20):
@@ -26,7 +31,7 @@ def call(svc, method, path, body=None, timeout=20):
                                  data=json.dumps(body).encode() if body is not None else None,
                                  headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with _OPENER.open(req, timeout=timeout) as r:
             return r.status, json.loads(r.read().decode())
     except urllib.error.HTTPError as e:
         try:
@@ -150,8 +155,13 @@ def normal():
     check("showtime không tồn tại -> 404 SHOWTIME_NOT_FOUND", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": 1, "showtimeId": 99999, "seats": ["Z1"]}), 404, "SHOWTIME_NOT_FOUND"))
     other = next(s for s in shows if s["movieId"] != st["movieId"])
     check("suất chiếu không thuộc phim -> 400", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": st["movieId"], "showtimeId": other["id"], "seats": ["Z1"]}), 400))
-    check("body sai (seats rỗng) -> 400", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": 1, "showtimeId": 1, "seats": []}), 400))
-    check("mã ghế sai định dạng -> 400", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": 1, "showtimeId": 1, "seats": ["zz"]}), 400))
+    check("body sai (seats rỗng) -> 400 VALIDATION_ERROR", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": 1, "showtimeId": 1, "seats": []}), 400, "VALIDATION_ERROR"))
+    check("mã ghế sai định dạng -> 400 VALIDATION_ERROR", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": 1, "showtimeId": 1, "seats": ["zz"]}), 400, "VALIDATION_ERROR"))
+    check("movieId = 0 -> 400 VALIDATION_ERROR", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": 0, "showtimeId": 1, "seats": ["Z1"]}), 400, "VALIDATION_ERROR"))
+    check("movieId âm -> 400 VALIDATION_ERROR", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": -1, "showtimeId": 1, "seats": ["Z1"]}), 400, "VALIDATION_ERROR"))
+    check("showtimeId = 0 -> 400 VALIDATION_ERROR", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": 1, "showtimeId": 0, "seats": ["Z1"]}), 400, "VALIDATION_ERROR"))
+    check("showtimeId âm -> 400 VALIDATION_ERROR", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": 1, "showtimeId": -1, "seats": ["Z1"]}), 400, "VALIDATION_ERROR"))
+    check("thiếu trường seats -> 400 VALIDATION_ERROR", is_err(call("booking", "POST", "/api/booking", {"username": uname, "movieId": 1, "showtimeId": 1}), 400, "VALIDATION_ERROR"))
 
     print("\n[6] Thanh toán thất bại -> đơn CANCELLED, ghế được nhả")
     s2 = free_seats(st["id"], 1)
