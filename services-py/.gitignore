@@ -9,3 +9,7 @@ data/
 .venv/
 __pycache__/
 .pytest_cache/
+gateway/certs/
+*.crt
+*.key
+*.pem
