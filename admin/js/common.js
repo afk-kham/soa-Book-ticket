@@ -206,9 +206,26 @@
     }
   }
 
+  /* ---------- Giao diện Sáng / Tối ---------- */
+  function getTheme() {
+    var saved = localStorage.getItem("soa.theme");
+    if (saved === "light" || saved === "dark") return saved;
+    return (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+  }
+
+  function applyTheme(t) {
+    var theme = t === "light" ? "light" : "dark";
+    document.documentElement.setAttribute("data-bs-theme", theme);
+    var btn = document.getElementById("admin-theme-toggle");
+    if (btn) {
+      btn.textContent = theme === "light" ? "🌙 Nền tối" : "☀️ Nền sáng";
+    }
+  }
+
   /* ---------- Khung Shell của Admin ---------- */
   function shell(active, title, subtitle) {
-    document.documentElement.setAttribute("data-bs-theme", "dark");
+    var curTheme = getTheme();
+    applyTheme(curTheme);
 
     var links = NAV.map(function (n, i) {
       var svc = S[n[0]];
@@ -243,6 +260,9 @@
           '<div class="side-foot">' +
             'SOA Cinema · Quản trị rạp<br>' +
             '<a href="' + window.SOA.clientBase + '" target="_blank" rel="noopener">Mở trang đặt vé ↗</a>' +
+            '<div class="mt-2"><button type="button" class="btn btn-outline-light btn-sm w-100" id="admin-theme-toggle">' +
+              (curTheme === "light" ? "🌙 Nền tối" : "☀️ Nền sáng") +
+            "</button></div>" +
           "</div>" +
         "</nav>" +
 
@@ -299,6 +319,15 @@
       toggleBtn.onclick = function () {
         side.classList.toggle("collapsed");
         localStorage.setItem("soa.admin.sidebar", side.classList.contains("collapsed") ? "collapsed" : "expanded");
+      };
+    }
+
+    var themeBtn = document.getElementById("admin-theme-toggle");
+    if (themeBtn) {
+      themeBtn.onclick = function () {
+        var next = getTheme() === "light" ? "dark" : "light";
+        localStorage.setItem("soa.theme", next);
+        applyTheme(next);
       };
     }
 
