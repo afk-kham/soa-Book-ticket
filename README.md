@@ -1,19 +1,19 @@
-# 🎬 SOA — Hệ thống đặt vé phim
+# 🎬 SOA — Hệ thống đặt vé phim (SOA Cinema)
 
-Đồ án môn **Kiến trúc hướng dịch vụ (SOA)**. Hệ thống gồm **6 service độc lập** (6 ngôn ngữ, 6 CSDL, 6 cổng),
-giao tiếp với nhau **chỉ bằng HTTP + JSON**, cùng **Admin** dùng chung một khung giao diện và **Client** cho người dùng cuối.
+Đồ án môn **Kiến trúc hướng dịch vụ (SOA)**. Hệ thống gồm **6 microservice độc lập** viết bằng Python (FastAPI + SQLite, mỗi service một CSDL riêng), giao tiếp với nhau **chỉ bằng HTTP + JSON**, cùng **API Gateway (Nginx)** tùy chọn, giao diện **Admin** và **Client**.
 Đây **không phải** một ứng dụng nguyên khối: tắt một service, các service còn lại vẫn chạy.
 
-| Service | Cổng | Công nghệ | CSDL | Phụ trách |
-|---|---|---|---|---|
-| [Movie](services/movie) | 5001 | Python | `movie_db` (MySQL) | TV1 |
-| [Showtime](services/showtime) | 5002 | PHP | `showtime_db` (MySQL) | TV2 |
-| [User](services/user) | 5003 | Java | `user_db` (MySQL) | TV3 |
-| [Booking](services/booking) | 5004 | C# (.NET 8) | `booking_db` (MySQL) | TV4 |
-| [Payment](services/payment) | 5005 | Node.js | `payment_db` (MongoDB) | TV5 |
-| [Notification](services/notification) | 5006 | Go | `notification_db` (MySQL) | TV6 |
-| [Admin](admin) | 8081 | HTML/CSS/JS | — | Nhóm trưởng |
-| [Client](client) | 8080 | HTML/CSS/JS | — | Nhóm trưởng |
+| Service | Cổng | Công nghệ | CSDL | Thư mục |
+|---|---:|---|---|---|
+| Movie | 5001 | Python / FastAPI | `movie.db` (SQLite) | [`services-py/movie`](services-py/movie) |
+| Showtime | 5002 | Python / FastAPI | `showtime.db` (SQLite) | [`services-py/showtime`](services-py/showtime) |
+| User | 5003 | Python / FastAPI | `user.db` (SQLite) | [`services-py/user`](services-py/user) |
+| Booking | 5004 | Python / FastAPI | `booking.db` (SQLite) | [`services-py/booking`](services-py/booking) |
+| Payment | 5005 | Python / FastAPI | `payment.db` (SQLite) | [`services-py/payment`](services-py/payment) |
+| Notification | 5006 | Python / FastAPI | `notification.db` (SQLite) | [`services-py/notification`](services-py/notification) |
+| API Gateway *(tùy chọn)* | 8000 | Nginx | — | [`services-py/gateway`](services-py/gateway) |
+| Admin | 8081 | HTML / CSS / JS (Bootstrap) | — | [`admin`](admin) |
+| Client | 8080 | HTML / CSS / JS (Bootstrap) | — | [`client`](client) |
 
 ## Kiến trúc tổng quan
 ![Kiến trúc microservices](docs/architecture/architecture.png)
@@ -28,43 +28,63 @@ Client/Admin → (API Gateway tùy chọn) → 6 service độc lập, mỗi ser
 5. [`TEAM_RULES.md`](TEAM_RULES.md) — ai sửa gì, quy trình Git
 6. [`INTEGRATION_CHECKLIST.md`](INTEGRATION_CHECKLIST.md) — kiểm tra trước khi gộp/demo · [`CHANGELOG.md`](CHANGELOG.md)
 
-## Chạy toàn bộ hệ thống
+## Hướng dẫn chạy chương trình
 
-**Yêu cầu:** MySQL 8 (hoặc MariaDB 10.6+), MongoDB, Python 3.10+, PHP 8.1+ (`pdo_mysql`), JDK 17+ & Maven, .NET SDK 8, Node.js 18+, Go 1.21+.
-
-```bash
-# 1) Tạo CSDL (MySQL phải đang chạy)
-DB_USER=root DB_PASSWORD=<mật khẩu> bash scripts/init-db.sh        # Windows: scripts\init-db.bat
-
-# 2) Mỗi service: sao chép .env.example thành .env và sửa DB_USER / DB_PASSWORD
-for s in movie showtime user booking payment notification; do cp services/$s/.env.example services/$s/.env; done
-
-# 3) Chạy tất cả (mỗi service một tiến trình)
-bash scripts/start-all.sh                                           # Windows: scripts\start-all.bat
-
-# 4) Kiểm tra
-python3 tests/integration/run_tests.py
-```
-Mở **Client** http://localhost:8080 (đăng nhập `user1` / `User@123`) và **Admin** http://localhost:8081.
-Dừng: `bash scripts/stop-all.sh`. Chạy từng service riêng: xem `README.md` trong thư mục service.
-
-Demo chịu lỗi (cho buổi bảo vệ): tắt một service rồi chạy
-`python3 tests/integration/run_tests.py --expect-down payment` (hoặc `notification`, `showtime`, `user`, `movie`).
-
-## Chạy bằng các service Python (`services-py`) và tài khoản đăng nhập thử
-
-Các service Python lưu dữ liệu vào SQLite (không cần MySQL/MongoDB). **Yêu cầu:** Python 3.12 trong `PATH`.
+### Cách 1: Chạy trực tiếp trên máy (Local, không cần Docker)
+**Yêu cầu:** Python **3.12** có sẵn trong `PATH`. Các service tự lưu dữ liệu vào SQLite (`services-py/<tên>/data/<tên>.db`), không cần cài MySQL hay MongoDB.
 
 ```bash
-# Windows                                   # Linux / macOS / Git Bash
-scripts\init-db.bat                          bash scripts/init-db.sh      # (tuỳ chọn) tạo/nạp lại DB; start-all tự tạo DB lần đầu
-scripts\start-all.bat                        bash scripts/start-all.sh    # chạy 6 service + Admin (8081) + Client (8080)
-scripts\stop-all.bat                         bash scripts/stop-all.sh     # dừng
-python ui-seed/seed-movies.py                                              # (tuỳ chọn) nạp thêm phim: 5 -> 15 phim + suất chiếu 7 ngày tới
+# Windows                                    # Linux / macOS / Git Bash
+scripts\init-db.bat                          bash scripts/init-db.sh      # (tùy chọn) tạo & nạp dữ liệu mẫu; start-all tự tạo lần đầu
+scripts\start-all.bat                        bash scripts/start-all.sh    # chạy 6 service (5001–5006) + Admin (8081) + Client (8080)
+scripts\stop-all.bat                         bash scripts/stop-all.sh     # dừng toàn bộ tiến trình
+python ui-seed/seed-movies.py                                             # (tùy chọn) nạp thêm phim (5 -> 15 phim) + suất chiếu 7 ngày tới
 ```
-- Lần chạy đầu mỗi service tự tạo `.venv` riêng và cài thư viện nên mất ~1 phút. Swagger của từng service: `http://localhost:500x/docs`.
-- Script chạy trực tiếp trên máy, **không cần Docker**. Nếu đang chạy stack Docker (`services-py/docker-compose.yml`) thì hãy dừng nó trước (`docker compose stop`), vì cả hai cùng dùng các cổng 5001–5006.
-- Windows báo lỗi cổng (`WinError 10013`) khi dải 4922–5021 bị hệ thống giữ: xem ghi chú trong `scripts/run-service.bat` (biến `SOA_PORT_OFFSET`).
+
+- Lần chạy đầu tiên, mỗi service tự tạo `.venv/` riêng và cài thư viện từ `requirements.txt` nên mất khoảng 1 phút.
+- Mở **Client:** http://localhost:8080 | **Admin:** http://localhost:8081 | **Swagger UI:** `http://localhost:500x/docs`.
+- **Chạy lẻ một service** (ví dụ Booking): `scripts\run-service.bat booking` (Windows) hoặc `bash scripts/run-service.sh booking` (Linux/macOS).
+- **Trùng cổng trên Windows (`WinError 10013`):** đặt biến môi trường `SOA_PORT_OFFSET=10000` trước khi chạy `scripts\start-all.bat` để dịch toàn bộ cổng sang `15001–15006`.
+- Nếu đang chạy Docker Compose (`services-py/docker-compose.yml`), hãy `docker compose down` hoặc `stop` trước vì dùng chung cổng `5001–5006`, `8080`, `8081`.
+
+### Cách 2: Chạy toàn hệ thống bằng Docker Compose
+**Yêu cầu:** Docker Desktop / Docker Engine + Docker Compose v2.
+
+```bash
+cd services-py
+cp .env.example .env        # tùy chọn: chỉnh cổng host, JWT_SECRET, VNPAY_*, SMTP_*
+docker compose config       # kiểm tra cú pháp cấu hình
+docker compose up --build   # build & chạy 6 service + Gateway (:8000) + Client (:8080) + Admin (:8081)
+docker compose logs -f      # theo dõi log (Ctrl+C để thoát xem log)
+docker compose down         # dừng container (giữ lại volume dữ liệu SQLite)
+```
+
+- Khi dùng Gateway, có thể truy cập Client/Admin kèm `?gateway=http://localhost:8000`.
+
+### Cấu hình biến môi trường (tùy chọn)
+Hệ thống **chạy được ngay với cấu hình mặc định** (chế độ demo: thanh toán giả lập, thông báo `SIMULATED`, token demo). Chỉ cần tạo/sửa file `.env` (dựa theo `services-py/.env.example` cho Docker hoặc `services-py/<tên>/.env.example` cho chạy local) khi muốn bật thêm tính năng:
+- **Xác thực JWT thật (`JWT_SECRET`, `JWT_REQUIRED`):** điền cùng một chuỗi `JWT_SECRET` (≥ 32 ký tự) cho User và Booking; đặt `JWT_REQUIRED=true` ở Booking nếu muốn ép buộc Bearer token.
+- **Gửi email OTP/xác nhận thật (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`):** cấu hình trong `services-py/notification/.env` (hoặc `services-py/.env` với Docker).
+- **Thanh toán VNPAY Sandbox (`VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_URL`, `VNPAY_RETURN_URL`):** cấu hình trong `services-py/payment/.env` (hoặc `services-py/.env` với Docker).
+- **OTP thanh toán (`OTP_REQUIRED`, `OTP_DEBUG`):** mặc định `OTP_REQUIRED=true` trên Booking/Payment khi chạy Docker/Compose (hoặc đặt trong `.env` từng service khi chạy local).
+
+### Kiểm thử hệ thống
+```bash
+# 1) Unit & API test của từng service (6 service)
+cd services-py/<tên> && python -m pytest -q
+
+# 2) Kiểm thử tích hợp 6 service đang chạy
+python tests/integration/run_tests.py
+# Tùy chọn cấu hình địa chỉ / dải cổng / Gateway:
+#   SOA_HOST=127.0.0.1 SOA_PORT_OFFSET=11000 python tests/integration/run_tests.py
+#   SOA_GATEWAY_URL=http://localhost:8000 python tests/integration/run_tests.py
+
+# 3) Demo chịu lỗi (tắt 1 service rồi chạy, vd payment/notification/showtime/movie/user):
+python tests/integration/run_tests.py --expect-down payment
+
+# 4) Bộ pytest + httpx E2E (CHỈ chạy trên môi trường cô lập vì tạo đơn thật; tự skip nếu chưa bật stack):
+SOA_PORT_OFFSET=11000 python -m pytest -q tests/integration/test_e2e.py
+```
 
 **Tài khoản đăng nhập thử** (dữ liệu mẫu của User Service):
 
@@ -76,14 +96,14 @@ python ui-seed/seed-movies.py                                              # (tu
 
 ## Cấu trúc thư mục
 ```
-services/<tên>/   mã nguồn từng service (+ .env.example, README)
-database/<tên>/   schema.sql + seed.sql (Payment: seed.js)
-admin/            khung chung css/ js/ + pages/ cho 6 service
-client/           ứng dụng người dùng cuối (+ assets/posters, assets/backdrops)
+services-py/      6 microservice Python (+ gateway/, docs/, docker-compose.yml, .env.example)
+database/         schema.sql + seed.sql tham chiếu gốc
+admin/            giao diện quản trị (Bootstrap, html/css/js, assets)
+client/           giao diện đặt vé người dùng (Bootstrap, html/css/js, assets)
 ui-seed/          script nạp 10 phim mới & suất chiếu qua HTTP API
-tests/integration bộ kiểm thử tích hợp (Python, không cần cài thêm)
+tests/integration bộ kiểm thử tích hợp & E2E (run_tests.py, test_e2e.py)
 docs/             ERD, Use Case, DFD, báo cáo của từng thành viên
-scripts/          init-db, start-all, stop-all, setup-git
+scripts/          init-db, start-all, stop-all, run-service (.bat/.sh)
 ```
 
 ## Nạp thêm dữ liệu & tài nguyên (UI Seed)

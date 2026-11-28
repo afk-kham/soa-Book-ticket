@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import httpx
 
 from app.core import config
+from app.core.request_id import request_id_var
 from app.entities import Showtime
 from app.repositories import (
     create_showtime,
@@ -44,13 +45,18 @@ def _not_found(showtime_id: int) -> ShowtimeServiceError:
     )
 
 
+def _trace_headers() -> dict[str, str]:
+    rid = request_id_var.get()
+    return {"X-Request-ID": rid} if rid and rid != "-" else {}
+
+
 async def _assert_movie_exists(movie_id: int) -> None:
     if not config.VALIDATE_MOVIE:
         return
     url = f"{config.MOVIE_SERVICE_URL.rstrip('/')}/api/movies/{movie_id}"
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            response = await client.get(url)
+        async with httpx.AsyncClient(timeout=config.UPSTREAM_TIMEOUT_SECONDS) as client:
+            response = await client.get(url, headers=_trace_headers())
     except httpx.RequestError as exc:
         logger.warning("Không gọi được Movie Service để kiểm tra movieId: %s", exc)
         raise ShowtimeServiceError(
@@ -67,8 +73,8 @@ async def _assert_movie_exists(movie_id: int) -> None:
         )
     if response.status_code != 200:
         raise ShowtimeServiceError(
-            503,
-            "MOVIE_SERVICE_UNAVAILABLE",
+            502,
+            "MOVIE_SERVICE_ERROR",
             "Movie Service trả lỗi khi kiểm tra movieId",
         )
 
@@ -142,8 +148,8 @@ def _movie_ids_from_response(data: object) -> list[int]:
 async def _schedule_movie_ids() -> list[int]:
     url = f"{config.MOVIE_SERVICE_URL.rstrip('/')}/api/movies"
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            response = await client.get(url)
+        async with httpx.AsyncClient(timeout=config.UPSTREAM_TIMEOUT_SECONDS) as client:
+            response = await client.get(url, headers=_trace_headers())
         if response.status_code == 200:
             movie_ids = _movie_ids_from_response(response.json())
             if movie_ids:

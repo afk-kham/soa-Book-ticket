@@ -15,6 +15,12 @@ CREATE TABLE IF NOT EXISTS bookings (
     total_price INTEGER NOT NULL,
     status      TEXT    NOT NULL DEFAULT 'PENDING',
     created_at  TEXT    NOT NULL,
+    movie_title TEXT,
+    movie_genre TEXT,
+    unit_price  INTEGER,
+    cinema      TEXT,
+    room        TEXT,
+    show_time   TEXT,
     CONSTRAINT chk_bookings_status CHECK (status IN ('PENDING', 'PAID', 'CANCELLED')),
     CONSTRAINT chk_bookings_total CHECK (total_price >= 0)
 );

@@ -18,7 +18,7 @@ def client(tmp_path, monkeypatch):
 
 class FakeSMTP:
     sent: list = []
-    fail = False
+    fail: Exception | bool = False
 
     def __init__(self, host, port, timeout=None, context=None):
         self.host, self.port = host, port
@@ -37,6 +37,8 @@ class FakeSMTP:
 
     def send_message(self, msg):
         if FakeSMTP.fail:
+            if isinstance(FakeSMTP.fail, BaseException):
+                raise FakeSMTP.fail
             raise OSError("smtp down")
         FakeSMTP.sent.append(msg)
 
@@ -80,11 +82,34 @@ def test_otp_never_stored_in_logs(client, smtp):
     assert "OTP" in logs[0]["message"]
 
 
-def test_smtp_failure_returns_500_without_details(client, smtp):
+def test_smtp_connection_failure_returns_503_without_details(client, smtp):
     smtp.fail = True
     r = client.post("/api/notify/otp", json=otp_body())
-    assert r.status_code == 500 and r.json()["code"] == "INTERNAL_ERROR"
+    assert r.status_code == 503 and r.json()["code"] == "EMAIL_PROVIDER_UNAVAILABLE"
     assert "smtp down" not in r.text
+
+
+@pytest.mark.parametrize("exc, expected_status, expected_code, secret_detail", [
+    (TimeoutError("timed out smtp.internal:587"), 503, "EMAIL_PROVIDER_UNAVAILABLE", "smtp.internal"),
+    (ConnectionError("connection refused 10.0.0.5"), 503, "EMAIL_PROVIDER_UNAVAILABLE", "10.0.0.5"),
+    (OSError("network unreachable"), 503, "EMAIL_PROVIDER_UNAVAILABLE", "network unreachable"),
+    (__import__("smtplib").SMTPAuthenticationError(535, b"bad password secret123"), 502, "EMAIL_PROVIDER_ERROR", "secret123"),
+    (__import__("smtplib").SMTPException("smtp internal error"), 502, "EMAIL_PROVIDER_ERROR", "smtp internal error"),
+    (__import__("smtplib").SMTPRecipientsRefused({"u@bad.local": (550, b"no such user")}), 400, "EMAIL_REJECTED", "no such user"),
+    (__import__("smtplib").SMTPSenderRefused(550, b"sender blocked", "bot@test"), 400, "EMAIL_REJECTED", "sender blocked"),
+])
+def test_smtp_error_mapping(client, smtp, exc, expected_status, expected_code, secret_detail):
+    smtp.fail = exc
+    r = client.post("/api/notify/otp", json=otp_body())
+    assert r.status_code == expected_status
+    assert r.json()["code"] == expected_code
+    assert secret_detail not in r.text
+
+
+def test_notify_endpoint_maps_smtp_unavailable_to_503(client, smtp):
+    smtp.fail = TimeoutError("smtp timeout")
+    r = client.post("/api/notify", json={"username": "user1", "bookingId": 5, "channel": "EMAIL", "email": "a@b.vn"})
+    assert r.status_code == 503 and r.json()["code"] == "EMAIL_PROVIDER_UNAVAILABLE"
 
 
 @pytest.mark.parametrize("over", [

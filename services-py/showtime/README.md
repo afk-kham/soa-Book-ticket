@@ -128,6 +128,7 @@ Lớp nào cũng **chỉ gọi xuống** lớp dưới nó. Không import code c
 | `PORT` | `5002` | `5002` | Cổng trong container/tiến trình — **không đổi** (theo hợp đồng) |
 | `DB_PATH` | `./data/showtime.db` | `/data/showtime.db` | File SQLite **riêng** của service |
 | `MOVIE_SERVICE_URL` | `http://localhost:5001` | `http://movie:5001` | URL Movie Service |
+| `UPSTREAM_TIMEOUT_SECONDS` | `3.0` | `3.0` | Timeout (giây) khi gọi Movie Service (mặc định `3.0`) |
 | `VALIDATE_MOVIE` | `true` | `true` | `false` = không gọi Movie khi tạo/sửa suất (chạy riêng lẻ) |
 | `AUTO_SCHEDULE_DAYS` | `7` | `7` | Số ngày tới tự xếp lịch; `0` = tắt |
 | `APP_TIMEZONE` | `Asia/Ho_Chi_Minh` | `Asia/Ho_Chi_Minh` | Múi giờ để so 'suất đã bắt đầu chưa' |

@@ -13,7 +13,8 @@ Bạn **chỉ** sở hữu: `services-py/payment/`, `database/payment/` (schema/
 
 Bảng đầy đủ (request/response/mã HTTP/lỗi) ở [API_CONTRACT.md](../API_CONTRACT.md) mục 6. Quy tắc phải giữ nguyên (đọc từ `services/payment/` — mã cũ là nguồn đối chiếu):
 
-- Endpoint trong contract: `POST /api/payment`, `GET /api/payment` (+`?bookingId=`), `GET /health`. Update/delete **không có** trong contract — cần duyệt trước khi thêm.
+- Endpoint trong contract: `POST /api/payment`, `GET /api/payment` (+`?bookingId=`), `GET /health` (cùng `POST /api/payment/otp`, `POST /api/payment/vnpay/create`, `GET /api/payment/vnpay/return`, `GET /api/payment/vnpay/ipn`). Update/delete **không có** trong contract — cần duyệt trước khi thêm.
+- **VNPAY IPN (`GET /api/payment/vnpay/ipn`):** Webhook server-to-server dùng chung hàm kiểm tra chữ ký HMAC-SHA512 và ghi giao dịch với `/vnpay/return`, trả JSON phẳng (`00` thành công, `02` đã xác nhận trước đó, `97` sai chữ ký, `99` thiếu tham số / chưa cấu hình / lỗi). Lưu ý: môi trường local không nhận được IPN từ sandbox VNPAY thật (cần URL công khai), nên endpoint được kiểm chứng bằng unit test có chữ ký mẫu.
 - `POST`: `bookingId` số nguyên > 0, `amount` số, `method` chuỗi; `status = PAID` nếu `amount > 0` **và** `method ∈ {BANK_TRANSFER, MOMO, VNPAY, CASH}` (không phân biệt hoa thường), ngược lại `FAILED` — **`FAILED` vẫn được lưu và trả 201**.
 - Đơn đã có giao dịch `PAID` mà gọi lại → 409 `ALREADY_PAID`.
 - `GET`: sắp `paidAt` giảm dần; `bookingId` sai → 400.

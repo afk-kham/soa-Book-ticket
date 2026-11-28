@@ -57,10 +57,10 @@ def test_sql_is_parameterized_in_repository():
 
 def test_importing_app_creates_no_database(tmp_path):
     db = tmp_path / "should_not_exist" / "user.db"
-    env = {**os.environ, "DB_PATH": str(db)}
-    subprocess.run([sys.executable, "-c", "import app.main"], cwd=USER_ROOT, env=env, check=True)
+    env = {**os.environ, "DB_PATH": str(db), "PYTHONPATH": str(USER_ROOT)}
+    subprocess.run([sys.executable, "-c", "import app.main"], cwd=tmp_path, env=env, check=True)
     assert not db.exists() and not db.parent.exists()
-    assert not (USER_ROOT / "data").exists()
+    assert not (tmp_path / "data").exists()
 
 
 def test_startup_creates_schema_but_no_data(isolated_db):

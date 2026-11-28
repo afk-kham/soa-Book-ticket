@@ -40,7 +40,7 @@
 | 409 | Xung đột: `SEAT_TAKEN`, `CONFLICT` (trùng username), `ALREADY_PAID` |
 | 413 | Body quá lớn |
 | 500 | Lỗi nội bộ (`INTERNAL_ERROR`) |
-| 502 / 503 | Booking gọi service khác lỗi / không với tới được (`*_SERVICE_ERROR`, `*_SERVICE_UNAVAILABLE`) |
+| 502 / 503 | Service gọi service khác phản hồi lỗi / không với tới được (`*_SERVICE_ERROR`, `*_SERVICE_UNAVAILABLE`) |
 
 ## 2. Movie Service — `:5001`
 | Method | Đường dẫn | Mô tả |
@@ -112,11 +112,14 @@ Giá **luôn lấy từ Showtime**; Booking không tin giá do client gửi.
 { "status": "success", "data": {
   "id": 4, "movieId": 1, "showtimeId": 1, "username": "user1", "seats": ["A5","A6"],
   "totalPrice": 180000, "status": "PAID", "createdAt": "2026-10-06 10:00:00",
+  "expiresAt": null,
+  "movieTitle": "Mai", "movieGenre": "Tâm lý", "unitPrice": 90000,
+  "cinema": "CGV Vincom", "room": "P1", "showTime": "2026-10-10 18:00:00",
   "payment": { "status": "PAID", "method": "MOMO", "transactionId": "665f..." },
   "notification": "SENT" } }
 ```
 `status` ∈ `PENDING | PAID | CANCELLED`. `notification` ∈ `SENT | FAILED | SKIPPED` (SKIPPED khi thanh toán thất bại hoặc chỉ giữ ghế).
-Mọi đơn (kể cả `GET`) có thêm `expiresAt`: hạn giữ ghế của đơn `PENDING`, `null` với đơn khác.
+Mọi đơn (kể cả `GET`) có thêm `expiresAt` (hạn giữ ghế của đơn `PENDING`, `null` với đơn khác) và 6 trường làm giàu dữ liệu (`movieTitle`, `movieGenre` từ Movie Service; `unitPrice`, `cinema`, `room`, `showTime` từ Showtime Service; `null` với đơn dữ liệu cũ).
 
 ## 6. Payment Service — `:5005`
 | Method | Đường dẫn | Mô tả |
@@ -124,13 +127,14 @@ Mọi đơn (kể cả `GET`) có thêm `expiresAt`: hạn giữ ghế của đ�
 | POST | `/api/payment` | `{bookingId, amount, method}` (`method` ∈ `BANK_TRANSFER`, `MOMO`, `VNPAY`, `CASH`) → 201 `{id, bookingId, amount, method, status, paidAt}`. `status` = `PAID` hoặc `FAILED` (vẫn lưu). Đơn đã `PAID` mà gọi lại → **409 `ALREADY_PAID`**. Thêm `otp` (bắt buộc khi `OTP_REQUIRED=true`): thiếu → 400 `OTP_REQUIRED`; sai → 400 `OTP_INVALID`; hết hạn → 400 `OTP_EXPIRED`; sai quá số lần → 429 `OTP_LOCKED`. Mã dùng một lần. Header tùy chọn `Idempotency-Key`: gửi lại cùng khóa + cùng nội dung → trả lại kết quả cũ (`Idempotency-Replayed: true`), cùng khóa khác nội dung → 409 `IDEMPOTENCY_KEY_REUSED`. |
 | POST | `/api/payment/otp` | **Nội bộ (Booking gọi)** `{bookingId}` → 201 `{bookingId, otp, ttlSeconds}`. Sinh OTP 6 số (lưu băm có muối, hiệu lực `OTP_TTL_SECONDS`=300, tối đa `OTP_MAX_ATTEMPTS`=5 lần sai, gửi lại cách nhau `OTP_RESEND_SECONDS`=30 → 429 `OTP_TOO_SOON`). |
 | GET | `/api/payment` | Danh sách; lọc `?bookingId=` |
+| GET | `/api/payment/vnpay/ipn` | Webhook IPN server-to-server từ VNPAY (`vnp_*` + `vnp_SecureHash`), trả JSON phẳng `{"RspCode","Message"}` (`00`/`02`/`97`/`99`) |
 | GET | `/health` | Kiểm tra sống |
 
 ## 7. Notification Service — `:5006`
 | Method | Đường dẫn | Mô tả |
 |---|---|---|
 | POST | `/api/notify/otp` | **Nội bộ (Booking gọi)** `{username, bookingId, email, otp, ttlSeconds?}` → 200 `{notificationId, ..., deliveryStatus}`. Gửi mã OTP qua email; nhật ký chỉ ghi "đã gửi OTP" (**không lưu mã**). |
-| POST | `/api/notify` | `{username, bookingId, channel, email?}` → `{notificationId, bookingId, username, channel, deliveryStatus, message, sentAt}`. Gửi giả lập, có ghi log. Có `email` (và SMTP đã cấu hình) thì gửi **email thật**; `deliveryStatus` = `SENT` (email thật) hoặc `SIMULATED`. |
+| POST | `/api/notify` | `{username, bookingId, channel, email?}` → `{notificationId, bookingId, username, channel, deliveryStatus, message, sentAt}`. Gửi giả lập, có ghi log. Có `email` (và SMTP đã cấu hình) thì gửi **email thật**; `deliveryStatus` = `SENT` (email thật) hoặc `SIMULATED`. Lỗi SMTP: từ chối địa chỉ → 400 `EMAIL_REJECTED`, xác thực/SMTP → 502 `EMAIL_PROVIDER_ERROR`, kết nối/timeout → 503 `EMAIL_PROVIDER_UNAVAILABLE`. |
 | GET | `/api/notify/logs` | Danh sách nhật ký gửi (mới nhất trước). Hỗ trợ lọc `?bookingId=&username=&channel=` |
 | POST | `/api/notify/logs` | `{username, bookingId, channel, message?}` → Tạo bản ghi nhật ký thông báo mới |
 | GET | `/api/notify/logs/{id}` | Chi tiết một bản ghi nhật ký thông báo theo ID |

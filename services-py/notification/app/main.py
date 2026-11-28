@@ -47,7 +47,7 @@ async def cors_and_log(request: Request, call_next):
 
 @app.exception_handler(ApiError)
 async def api_error_handler(_: Request, exc: ApiError):
-    return error_response(exc.status, exc.message)
+    return error_response(exc.status, exc.message, code=exc.code)
 
 
 @app.exception_handler(StarletteHTTPException)

@@ -49,8 +49,8 @@ Suất chiếu: `{id:int, movieId:int, cinema:str, room:str, time:"YYYY-MM-DD HH
 |---|---|---|---|---|---|---|
 | `GET /api/showtimes` | Danh sách, sắp theo `time, id`. Lọc `?movieId=` (nhận cả `movie_id`), `?upcoming=1\|true` (chỉ suất `time` > bây giờ). **Mỗi lần gọi** tự xếp lịch cho các ngày trong `AUTO_SCHEDULE_DAYS` (mặc định 7) chưa có suất nào | — | `[Suất]` | 200 | 400 (`movieId` không phải số nguyên dương) | ✅ |
 | `GET /api/showtimes/{id}` | Chi tiết | — | `Suất` | 200 | 404 `NOT_FOUND` | ✅ |
-| `POST /api/showtimes` | Thêm | `{movieId (nhận cả movie_id), cinema ≤150, room ≤50, time ("YYYY-MM-DD HH:MM[:SS]", chấp nhận `T`), price (số nguyên ≥ 0)}` — **cả 5 trường bắt buộc** | `Suất` | 201 | 400 `VALIDATION_ERROR`; 400 `MOVIE_NOT_FOUND`; 503 `MOVIE_SERVICE_UNAVAILABLE` | ✅ |
-| `PUT /api/showtimes/{id}` | Sửa một phần (chỉ trường gửi lên, ít nhất 1) | như POST nhưng tùy chọn | `Suất` | 200 | 404 (kiểm tra trước); 400; 400 `MOVIE_NOT_FOUND`; 503 | ✅ |
+| `POST /api/showtimes` | Thêm | `{movieId (nhận cả movie_id), cinema ≤150, room ≤50, time ("YYYY-MM-DD HH:MM[:SS]", chấp nhận `T`), price (số nguyên ≥ 0)}` — **cả 5 trường bắt buộc** | `Suất` | 201 | 400 `VALIDATION_ERROR`; 400 `MOVIE_NOT_FOUND`; 502 `MOVIE_SERVICE_ERROR`; 503 `MOVIE_SERVICE_UNAVAILABLE` | ✅ |
+| `PUT /api/showtimes/{id}` | Sửa một phần (chỉ trường gửi lên, ít nhất 1) | như POST nhưng tùy chọn | `Suất` | 200 | 404 (kiểm tra trước); 400; 400 `MOVIE_NOT_FOUND`; 502 `MOVIE_SERVICE_ERROR`; 503 `MOVIE_SERVICE_UNAVAILABLE` | ✅ |
 | `DELETE /api/showtimes/{id}` | Xóa | — | `{id, deleted:true}` | 200 | 404 `NOT_FOUND` | ✅ |
 | `GET /health` | Kiểm tra sống | — | `{service:"showtime-service", port:5002}` | 200 | — | ✅ |
 | Khác | — | — | — | 404 / 405 (kèm header `Allow`) / `OPTIONS` 204 | | ✅ |
@@ -74,7 +74,7 @@ Mật khẩu: BCrypt tiền tố `$2a$` (cost 10). Không có `PUT/DELETE user` 
 
 ## 5. Booking Service — `:5004` — TV4 — phụ thuộc: **User, Movie, Showtime, Payment, Notification**
 
-Đơn đặt vé (`Booking`): `{id, movieId, showtimeId, username, seats:[str], totalPrice:int, status:"PENDING"|"PAID"|"CANCELLED", createdAt, expiresAt:str|null}`; `expiresAt` = `createdAt` + `HOLD_MINUTES` chỉ với đơn `PENDING`, còn lại `null`.
+Đơn đặt vé (`Booking`): `{id, movieId, showtimeId, username, seats:[str], totalPrice:int, status:"PENDING"|"PAID"|"CANCELLED", createdAt, expiresAt:str|null, movieTitle:str|null, movieGenre:str|null, unitPrice:int|null, cinema:str|null, room:str|null, showTime:str|null}`; `expiresAt` = `createdAt` + `HOLD_MINUTES` chỉ với đơn `PENDING`, còn lại `null`. 6 trường snapshot (`movieTitle`, `movieGenre` từ Movie; `unitPrice`, `cinema`, `room`, `showTime` từ Showtime) được lưu tại thời điểm đặt vé (`null` với đơn dữ liệu cũ).
 Kết quả thao tác (`Result`) = `Booking` + `payment:{status, method, transactionId}|null` + `notification:"SENT"|"FAILED"|"SKIPPED"`.
 
 | Method + Path | Mục đích | Request | Response `data` | HTTP | Lỗi | Trạng thái |
@@ -101,6 +101,7 @@ Giao dịch: `{id:str, bookingId:int, amount:number, method:str, status:"PAID"|"
 |---|---|---|---|---|---|---|
 | `POST /api/payment` | Ghi nhận giao dịch (mô phỏng): `PAID` nếu `amount > 0` và `method ∈ {BANK_TRANSFER, MOMO, VNPAY, CASH}`, ngược lại `FAILED` (**vẫn lưu**, vẫn 201) | `{bookingId (số nguyên > 0), amount (số), method (chuỗi, không phân biệt hoa thường)}` | `Giao dịch` | 201 | 400 `VALIDATION_ERROR`; 409 `ALREADY_PAID` (đơn đã có giao dịch `PAID`); 413 | ✅ |
 | `GET /api/payment` | Danh sách, mới nhất trước (`paidAt` giảm); lọc `?bookingId=` | — | `[Giao dịch]` | 200 | 400 (`bookingId` sai) | ✅ |
+| `GET /api/payment/vnpay/ipn` | Webhook IPN VNPAY (server-to-server) | Query `vnp_*` kèm `vnp_SecureHash` | `{"RspCode":"00"\|"02"\|"97"\|"99","Message":"..."}` (JSON phẳng) | 200 | — | ✅ |
 | `GET /health` | Kiểm tra sống | — | `{service:"payment-service", port:5005}` | 200 | — | ✅ |
 | Khác | — | — | — | 404 / 405 (`Allow: GET, POST, OPTIONS` cho `/api/payment`) / `OPTIONS` 204 | | ✅ |
 
@@ -113,7 +114,7 @@ Kết quả gửi (`Notify`): `{notificationId, bookingId, username, channel, de
 
 | Method + Path | Mục đích | Request | Response `data` | HTTP | Lỗi | Trạng thái |
 |---|---|---|---|---|---|---|
-| `POST /api/notify` | Gửi giả lập + ghi log | `{username (1–50), bookingId (1…2147483647), channel (`EMAIL`\|`SMS`)}` — **trường lạ bị từ chối** | `Notify` | 200 | 400; 413 (body > 16 KiB); 500 | ⚠️ contract không nêu mã (code: 200) (D-13) |
+| `POST /api/notify` | Gửi giả lập + ghi log | `{username (1–50), bookingId (1…2147483647), channel (`EMAIL`\|`SMS`)}` — **trường lạ bị từ chối** | `Notify` | 200 | 400 (`VALIDATION_ERROR`/`EMAIL_REJECTED`); 413 (body > 16 KiB); 502 `EMAIL_PROVIDER_ERROR`; 503 `EMAIL_PROVIDER_UNAVAILABLE`; 500 | ⚠️ contract không nêu mã (code: 200) (D-13) |
 | `GET /api/notify/logs` | Danh sách, mới nhất trước; lọc `?bookingId=&username=&channel=` | — | `[Log]` | 200 | 400 | ✅ |
 | `POST /api/notify/logs` | Tạo bản ghi log | `{username, bookingId, channel, message?}` (không có `message` thì tự sinh) | `Log` | 201 | 400 | ✅ |
 | `GET /api/notify/logs/{id}` | Chi tiết | — | `Log` | 200 | 400 (id không phải số dương); 404 | ✅ |
@@ -148,3 +149,23 @@ Payment và Notification **không bao giờ** gọi ngược Booking.
 | 5 | `DB_*`/`MONGO_*` → `DB_PATH` | Sửa contract §1 | D-05 |
 | 6 | Preflight 200 (Starlette) vs 204; lỗi 422/`detail` vs envelope | Middleware + exception handler dùng chung | D-07 |
 | 7 | Mã `NOT_FOUND` chung vs `*_NOT_FOUND` riêng của Booking | Giữ nguyên như hiện tại | — |
+
+## 10. Quy ước xử lý lỗi giữa các service
+
+### Đối chiếu với giáo trình Unit 19
+
+| Tình huống từ service nguồn (upstream) | Chuẩn Unit 19 | Mã HTTP & `code` trong dự án | Ghi chú |
+|---|---|---|---|
+| Mất kết nối / timeout | `503` | `503 *_SERVICE_UNAVAILABLE` | Áp dụng ở Showtime (`MOVIE_SERVICE_UNAVAILABLE`) và Booking (`USER_/MOVIE_/SHOWTIME_/PAYMENT_SERVICE_UNAVAILABLE`) |
+| Phản hồi bất thường (5xx / non-200 khác 404 / JSON sai cấu trúc) | `502` | `502 *_SERVICE_ERROR` | Showtime trả `502 MOVIE_SERVICE_ERROR`; Booking trả `502 USER_/MOVIE_/SHOWTIME_/PAYMENT_SERVICE_ERROR` |
+| Nguồn trả `404` | Lỗi nghiệp vụ | Booking: `404 *_NOT_FOUND`<br>Showtime: `400 MOVIE_NOT_FOUND` | Booking trả `404` (`USER_NOT_FOUND`, `MOVIE_NOT_FOUND`, `SHOWTIME_NOT_FOUND`) để giữ tương thích client; Showtime trả `400 MOVIE_NOT_FOUND` khi `movieId` không tồn tại để giữ tương thích admin |
+| Notification lỗi sau khi đã `PAID` | Graceful degradation | Booking vẫn `201`/`200` (`PAID`), `notification: "FAILED"` | Không làm hỏng giao dịch đã thanh toán |
+
+### Timeout gọi liên service
+
+| Luồng gọi | Mặc định | Biến môi trường cấu hình |
+|---|---|---|
+| Showtime → Movie | `3.0` giây | `UPSTREAM_TIMEOUT_SECONDS` (trong `services-py/showtime`) |
+| Booking → User / Movie / Showtime / Payment | `5` giây | `UPSTREAM_TIMEOUT_SECONDS` (trong `services-py/booking`) |
+| Booking → Payment reconcile (`GET /api/payment?bookingId=`) | `2` giây | `RECONCILE_TIMEOUT_SECONDS` (trong `services-py/booking`) |
+| Booking → Notification (`POST /api/notify`, `/api/notify/otp`) | `3` giây | `NOTIFICATION_TIMEOUT_SECONDS` (trong `services-py/booking`) |

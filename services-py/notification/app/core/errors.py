@@ -3,10 +3,11 @@ from fastapi.responses import JSONResponse
 
 
 class ApiError(Exception):
-    def __init__(self, status: int, message: str):
+    def __init__(self, status: int, message: str, code: str | None = None):
         super().__init__(message)
         self.status = status
         self.message = message
+        self.code = code
 
 
 def error_code(status: int) -> str:
@@ -23,9 +24,9 @@ def error_code(status: int) -> str:
     return "ERROR"
 
 
-def error_response(status: int, message: str, headers: dict | None = None) -> JSONResponse:
+def error_response(status: int, message: str, headers: dict | None = None, code: str | None = None) -> JSONResponse:
     return JSONResponse(
-        {"status": "error", "code": error_code(status), "message": message},
+        {"status": "error", "code": code or error_code(status), "message": message},
         status_code=status,
         headers=headers,
     )

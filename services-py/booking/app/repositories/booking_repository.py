@@ -6,7 +6,10 @@ from typing import Iterator
 from app.db.connection import get_connection
 from app.entities import CANCELLED, PENDING, Booking
 
-_COLUMNS = "id, movie_id, showtime_id, username, seats, total_price, status, created_at"
+_COLUMNS = (
+    "id, movie_id, showtime_id, username, seats, total_price, status, created_at, "
+    "movie_title, movie_genre, unit_price, cinema, room, show_time"
+)
 
 
 def _split_seats(seats: str) -> list[str]:
@@ -23,6 +26,12 @@ def _to_entity(row: sqlite3.Row) -> Booking:
         total_price=row["total_price"],
         status=row["status"],
         created_at=row["created_at"],
+        movie_title=row["movie_title"],
+        movie_genre=row["movie_genre"],
+        unit_price=row["unit_price"],
+        cinema=row["cinema"],
+        room=row["room"],
+        show_time=row["show_time"],
     )
 
 
@@ -91,15 +100,45 @@ class BookingRepository:
         return counts
 
     def insert_pending(
-        self, movie_id: int, showtime_id: int, username: str, seats: list[str], total_price: int, created_at: str
+        self,
+        movie_id: int,
+        showtime_id: int,
+        username: str,
+        seats: list[str],
+        total_price: int,
+        created_at: str,
+        *,
+        movie_title: str | None = None,
+        movie_genre: str | None = None,
+        unit_price: int | None = None,
+        cinema: str | None = None,
+        room: str | None = None,
+        show_time: str | None = None,
     ) -> Booking:
         with self._connection() as conn:
             cursor = conn.execute(
                 """
-                INSERT INTO bookings (movie_id, showtime_id, username, seats, total_price, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO bookings (
+                    movie_id, showtime_id, username, seats, total_price, status, created_at,
+                    movie_title, movie_genre, unit_price, cinema, room, show_time
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (movie_id, showtime_id, username, ",".join(seats), total_price, PENDING, created_at),
+                (
+                    movie_id,
+                    showtime_id,
+                    username,
+                    ",".join(seats),
+                    total_price,
+                    PENDING,
+                    created_at,
+                    movie_title,
+                    movie_genre,
+                    unit_price,
+                    cinema,
+                    room,
+                    show_time,
+                ),
             )
             row = conn.execute(f"SELECT {_COLUMNS} FROM bookings WHERE id = ?", (cursor.lastrowid,)).fetchone()
         return _to_entity(row)

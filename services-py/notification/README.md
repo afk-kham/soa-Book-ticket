@@ -16,7 +16,7 @@ Bạn **chỉ** sở hữu: `services-py/notification/`, `database/notification/
 Bảng đầy đủ (request/response/mã HTTP/lỗi) ở [API_CONTRACT.md](../API_CONTRACT.md) mục 7. Quy tắc phải giữ nguyên (đọc từ `services/notification/` — mã cũ là nguồn đối chiếu):
 
 - 6 endpoint trong contract: `POST /api/notify`, `GET|POST /api/notify/logs`, `GET|PUT|PATCH|DELETE /api/notify/logs/{id}`. **Không được bỏ tính năng quản lý log.**
-- `POST /api/notify`: body `{username (1–50), bookingId (1…2147483647), channel EMAIL|SMS}`; **trường lạ bị từ chối**; body ≤ 16 KiB (413); trả `deliveryStatus:"SIMULATED"`; mã **200** theo code cũ (D-13).
+- `POST /api/notify`: body `{username (1–50), bookingId (1…2147483647), channel EMAIL|SMS}`; **trường lạ bị từ chối**; body ≤ 16 KiB (413); trả `deliveryStatus:"SIMULATED"` (hoặc `"SENT"` khi bật SMTP); mã **200** theo code cũ (D-13). Khi bật SMTP và gửi thất bại: từ chối địa chỉ → `400 EMAIL_REJECTED`, lỗi xác thực/SMTP → `502 EMAIL_PROVIDER_ERROR`, lỗi kết nối/timeout → `503 EMAIL_PROVIDER_UNAVAILABLE` (không lộ chi tiết kỹ thuật trong response).
 - `POST /api/notify/logs` → 201; `message` ≤ 255, không có thì tự sinh. `PUT/PATCH` cập nhật từng trường (mọi trường tùy chọn).
 - `GET /api/notify/logs`: mới nhất trước; lọc `bookingId`, `username`, `channel`.
 - `sentAt` ISO-8601 UTC (`...Z`), cắt đến giây.

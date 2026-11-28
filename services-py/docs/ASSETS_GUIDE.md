@@ -13,7 +13,7 @@ Danh sách dưới đây lấy từ `git ls-files` trên `main` @ `326602e` (kh�
 | Client HTML/CSS/JS | `client/index.html`, `client/css/client.css`, `client/js/{app,barcode,config,movie-extras,qr}.js` | 7 file text | `client/js/config.js` khai báo `window.API`, `POSTER_DIR = "img/posters/"` |
 | Client ảnh | `client/assets/posters/*.jpg` (15), `client/assets/backdrops/*.jpg` (6), `client/img/posters/poster1..5.svg` | JPG, SVG | Giữ nguyên đường dẫn |
 | Figma plugin | `design/figma-plugin/{code.js,manifest.json,README.md}` | 3 file | Không liên quan backend |
-| Ảnh chụp màn hình ở gốc repo | `admin_{booking,movie,overview,showtime}_1440.png`, `client_{book,home,my,pay,ticket}_*.png`, `client_sandbox_390.png`, `test_before_client_1440.png` | 16 PNG | Không file text nào tham chiếu (đã `git grep`); **không di chuyển tự động** (D-17) |
+| Ảnh chụp màn hình ở gốc repo | *(đã gỡ 16 ảnh PNG khỏi gốc repo)* | — | Đã cách ly khỏi gốc repo trong đợt dọn cấu trúc |
 | Sơ đồ / báo cáo | xem §2 | `.drawio`, `.png`, `.mmd`, `.docx`, `.pdf` | Không đổi tên/di chuyển |
 | Script & seed phía giao diện | `scripts/*`, `tests/integration/*`, `ui-seed/seed-movies.py` | | Không sửa ở giai đoạn này |
 

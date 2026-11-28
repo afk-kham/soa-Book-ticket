@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from app.core import config
 from app.controllers import get_payments_controller, post_otp, post_payment
-from app.controllers.vnpay_controller import create_vnpay_url, vnpay_return
+from app.controllers.vnpay_controller import create_vnpay_url, vnpay_ipn, vnpay_return
 from app.schemas import OtpCreateRequest, PaymentCreateRequest, VnpayCreateRequest
 
 api_router = APIRouter()
@@ -38,6 +38,11 @@ def vnpay_create(request: Request, payload: VnpayCreateRequest = Body(...)):
 @api_router.get("/api/payment/vnpay/return", include_in_schema=False)
 def vnpay_callback(request: Request):
     return vnpay_return(request)
+
+
+@api_router.get("/api/payment/vnpay/ipn", include_in_schema=False)
+def vnpay_ipn_webhook(request: Request):
+    return vnpay_ipn(request)
 
 
 @api_router.get("/api/payment", status_code=200)
