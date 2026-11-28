@@ -19,7 +19,15 @@
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
     });
   };
-  var money = function (n) { return Number(n || 0).toLocaleString("vi-VN") + " đ"; };
+  var _vnd = new Intl.NumberFormat("vi-VN");
+  function formatVND(n) { return _vnd.format(Math.round(Number(n) || 0)) + " đ"; }
+  var money = formatVND;
+  function unitPriceOf(b) {
+    if (!b) return 0;
+    if (b.unitPrice != null && Number(b.unitPrice) > 0) return Number(b.unitPrice);
+    var count = Array.isArray(b.seats) && b.seats.length ? b.seats.length : 1;
+    return Math.round(Number(b.totalPrice || 0) / count);
+  }
   var STATUS = { PAID: "Đã thanh toán", PENDING: "Chờ thanh toán", CANCELLED: "Đã hủy" };
   var DOW = ["Chủ nhật", "Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy"];
   var MAP = window.SEAT_MAP || { rows: "ABCDEF", cols: 10, aisleAfter: [5], maxSeats: 8 };
@@ -35,9 +43,9 @@
   var ICON_PLAY = '<i class="bi bi-play-circle-fill"></i>';
 
   /* ---------- Quản lý vòng đời trang & hẹn giờ ---------- */
-  var timers = [], page = 0;
+  var timers = [], page = 0, _accountDirty = false;
   function every(fn, ms) { timers.push(setInterval(fn, ms)); }
-  function leave() { timers.forEach(clearInterval); timers = []; page++; }
+  function leave() { timers.forEach(clearInterval); timers = []; page++; _accountDirty = false; window.onbeforeunload = null; }
   function current() {
     var p = page;
     return function () { return p === page; };
@@ -76,12 +84,15 @@
     return message && !TECHNICAL.test(message) ? message : "Đã có lỗi xảy ra. Vui lòng thử lại sau.";
   }
 
-  async function call(svc, method, path, body) {
+  async function call(svc, method, path, body, tokenOverride) {
     var res, json;
     try {
       var headers = body ? { "Content-Type": "application/json" } : {};
-      // Booking xác minh JWT khi bật JWT_REQUIRED: gửi token của phiên đăng nhập (bị bỏ qua khi tắt)
-      if (svc === "booking" && user && user.token) headers["Authorization"] = "Bearer " + user.token;
+      // Booking xác minh JWT khi bật JWT_REQUIRED: gửi token của phiên đăng nhập hoặc payToken quét QR
+      var tok = tokenOverride || (user && user.token);
+      if (tok && (svc === "booking" || (svc === "user" && !/^demo-token-/.test(tok)))) {
+        headers["Authorization"] = "Bearer " + tok;
+      }
       res = await fetch(API[svc] + path, {
         method: method,
         headers: headers,
@@ -517,17 +528,11 @@
     return '<a class="back d-inline-flex align-items-center gap-2 mb-3" href="' + href + '"><i class="bi bi-arrow-left"></i><span>' + esc(label) + "</span></a>";
   }
 
-  function live(id) {
-    return '<span class="live" id="' + id + '" title="Dữ liệu tự động cập nhật"><i class="pulse-dot"></i>Cập nhật trực tiếp</span>';
+  function live() {
+    return "";
   }
 
-  function liveTick(id, ok) {
-    var el = $("#" + id);
-    if (el) {
-      el.classList.toggle("off", !ok);
-      el.lastChild.textContent = ok ? "Cập nhật lúc " + nowHMS() : "Mất kết nối, đang thử lại...";
-    }
-  }
+  function liveTick() { }
 
   function steps(active) {
     var names = ["Chọn suất chiếu", "Chọn ghế", "Thanh toán", "Nhận vé"];
@@ -620,9 +625,10 @@
       ? '<div class="dropdown">' +
       '<button class="user-chip dropdown-toggle btn btn-link text-decoration-none p-0" id="userMenuBtn" data-bs-toggle="dropdown" aria-expanded="false">' +
       '<span class="avatar">' + esc(user.username.charAt(0).toUpperCase()) + "</span>" +
-      '<span class="name text-light">' + esc(user.username) + "</span>" +
+      '<span class="name">' + esc(user.username) + "</span>" +
       "</button>" +
       '<ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="userMenuBtn">' +
+      '<li><a class="dropdown-item" href="#/account"><i class="bi bi-person-circle me-2 text-warning"></i>Thông tin tài khoản</a></li>' +
       '<li><a class="dropdown-item" href="#/my"><i class="bi bi-ticket-perforated me-2 text-warning"></i>Vé của tôi</a></li>' +
       '<li><hr class="dropdown-divider border-secondary"></li>' +
       '<li><button class="dropdown-item text-danger" id="logout"><i class="bi bi-box-arrow-right me-2"></i>Đăng xuất</button></li>' +
@@ -1094,16 +1100,12 @@
 
     function render() {
       sts.sort(function (a, b) { return String(a.time).localeCompare(String(b.time)); });
-      // Giá khác nhau theo suất (giờ chiếu, cuối tuần): hiện khoảng giá để không lệch với số tiền ở bước thanh toán
-      var prices = sts.map(function (s) { return s.price; });
-      var minPrice = prices.length ? Math.min.apply(null, prices) : 0;
-      var maxPrice = prices.length ? Math.max.apply(null, prices) : 0;
-
       $("#facts").innerHTML =
         '<div class="fact-item"><span class="fact-label">Thời lượng</span><b class="fact-val">' + duration(m.duration) + "</b></div>" +
         '<div class="fact-item"><span class="fact-label">Suất sắp tới</span><b class="fact-val">' + (stErr ? "—" : sts.length) + "</b></div>" +
-        (minPrice ? '<div class="fact-item"><span class="fact-label">Giá vé</span><b class="fact-val text-warning">' +
-          (maxPrice > minPrice ? money(minPrice) + " – " + money(maxPrice) : money(minPrice)) + "</b></div>" : "");
+        (m.ageRating
+          ? '<div class="fact-item"><span class="fact-label">Phân loại</span><b class="fact-val">' + esc(m.ageRating) + "</b></div>"
+          : (m.genre ? '<div class="fact-item"><span class="fact-label">Thể loại</span><b class="fact-val">' + esc(m.genre) + "</b></div>" : ""));
 
       var body = $("#st-body");
       if (stErr && !sts.length) { body.innerHTML = errorBox(stErr); bindRetry(load); return; }
@@ -1236,9 +1238,9 @@
       "</div>" +
 
       '<div class="legend seat-legend d-flex justify-content-center gap-4 flex-wrap mt-4">' +
-      '<span><i class="seat-dot available"></i>Ghế trống</span>' +
-      '<span><i class="seat-dot sel"></i>Đang chọn</span>' +
-      '<span><i class="seat-dot taken"></i>Đã có người đặt</span>' +
+      '<span class="seat-legend-item"><span class="seat-btn" aria-hidden="true">1</span><span>Ghế trống</span></span>' +
+      '<span class="seat-legend-item"><span class="seat-btn sel" aria-hidden="true">7</span><span>Đang chọn</span></span>' +
+      '<span class="seat-legend-item"><span class="seat-btn taken" aria-hidden="true">3</span><span>Đã có người đặt</span></span>' +
       "</div>" +
       "</div>" +
 
@@ -1263,7 +1265,7 @@
 
       '<div class="total-box d-flex justify-content-between align-items-baseline pt-3 border-top border-secondary mb-3">' +
       '<span class="text-secondary">Tổng cộng</span>' +
-      '<b class="total-price text-warning fs-4" id="sum">0 đ</b>' +
+      '<b class="total-price text-warning fs-4" id="sum">' + money(0) + '</b>' +
       "</div>" +
 
       '<div id="err">' + (notice ? '<div class="alert alert-danger py-2 px-3 small mb-3">⚠ ' + esc(notice) + "</div>" : "") + "</div>" +
@@ -1284,8 +1286,10 @@
         b.classList.toggle("taken", t);
         b.classList.toggle("sel", sel);
         b.disabled = t;
+        if (t) b.setAttribute("aria-disabled", "true");
+        else b.removeAttribute("aria-disabled");
         b.setAttribute("aria-pressed", String(sel));
-        b.setAttribute("aria-label", c + (t ? " đã có người đặt" : sel ? " đang chọn" : " còn trống"));
+        b.setAttribute("aria-label", "Ghế " + c + (t ? ", đã có người đặt" : sel ? ", đang chọn" : ", còn trống"));
       });
 
       $("#cnt").textContent = picked.length + " / " + MAP.maxSeats;
@@ -1347,6 +1351,12 @@
           seats: picked,
           payNow: false
         });
+        var actualUnit = unitPriceOf(r);
+        if (st && st.price && (actualUnit !== Number(st.price) || Number(r.totalPrice) !== picked.length * Number(st.price))) {
+          sessionStorage.setItem("soa.priceNotice", "Giá vé suất chiếu đã được cập nhật thành " + money(actualUnit) + " / ghế theo hệ thống.");
+        } else {
+          sessionStorage.removeItem("soa.priceNotice");
+        }
         location.hash = "#/pay/" + r.id;
       } catch (e) {
         if (e.code === "SEAT_TAKEN") {
@@ -1398,6 +1408,7 @@
       "</div>" +
       (w ? '<div class="soa-info-row"><span class="soa-info-label">Suất chiếu</span><b class="soa-info-value">' + w.hm + " · " + dayLabel(w.date) + " " + w.dm + '</b></div><div class="soa-info-row"><span class="soa-info-label">Phòng chiếu</span><b class="soa-info-value">Phòng ' + esc(st.room) + "</b></div>" : "") +
       '<div class="soa-info-row"><span class="soa-info-label">Ghế đặt</span><b class="soa-info-value">' + esc(b.seats.join(", ")) + '</b></div>' +
+      '<div class="soa-info-row"><span class="soa-info-label">Đơn giá</span><b class="soa-info-value">' + money(unitPriceOf(b)) + ' / ghế</b></div>' +
       '<div class="soa-info-row"><span class="soa-info-label">Mã đặt vé</span><b class="soa-info-value text-warning font-monospace">' + code(b) + "</b></div>" +
       '<div class="total-box pt-3 border-top border-secondary border-opacity-50 mt-2 mb-3">' +
       '<span class="text-secondary">Tổng thanh toán</span>' +
@@ -1414,7 +1425,7 @@
     return '<div class="otp-box p-3 rounded border border-secondary">' +
       '<div class="small text-secondary mb-2"><i class="bi bi-shield-lock-fill text-warning me-1"></i> Xác thực OTP qua email</div>' +
       '<div class="d-flex gap-2">' +
-      '<input class="form-control bg-secondary-subtle border-secondary text-light font-monospace" id="otp" inputmode="numeric" ' +
+      '<input class="form-control bg-secondary-subtle border-secondary font-monospace" id="otp" inputmode="numeric" ' +
       'maxlength="8" autocomplete="one-time-code" placeholder="Nhập mã OTP">' +
       '<button type="button" class="btn btn-outline-warning text-nowrap" id="sendOtp">Gửi mã OTP</button>' +
       "</div>" +
@@ -1422,7 +1433,7 @@
       "</div>";
   }
 
-  function bindOtp(bookingId, username) {
+  function bindOtp(bookingId, username, tokenOverride) {
     var btn = $("#sendOtp"), msg = $("#otp-msg"), input = $("#otp"), left = 0, sent = false;
     if (!btn) return;
     function paint() {
@@ -1433,7 +1444,7 @@
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Đang gửi...';
       try {
-        var r = await call("booking", "POST", "/api/booking/" + encodeURIComponent(bookingId) + "/otp", { username: username });
+        var r = await call("booking", "POST", "/api/booking/" + encodeURIComponent(bookingId) + "/otp", { username: username }, tokenOverride);
         sent = true;
         left = 30;
         msg.className = "small mt-2 text-success";
@@ -1447,7 +1458,11 @@
       } catch (e) {
         if (e.code === "OTP_TOO_SOON") left = 15;
         msg.className = "small mt-2 text-danger";
-        msg.textContent = "⚠ " + e.message;
+        if (e.code === "EMAIL_REQUIRED") {
+          msg.innerHTML = '⚠ ' + esc(e.message) + ' <a href="#/account" class="text-warning fw-semibold text-decoration-underline ms-1">Cập nhật email ngay</a>';
+        } else {
+          msg.textContent = "⚠ " + e.message;
+        }
       }
       paint();
     };
@@ -1488,6 +1503,8 @@
     if (o.b.status === "CANCELLED") { expired(o); return; }
 
     var b = o.b, deadline = toDate(b.expiresAt);
+    var priceNotice = sessionStorage.getItem("soa.priceNotice");
+    if (priceNotice) sessionStorage.removeItem("soa.priceNotice");
     var method = sessionStorage.getItem("soa.method") || METHODS[0].value;
     var qrMode = "BANK"; // "BANK" hoặc "SANDBOX"
     var busy = false;
@@ -1499,7 +1516,6 @@
       '<div class="panel">' +
       '<div class="panel-head d-flex justify-content-between align-items-center">' +
       '<div><b class="fs-5">Phương thức thanh toán</b></div>' +
-      '<span class="hold-mini badge bg-warning text-dark px-3 py-2 fs-6" id="left2">Giữ ghế còn --:--</span>' +
       "</div>" +
 
       '<div class="methods-group my-3" id="methods">' +
@@ -1531,7 +1547,7 @@
       "</div>" +
       "</div>" +
 
-      orderSummary(o) +
+      orderSummary(o, priceNotice ? '<div class="alert alert-info py-2 px-3 small mb-3"><i class="bi bi-info-circle me-1"></i>' + esc(priceNotice) + '</div>' : "") +
 
       '<div id="otp-wrap" class="mb-3">' + otpHtml() + "</div>" +
 
@@ -1550,14 +1566,14 @@
 
     function box() {
       var p = methodOf(method), amount = b.totalPrice, ref = code(b), qr, info;
-      var sandboxUrl = (window.SANDBOX_BASE_URL || location.origin) + "/#/sandbox-pay/" + id;
+      var ptQuery = b.payToken ? ("?pt=" + encodeURIComponent(b.payToken)) : "";
+      var sandboxUrl = (window.SANDBOX_BASE_URL || location.origin) + "/#/sandbox-pay/" + id + ptQuery;
 
       if (qrMode === "SANDBOX") {
         qr = sandboxUrl;
         info = row("Chế độ thử nghiệm", '<span class="badge bg-warning text-dark">Mobile Sandbox</span>') +
           row("Mã đơn hàng", '<b class="ref font-monospace text-warning">' + ref + "</b>", ref, "mã đơn hàng") +
-          row("Số tiền thanh toán", money(amount), String(amount), "số tiền") +
-          row("Liên kết thử", '<a href="' + sandboxUrl + '" class="text-warning small text-decoration-underline" target="_blank">Mở thanh toán thử ↗</a>');
+          row("Số tiền thanh toán", money(amount), String(amount), "số tiền");
       } else if (method === "BANK_TRANSFER") {
         qr = QR.vietQR({ bin: BANK.bin, account: BANK.account, amount: amount, content: ref });
         info = row("Ngân hàng nhận", esc(BANK.bank)) +
@@ -1629,10 +1645,6 @@
       var urgent = left < 60000;
 
       $("#left").textContent = mmssStr;
-      var left2 = $("#left2");
-      left2.textContent = "Giữ ghế còn " + mmssStr;
-      left2.classList.toggle("bg-danger", urgent);
-      left2.classList.toggle("bg-warning", !urgent);
 
       var bar = $("#bar");
       var pct = Math.max(0, Math.min(100, left / total * 100));
@@ -1768,6 +1780,8 @@
   ============================================================================= */
   async function sandboxPay(id) {
     var alive = current();
+    var ptMatch = location.hash.match(/[?&]pt=([^&]+)/);
+    var payToken = ptMatch ? decodeURIComponent(ptMatch[1]) : "";
     show(
       '<div class="container py-5" style="max-width: 520px;">' +
       '<div class="skel" style="height:440px;border-radius:20px"></div>' +
@@ -1776,9 +1790,11 @@
 
     var b;
     try {
-      b = await call("booking", "GET", "/api/booking/" + encodeURIComponent(id));
+      b = await call("booking", "GET", "/api/booking/" + encodeURIComponent(id), undefined, payToken);
     } catch (e) {
-      if (alive()) show(stateBox("⚠️", "Không tìm thấy đơn", "Đơn đặt vé này không tồn tại hoặc đã hết hạn.", '<a href="#/" class="btn btn-primary mt-3">Về trang chủ</a>'));
+      if (alive()) {
+        show(stateBox("⚠️", "Không tìm thấy đơn", "Đơn đặt vé này không tồn tại, đã hết hạn hoặc liên kết thanh toán không còn hiệu lực.", '<a href="#/" class="btn btn-primary mt-3">Về trang chủ</a>'));
+      }
       return;
     }
     if (!alive()) return;
@@ -1802,18 +1818,18 @@
 
     show(
       '<div class="container py-4" style="max-width: 520px;">' +
-      '<div class="card border-warning bg-dark p-4 shadow-lg text-center" style="border-radius: 20px;">' +
+      '<div class="card border-warning p-4 shadow-lg text-center" style="border-radius: 20px;">' +
       '<div class="d-flex align-items-center justify-content-center gap-2 mb-3">' +
       '<span class="brand-mark">▶</span>' +
-      '<span class="fs-4 fw-bold text-white">SOA<b>Cinema</b></span>' +
+      '<span class="fs-4 fw-bold">SOA<b>Cinema</b></span>' +
       '</div>' +
       '<div class="mb-3">' +
       '<span class="badge bg-warning text-dark px-3 py-1 fs-6 rounded-pill"><i class="bi bi-phone me-1"></i>Thanh toán di động mô phỏng</span>' +
       '</div>' +
-      '<div class="d-flex gap-3 align-items-center text-start p-3 rounded bg-black bg-opacity-50 border border-secondary mb-3">' +
+      '<div class="d-flex gap-3 align-items-center text-start p-3 rounded bg-body-tertiary border border-secondary mb-3">' +
       poster(m, "sm") +
       '<div>' +
-      '<h5 class="text-white mb-1">' + esc(m.title) + '</h5>' +
+      '<h5 class="mb-1">' + esc(m.title) + '</h5>' +
       '<div class="text-secondary small">' + (st.cinema ? esc(st.cinema) + " · Phòng " + esc(st.room) : "") + '</div>' +
       '<div class="text-warning small">' + (w ? w.hm + " · " + dayLabel(w.date) + " " + w.dm : "") + '</div>' +
       '</div>' +
@@ -1833,7 +1849,7 @@
     );
 
     var confirmBtn = $("#btnConfirmSandbox");
-    bindOtp(id, b.username);
+    bindOtp(id, b.username, payToken);
     if (confirmBtn) {
       confirmBtn.onclick = async function () {
         var code = otpValue();
@@ -1849,7 +1865,7 @@
             username: b.username,
             paymentMethod: "BANK_TRANSFER",
             otp: code
-          });
+          }, payToken);
           if (res.status === "PAID") {
             sessionStorage.setItem("soa.paid." + id, JSON.stringify({
               method: "BANK_TRANSFER",
@@ -1973,9 +1989,9 @@
       '<h2 class="eticket-movie-title mb-1">' + esc(m.title) + "</h2>" +
       (m.titleVi && m.titleVi !== m.title ? '<div class="text-secondary small mb-2">' + esc(m.titleVi) + "</div>" : "") +
       '<div class="d-flex gap-2 flex-wrap mb-2">' +
-      '<span class="badge bg-secondary-subtle text-light small">' + esc(m.genre) + "</span>" +
+      '<span class="badge bg-secondary-subtle text-body small">' + esc(m.genre) + "</span>" +
       (m.ageRating ? ageBadge(m.ageRating) : "") +
-      '<span class="badge bg-secondary-subtle text-light small">' + duration(m.duration) + "</span>" +
+      '<span class="badge bg-secondary-subtle text-body small">' + duration(m.duration) + "</span>" +
       "</div>" +
       (note ? '<p class="text-success small mb-0"><i class="bi bi-info-circle me-1"></i>' + note + "</p>" : "") +
       "</div>" +
@@ -1986,6 +2002,7 @@
       '<div class="soa-info-row"><span class="soa-info-label">Phòng chiếu</span><b class="soa-info-value">Phòng ' + esc(st.room || "—") + "</b></div>" +
       '<div class="soa-info-row"><span class="soa-info-label">Suất chiếu</span><b class="soa-info-value text-warning">' + esc(st.time ? w.full : "—") + "</b></div>" +
       '<div class="soa-info-row"><span class="soa-info-label">Ghế (' + b.seats.length + ' vé)</span><b class="soa-info-value text-warning fs-5">' + esc(b.seats.join(", ")) + "</b></div>" +
+      '<div class="soa-info-row"><span class="soa-info-label">Đơn giá</span><b class="soa-info-value">' + money(unitPriceOf(b)) + " / ghế</b></div>" +
       '<div class="soa-info-row"><span class="soa-info-label">Tổng thanh toán</span><b class="soa-info-value">' + money(b.totalPrice) + "</b></div>" +
       '<div class="soa-info-row"><span class="soa-info-label">Phương thức</span><b class="soa-info-value">' + esc(pm ? pm.label : "Chuyển khoản") + "</b></div>" +
       "</div>" +
@@ -2251,18 +2268,18 @@
 
       '<div class="mb-3">' +
       '<label class="form-label small text-secondary" for="u">Tên đăng nhập</label>' +
-      '<input class="form-control bg-secondary-subtle border-secondary text-light" id="u" autocomplete="username" required placeholder="Nhập tên tài khoản">' +
+      '<input class="form-control bg-secondary-subtle border-secondary" id="u" autocomplete="username" required placeholder="Nhập tên tài khoản">' +
       "</div>" +
 
       (reg ? '<div class="mb-3">' +
         '<label class="form-label small text-secondary" for="e">Email <span class="text-muted">(nhận mã OTP khi thanh toán)</span></label>' +
-        '<input class="form-control bg-secondary-subtle border-secondary text-light" id="e" type="email" autocomplete="email" placeholder="email@domain.com">' +
+        '<input class="form-control bg-secondary-subtle border-secondary" id="e" type="email" autocomplete="email" placeholder="email@domain.com">' +
         "</div>" : "") +
 
       '<div class="mb-4">' +
       '<label class="form-label small text-secondary" for="p">Mật khẩu</label>' +
       '<div class="input-group">' +
-      '<input class="form-control bg-secondary-subtle border-secondary text-light" id="p" type="password" autocomplete="' + (reg ? "new-password" : "current-password") + '" required' + (reg ? ' minlength="6" placeholder="Tối thiểu 6 ký tự"' : ' placeholder="Nhập mật khẩu"') + ">" +
+      '<input class="form-control bg-secondary-subtle border-secondary" id="p" type="password" autocomplete="' + (reg ? "new-password" : "current-password") + '" required' + (reg ? ' minlength="6" placeholder="Tối thiểu 6 ký tự"' : ' placeholder="Nhập mật khẩu"') + ">" +
       '<button type="button" class="btn btn-outline-secondary" id="eye"><i class="bi bi-eye"></i></button>' +
       "</div>" +
       "</div>" +
@@ -2336,10 +2353,277 @@
   }
 
   /* =============================================================================
+     THÔNG TIN TÀI KHOẢN (#/account)
+  ============================================================================= */
+  function pwStrength(pw) {
+    if (!pw) return { label: "", cls: "bg-secondary", pct: 0 };
+    var score = 0;
+    if (pw.length >= 6) score++;
+    if (pw.length >= 10) score++;
+    if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw) && /[^A-Za-z0-9]/.test(pw)) score++;
+    if (score <= 1) return { label: "Yếu", cls: "bg-danger", pct: 33 };
+    if (score <= 2) return { label: "Trung bình", cls: "bg-warning", pct: 66 };
+    return { label: "Mạnh", cls: "bg-success", pct: 100 };
+  }
+
+  async function account() {
+    if (needLogin()) return;
+    var alive = current();
+    show(
+      back("#/", "Trang chủ") +
+      '<div class="container py-3" style="max-width:760px">' +
+      '<div class="skel" style="height:360px;border-radius:18px"></div>' +
+      "</div>"
+    );
+
+    var profile, bookings;
+    try {
+      var res = await Promise.all([
+        call("user", "GET", "/api/users/" + encodeURIComponent(user.id)),
+        soft("booking", "/api/booking?username=" + encodeURIComponent(user.username), [])
+      ]);
+      profile = res[0];
+      bookings = Array.isArray(res[1]) ? res[1] : [];
+    } catch (e) {
+      if (!alive()) return;
+      if (e.code === "USER_NOT_FOUND" || e.code === "UNAUTHORIZED") {
+        sessionStorage.removeItem("soa.user");
+        user = null;
+        sessionStorage.setItem("soa.next", "#/account");
+        location.hash = "#/login";
+        return;
+      }
+      show(back("#/", "Trang chủ") + errorBox(e, true));
+      bindRetry(function () { account(); });
+      return;
+    }
+    if (!alive()) return;
+
+    var roleLabel = profile.role === "ADMIN" ? "Quản trị viên" : "Khách hàng";
+    var totalCount = bookings.length;
+    var paidCount = bookings.filter(function (b) { return b.status === "PAID"; }).length;
+    var pendingCount = bookings.filter(function (b) { return b.status === "PENDING"; }).length;
+    var origEmail = profile.email || "";
+
+    show(
+      back("#/", "Trang chủ") +
+      '<div class="container py-2" style="max-width:760px">' +
+      '<div class="panel mb-4">' +
+      '<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 pb-3 mb-3 border-bottom border-secondary border-opacity-50">' +
+      '<div class="d-flex align-items-center gap-3">' +
+      '<span class="avatar rounded-circle d-inline-flex align-items-center justify-content-center fw-bold" style="width:52px;height:52px;font-size:1.35rem;background:var(--cinema-gold);color:#0b0d12">' + esc((profile.username || "U").charAt(0).toUpperCase()) + "</span>" +
+      '<div>' +
+      '<h1 class="h4 mb-1">' + esc(profile.username) + "</h1>" +
+      '<div class="d-flex flex-wrap align-items-center gap-2 small">' +
+      '<span class="badge bg-warning text-dark">' + esc(roleLabel) + "</span>" +
+      (origEmail ? '<span class="text-secondary"><i class="bi bi-envelope me-1"></i>' + esc(origEmail) + "</span>" : '<span class="badge bg-danger-subtle text-danger">Chưa cập nhật email</span>') +
+      "</div>" +
+      "</div>" +
+      "</div>" +
+      '<a href="#/my" class="btn btn-outline-warning btn-sm"><i class="bi bi-ticket-perforated me-1"></i>Vé của tôi</a>' +
+      "</div>" +
+      '<div class="row g-2 text-center">' +
+      '<div class="col-4"><div class="p-2 rounded bg-body-tertiary border border-secondary border-opacity-25"><div class="small text-secondary">Tổng đơn</div><b class="fs-5">' + totalCount + "</b></div></div>" +
+      '<div class="col-4"><div class="p-2 rounded bg-body-tertiary border border-secondary border-opacity-25"><div class="small text-secondary">Đã thanh toán</div><b class="fs-5 text-success">' + paidCount + "</b></div></div>" +
+      '<div class="col-4"><div class="p-2 rounded bg-body-tertiary border border-secondary border-opacity-25"><div class="small text-secondary">Chờ thanh toán</div><b class="fs-5 text-warning">' + pendingCount + "</b></div></div>" +
+      "</div>" +
+      "</div>" +
+
+      '<div class="panel">' +
+      '<h2 class="h5 mb-3"><i class="bi bi-person-gear text-warning me-2"></i>Cập nhật thông tin tài khoản</h2>' +
+      '<div id="accErr"></div>' +
+      '<form id="accForm" novalidate>' +
+      '<div class="row g-3 mb-3">' +
+      '<div class="col-md-6">' +
+      '<label class="form-label small text-secondary" for="accUser">Tên đăng nhập</label>' +
+      '<input class="form-control bg-secondary-subtle border-secondary" id="accUser" value="' + esc(profile.username) + '" disabled readonly>' +
+      '<div class="form-text small">Tên đăng nhập không thể thay đổi.</div>' +
+      "</div>" +
+      '<div class="col-md-6">' +
+      '<label class="form-label small text-secondary" for="accRole">Vai trò</label>' +
+      '<input class="form-control bg-secondary-subtle border-secondary" id="accRole" value="' + esc(roleLabel) + '" disabled readonly>' +
+      "</div>" +
+      "</div>" +
+
+      '<div class="mb-4">' +
+      '<label class="form-label small text-secondary" for="accEmail">Email nhận vé &amp; mã OTP</label>' +
+      '<input class="form-control bg-secondary-subtle border-secondary" id="accEmail" type="email" maxlength="100" value="' + esc(origEmail) + '" placeholder="email@domain.com">' +
+      '<div class="form-text small">Tối đa 100 ký tự. Bắt buộc có email để nhận mã OTP khi thanh toán.</div>' +
+      "</div>" +
+
+      '<div class="border-top border-secondary border-opacity-50 pt-3 mb-3">' +
+      '<div class="fw-semibold small mb-2"><i class="bi bi-key me-1 text-warning"></i>Đổi mật khẩu <span class="text-secondary fw-normal">(để trống nếu không đổi)</span></div>' +
+      '<div class="mb-3">' +
+      '<label class="form-label small text-secondary" for="accCurPw">Mật khẩu hiện tại</label>' +
+      '<div class="input-group">' +
+      '<input class="form-control bg-secondary-subtle border-secondary" id="accCurPw" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu hiện tại">' +
+      '<button type="button" class="btn btn-outline-secondary acc-eye" data-target="accCurPw" aria-label="Hiện/ẩn mật khẩu"><i class="bi bi-eye"></i></button>' +
+      "</div>" +
+      "</div>" +
+      '<div class="row g-3">' +
+      '<div class="col-md-6">' +
+      '<label class="form-label small text-secondary" for="accNewPw">Mật khẩu mới</label>' +
+      '<div class="input-group">' +
+      '<input class="form-control bg-secondary-subtle border-secondary" id="accNewPw" type="password" autocomplete="new-password" maxlength="72" placeholder="6 - 72 ký tự">' +
+      '<button type="button" class="btn btn-outline-secondary acc-eye" data-target="accNewPw" aria-label="Hiện/ẩn mật khẩu"><i class="bi bi-eye"></i></button>' +
+      "</div>" +
+      '<div class="progress mt-2" style="height:5px"><div class="progress-bar" id="accPwBar" style="width:0%"></div></div>' +
+      '<div class="small text-secondary mt-1" id="accPwLabel"></div>' +
+      "</div>" +
+      '<div class="col-md-6">' +
+      '<label class="form-label small text-secondary" for="accCfgPw">Xác nhận mật khẩu mới</label>' +
+      '<div class="input-group">' +
+      '<input class="form-control bg-secondary-subtle border-secondary" id="accCfgPw" type="password" autocomplete="new-password" maxlength="72" placeholder="Nhập lại mật khẩu mới">' +
+      '<button type="button" class="btn btn-outline-secondary acc-eye" data-target="accCfgPw" aria-label="Hiện/ẩn mật khẩu"><i class="bi bi-eye"></i></button>' +
+      "</div>" +
+      "</div>" +
+      "</div>" +
+      "</div>" +
+
+      '<div class="d-flex flex-wrap gap-2 justify-content-end">' +
+      '<button type="button" class="btn btn-outline-secondary" id="accCancel">Hủy</button>' +
+      '<button type="submit" class="btn btn-primary px-4" id="accSave"><i class="bi bi-check2-circle me-1"></i>Lưu thay đổi</button>' +
+      "</div>" +
+      "</form>" +
+      "</div>" +
+      "</div>"
+    );
+
+    var emailEl = $("#accEmail"), curPwEl = $("#accCurPw"), newPwEl = $("#accNewPw"), cfgPwEl = $("#accCfgPw");
+    var errEl = $("#accErr"), saveBtn = $("#accSave"), cancelBtn = $("#accCancel");
+
+    function updateDirty() {
+      var dirty = emailEl.value.trim() !== origEmail || curPwEl.value !== "" || newPwEl.value !== "" || cfgPwEl.value !== "";
+      _accountDirty = dirty;
+      window.onbeforeunload = dirty ? function (ev) { ev.preventDefault(); ev.returnValue = ""; return ""; } : null;
+    }
+
+    [emailEl, curPwEl, newPwEl, cfgPwEl].forEach(function (el) {
+      el.addEventListener("input", updateDirty);
+    });
+
+    newPwEl.addEventListener("input", function () {
+      var s = pwStrength(newPwEl.value);
+      var bar = $("#accPwBar"), lbl = $("#accPwLabel");
+      bar.className = "progress-bar " + s.cls;
+      bar.style.width = s.pct + "%";
+      lbl.textContent = s.label ? "Độ mạnh mật khẩu: " + s.label : "";
+    });
+
+    $$(".acc-eye").forEach(function (btn) {
+      btn.onclick = function () {
+        var inp = $("#" + btn.getAttribute("data-target"));
+        if (!inp) return;
+        var hidden = inp.type === "password";
+        inp.type = hidden ? "text" : "password";
+        btn.innerHTML = hidden ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+      };
+    });
+
+    cancelBtn.onclick = function () {
+      emailEl.value = origEmail;
+      curPwEl.value = "";
+      newPwEl.value = "";
+      cfgPwEl.value = "";
+      $("#accPwBar").style.width = "0%";
+      $("#accPwLabel").textContent = "";
+      errEl.innerHTML = "";
+      updateDirty();
+    };
+
+    $("#accForm").onsubmit = async function (ev) {
+      ev.preventDefault();
+      errEl.innerHTML = "";
+
+      var nextEmail = emailEl.value.trim();
+      var curPw = curPwEl.value;
+      var newPw = newPwEl.value;
+      var cfgPw = cfgPwEl.value;
+      var wantsPw = !!(curPw || newPw || cfgPw);
+      var emailChanged = nextEmail !== origEmail;
+
+      if (!emailChanged && !wantsPw) {
+        errEl.innerHTML = '<div class="alert alert-info py-2 px-3 small mb-3">Không có thay đổi nào để lưu.</div>';
+        return;
+      }
+
+      if (!nextEmail) {
+        errEl.innerHTML = '<div class="alert alert-danger py-2 px-3 small mb-3">⚠ Email không được để trống.</div>';
+        return;
+      }
+      if (nextEmail.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+        errEl.innerHTML = '<div class="alert alert-danger py-2 px-3 small mb-3">⚠ Email không hợp lệ hoặc vượt quá 100 ký tự.</div>';
+        return;
+      }
+
+      if (wantsPw) {
+        if (!curPw) {
+          errEl.innerHTML = '<div class="alert alert-danger py-2 px-3 small mb-3">⚠ Vui lòng nhập mật khẩu hiện tại để đổi mật khẩu.</div>';
+          return;
+        }
+        if (newPw.length < 6 || newPw.length > 72) {
+          errEl.innerHTML = '<div class="alert alert-danger py-2 px-3 small mb-3">⚠ Mật khẩu mới phải từ 6 đến 72 ký tự.</div>';
+          return;
+        }
+        var utf8Len = typeof TextEncoder !== "undefined" ? new TextEncoder().encode(newPw).length : newPw.length;
+        if (utf8Len > 72) {
+          errEl.innerHTML = '<div class="alert alert-danger py-2 px-3 small mb-3">⚠ Mật khẩu mới vượt quá giới hạn 72 byte UTF-8.</div>';
+          return;
+        }
+        if (newPw !== cfgPw) {
+          errEl.innerHTML = '<div class="alert alert-danger py-2 px-3 small mb-3">⚠ Xác nhận mật khẩu mới không khớp.</div>';
+          return;
+        }
+      }
+
+      saveBtn.disabled = true;
+      var oldLabel = saveBtn.innerHTML;
+      saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Đang lưu...';
+
+      try {
+        if (wantsPw) {
+          try {
+            await call("user", "POST", "/api/login", { username: user.username, password: curPw });
+          } catch (authErr) {
+            errEl.innerHTML = '<div class="alert alert-danger py-2 px-3 small mb-3">⚠ Mật khẩu hiện tại không đúng.</div>';
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = oldLabel;
+            return;
+          }
+        }
+
+        var payload = {};
+        if (emailChanged) payload.email = nextEmail;
+        if (wantsPw) payload.password = newPw;
+
+        var updated = await call("user", "PUT", "/api/users/" + encodeURIComponent(user.id), payload);
+        origEmail = (updated && updated.email != null) ? updated.email : nextEmail;
+        user.email = origEmail;
+        sessionStorage.setItem("soa.user", JSON.stringify(user));
+
+        curPwEl.value = "";
+        newPwEl.value = "";
+        cfgPwEl.value = "";
+        $("#accPwBar").style.width = "0%";
+        $("#accPwLabel").textContent = "";
+        updateDirty();
+
+        toast("Cập nhật thông tin tài khoản thành công!");
+        account();
+      } catch (e) {
+        errEl.innerHTML = '<div class="alert alert-danger py-2 px-3 small mb-3">⚠ ' + esc(e.message) + "</div>";
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = oldLabel;
+      }
+    };
+  }
+
+  /* =============================================================================
      ĐỊNH TUYẾN URL HASH
   ============================================================================= */
   function route() {
-    var h = location.hash || "#/", p = h.split("/");
+    var h = location.hash || "#/", p = h.split("?")[0].split("/");
     if (h === "#movies" || h === "#showtimes") return;
 
     leave();
@@ -2356,13 +2640,26 @@
       if (p[1] === "result") { location.replace("#/my"); return; }
       return my();
     }
+    if (p[1] === "account") return account();
     if (p[1] === "login") return login();
     if (p[1] === "register") return login("register");
 
     return home();
   }
 
-  window.addEventListener("hashchange", route);
+  var _lastHash = location.hash || "#/";
+  window.addEventListener("hashchange", function () {
+    var nextHash = location.hash || "#/";
+    if (_accountDirty && nextHash !== _lastHash) {
+      if (!window.confirm("Bạn có thay đổi chưa lưu ở trang tài khoản. Bạn có chắc muốn rời đi?")) {
+        history.replaceState(null, "", _lastHash);
+        return;
+      }
+      _accountDirty = false;
+    }
+    _lastHash = nextHash;
+    route();
+  });
   document.addEventListener("DOMContentLoaded", function () {
     initTrailerModal();
     route();

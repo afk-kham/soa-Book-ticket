@@ -1,6 +1,6 @@
-"""Gửi thông báo: email THẬT qua SMTP khi có cấu hình (SMTP_HOST), ngược lại chỉ GIẢ LẬP (ghi log).
+"""Gửi thông báo qua Email thật (SMTP) khi có cấu hình SMTP_HOST; ngược lại chỉ giả lập (ghi log).
 
-SMS luôn giả lập. Lỗi SMTP được ném cho người gọi (smtplib.SMTPException / OSError) để quyết định xử lý.
+Lỗi SMTP được ném cho người gọi (smtplib.SMTPException / OSError) để quyết định xử lý.
 """
 import logging
 import smtplib
@@ -31,22 +31,24 @@ class DeliverySender(ConsoleSender):
         return bool(config.SMTP_HOST)
 
     def deliver(self, n: NotificationLog, email: str | None = None, subject: str | None = None,
-                body: str | None = None) -> str:
+                body: str | None = None, html_body: str | None = None) -> str:
         """Trả SENT (đã gửi email thật) hoặc SIMULATED."""
         if n.channel == "EMAIL" and email and self.smtp_enabled():
-            self._smtp(email, subject or "SOA Cinema - Thông báo", body or n.message)
+            self._smtp(email, subject or "SOA Cinema - Thông báo", body or n.message, html_body)
             logger.info("SENT email bookingId=%d to=%s", n.booking_id, mask_email(email))
             return SENT
         self.send(n)
         return SIMULATED
 
     @staticmethod
-    def _smtp(to: str, subject: str, body: str) -> None:
+    def _smtp(to: str, subject: str, body: str, html_body: str | None = None) -> None:
         msg = EmailMessage()
         msg["From"] = config.SMTP_FROM or config.SMTP_USER
         msg["To"] = to
         msg["Subject"] = subject
         msg.set_content(body)
+        if html_body:
+            msg.add_alternative(html_body, subtype="html")
         ctx = ssl.create_default_context()
         if config.SMTP_SSL:
             server = smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT, timeout=config.SMTP_TIMEOUT, context=ctx)

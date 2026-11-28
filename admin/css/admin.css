@@ -172,6 +172,20 @@
   color: var(--cinema-text);
   border-color: var(--cinema-border);
 }
+[data-bs-theme="light"] .soa-info-value {
+  color: var(--cinema-text) !important;
+}
+[data-bs-theme="light"] .soa-info-row {
+  border-bottom-color: var(--cinema-border) !important;
+}
+[data-bs-theme="light"] .soa-tab-badge-paid {
+  color: #15803d;
+}
+[data-bs-theme="light"] .alert {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+}
 
 * { box-sizing: border-box; }
 body {

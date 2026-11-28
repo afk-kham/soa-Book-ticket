@@ -28,14 +28,19 @@ def err(r, status, code):
 
 # ---------- POST /api/notify ----------
 def test_notify_ok_returns_200_and_writes_log(client):
-    r = notify(client, username="  an  ", channel=" sms ")
+    r = notify(client, username="  an  ", channel=" email ")
     assert r.status_code == 200
     d = r.json()["data"]
     assert r.json()["status"] == "success"
-    assert d["deliveryStatus"] == "SIMULATED" and d["username"] == "an" and d["channel"] == "SMS"
+    assert d["deliveryStatus"] == "SIMULATED" and d["username"] == "an" and d["channel"] == "EMAIL"
     assert d["message"] == "Đặt vé thành công cho đơn #5" and d["sentAt"].endswith("Z") and len(d["sentAt"]) == 20
     logs = client.get("/api/notify/logs?bookingId=5").json()["data"]
     assert len(logs) == 1 and logs[0]["id"] == d["notificationId"]
+
+
+@pytest.mark.parametrize("ch", ["SMS", "sms", "PUSH", ""])
+def test_notify_unsupported_channel_400(client, ch):
+    err(client.post("/api/notify", json={"username": "u", "bookingId": 1, "channel": ch}), 400, "UNSUPPORTED_CHANNEL")
 
 
 @pytest.mark.parametrize("body", [
@@ -44,7 +49,6 @@ def test_notify_ok_returns_200_and_writes_log(client):
     {"username": "u", "bookingId": 2147483648, "channel": "EMAIL"},
     {"username": "  ", "bookingId": 1, "channel": "EMAIL"},
     {"username": "ệ" * 51, "bookingId": 1, "channel": "EMAIL"},
-    {"username": "u", "bookingId": 1, "channel": "PUSH"},
     {"username": "u", "bookingId": 1, "channel": "EMAIL", "message": "x"},  # trường lạ
     {"username": "u", "bookingId": 1.5, "channel": "EMAIL"},
     {"username": "u", "bookingId": "1", "channel": "EMAIL"},
@@ -75,19 +79,36 @@ def test_notify_failure_does_not_leak_details(client, monkeypatch):
 
 # ---------- GET /api/notify/logs ----------
 def test_list_newest_first_and_filters(client):
-    notify(client, bookingId=7, channel="SMS", username="Bob")
+    notify(client, bookingId=7, channel="EMAIL", username="Bob")
     notify(client, bookingId=8, channel="EMAIL", username="bob")
     data = client.get("/api/notify/logs").json()["data"]
     assert [x["id"] for x in data] == sorted((x["id"] for x in data), reverse=True)
     assert len(client.get("/api/notify/logs?username=BOB").json()["data"]) == 2
-    assert len(client.get("/api/notify/logs?channel=sms").json()["data"]) == 1
+    assert len(client.get("/api/notify/logs?channel=email").json()["data"]) == 3  # gồm 1 bản ghi seed
     assert len(client.get("/api/notify/logs?bookingId=1").json()["data"]) == 1  # bản ghi seed
     assert client.get("/api/notify/logs?bookingId=999").json()["data"] == []
 
 
-@pytest.mark.parametrize("q", ["bookingId=abc", "bookingId=0", "bookingId=-3", "channel=PUSH"])
+def test_legacy_sms_rows_still_readable_in_logs(client):
+    """Dữ liệu cũ có channel='SMS' vẫn hiển thị được ở GET /api/notify/logs."""
+    from app.db.connection import get_connection
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO notification_logs (booking_id, username, channel, message, sent_at) VALUES (?,?,?,?,?)",
+            (99, "legacy_u", "SMS", "Old log", "2026-10-01T10:00:00Z"),
+        )
+    logs = client.get("/api/notify/logs?bookingId=99").json()["data"]
+    assert len(logs) == 1 and logs[0]["channel"] == "SMS"
+
+
+@pytest.mark.parametrize("q", ["bookingId=abc", "bookingId=0", "bookingId=-3"])
 def test_list_bad_filter_400(client, q):
     err(client.get("/api/notify/logs?" + q), 400, "VALIDATION_ERROR")
+
+
+@pytest.mark.parametrize("ch", ["SMS", "PUSH"])
+def test_list_unsupported_channel_400(client, ch):
+    err(client.get("/api/notify/logs?channel=" + ch), 400, "UNSUPPORTED_CHANNEL")
 
 
 def test_swagger_lists_only_one_route_per_function(client):
@@ -109,11 +130,11 @@ def test_create_log_201_default_message(client):
 
 
 def test_create_log_custom_message_and_limits(client):
-    r = client.post("/api/notify/logs", json={"username": "u", "bookingId": 9, "channel": "SMS", "message": "x" * 255})
+    r = client.post("/api/notify/logs", json={"username": "u", "bookingId": 9, "channel": "EMAIL", "message": "x" * 255})
     assert r.status_code == 201
-    err(client.post("/api/notify/logs", json={"username": "u", "bookingId": 9, "channel": "SMS", "message": "x" * 256}),
+    err(client.post("/api/notify/logs", json={"username": "u", "bookingId": 9, "channel": "EMAIL", "message": "x" * 256}),
         400, "VALIDATION_ERROR")
-    err(client.post("/api/notify/logs", json={"username": "u", "bookingId": 9, "channel": "SMS",
+    err(client.post("/api/notify/logs", json={"username": "u", "bookingId": 9, "channel": "EMAIL",
                                               "message": "a", "content": "b"}), 400, "VALIDATION_ERROR")  # trường lạ
 
 
@@ -197,14 +218,15 @@ def test_update_partial(client, method):
 
 
 def test_update_channel_and_username(client):
-    d = client.put("/api/notify/logs/1", json={"channel": "sms", "username": " zed "}).json()["data"]
-    assert d["channel"] == "SMS" and d["username"] == "zed"
+    d = client.put("/api/notify/logs/1", json={"channel": "email", "username": " zed "}).json()["data"]
+    assert d["channel"] == "EMAIL" and d["username"] == "zed"
 
 
 def test_update_errors(client):
     err(client.put("/api/notify/logs/999", json={"message": "x"}), 404, "NOT_FOUND")
     err(client.put("/api/notify/logs/999", json={"bookingId": 3}), 404, "NOT_FOUND")
-    err(client.put("/api/notify/logs/1", json={"channel": "PUSH"}), 400, "VALIDATION_ERROR")
+    err(client.put("/api/notify/logs/1", json={"channel": "PUSH"}), 400, "UNSUPPORTED_CHANNEL")
+    err(client.put("/api/notify/logs/1", json={"channel": "SMS"}), 400, "UNSUPPORTED_CHANNEL")
     err(client.put("/api/notify/logs/1", json={"username": " "}), 400, "VALIDATION_ERROR")
     err(client.put("/api/notify/logs/1", json={"message": ""}), 400, "VALIDATION_ERROR")
     err(client.put("/api/notify/logs/1", json={"message": "x" * 256}), 400, "VALIDATION_ERROR")

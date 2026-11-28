@@ -18,7 +18,7 @@ services:
       DB_PATH: /data/movie.db
       JWT_SECRET: ${JWT_SECRET:-}
     volumes:
-      - movie_data:/data  # SQLite của riêng movie
+      - ./movie/data:/data  # SQLite của riêng movie
 
   showtime:
     build: ./showtime
@@ -36,7 +36,7 @@ services:
       APP_TIMEZONE: "${APP_TIMEZONE:-Asia/Ho_Chi_Minh}"
       JWT_SECRET: ${JWT_SECRET:-}
     volumes:
-      - showtime_data:/data  # SQLite của riêng showtime
+      - ./showtime/data:/data  # SQLite của riêng showtime
 
   user:
     build: ./user
@@ -50,7 +50,7 @@ services:
       DB_PATH: /data/user.db
       JWT_SECRET: ${JWT_SECRET:-}
     volumes:
-      - user_data:/data  # SQLite của riêng user
+      - ./user/data:/data  # SQLite của riêng user
 
   booking:
     build: ./booking
@@ -68,6 +68,7 @@ services:
       PAYMENT_SERVICE_URL: http://payment:5005
       NOTIFICATION_SERVICE_URL: http://notification:5006
       UPSTREAM_TIMEOUT_SECONDS: "${UPSTREAM_TIMEOUT_SECONDS:-5}"
+      NOTIFICATION_TIMEOUT_SECONDS: "${NOTIFICATION_TIMEOUT_SECONDS:-15}"
       HOLD_MINUTES: "${HOLD_MINUTES:-10}"
       JWT_SECRET: ${JWT_SECRET:-}
       JWT_REQUIRED: "${JWT_REQUIRED:-false}"  # true: Booking xác minh Bearer JWT, lấy danh tính từ token
@@ -75,7 +76,7 @@ services:
       OTP_REQUIRED: "${OTP_REQUIRED:-true}"  # thanh toán cần OTP qua email
       OTP_DEBUG: "${OTP_DEBUG:-true}"  # demo: trả mã trong phản hồi. TẮT khi chạy thật
     volumes:
-      - booking_data:/data  # SQLite của riêng booking
+      - ./booking/data:/data  # SQLite của riêng booking
 
   payment:
     build: ./payment
@@ -96,7 +97,7 @@ services:
       VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-}
       CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
     volumes:
-      - payment_data:/data  # SQLite của riêng payment
+      - ./payment/data:/data  # SQLite của riêng payment
 
   notification:
     build: ./notification
@@ -115,8 +116,9 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TIMEOUT: "${SMTP_TIMEOUT:-12}"
     volumes:
-      - notification_data:/data  # SQLite của riêng notification
+      - ./notification/data:/data  # SQLite của riêng notification
 
   # ---- Lớp vào: API Gateway + giao diện (không phải service nghiệp vụ, vẫn chạy khi một service sập) ----
   gateway:
@@ -127,6 +129,18 @@ services:
       - "${GATEWAY_HOST_PORT:-8000}:8000"  # một địa chỉ vào: http://localhost:8000/api/...
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../client:/usr/share/nginx/client:ro
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: soa-ngrok
+    profiles: ["ngrok"]
+    restart: unless-stopped
+    command: ["http", "gateway:8000"]
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    ports:
+      - "4040:4040"  # Giao diện kiểm tra URL ngrok: http://localhost:4040
 
   client:
     image: nginx:1.27-alpine
@@ -146,10 +160,4 @@ services:
     volumes:
       - ../admin:/usr/share/nginx/html:ro
 
-volumes:
-  movie_data:
-  showtime_data:
-  user_data:
-  booking_data:
-  payment_data:
-  notification_data:
+# Dữ liệu SQLite của 6 service được mount trực tiếp từ ./<service>/data:/data (không dùng named volume rỗng)

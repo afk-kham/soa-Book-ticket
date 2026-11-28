@@ -40,6 +40,24 @@
   --cinema-radius-lg: 20px;
   --cinema-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.75);
   --cinema-font: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+
+  /* Seat Map Tokens (Dark Mode) */
+  --seat-available-bg: #1b2234;
+  --seat-available-border: #64748b;
+  --seat-available-fg: #f1f5f9;
+  --seat-available-hover-bg: #232d45;
+  --seat-available-hover-border: #f5b301;
+  --seat-selected-bg: #f5b301;
+  --seat-selected-border: #f5b301;
+  --seat-selected-fg: #0b0d12;
+  --seat-selected-glow: 0 0 14px rgba(245, 179, 1, 0.55);
+  --seat-selected-badge-bg: #0b0d12;
+  --seat-selected-badge-fg: #f5b301;
+  --seat-booked-bg: #151924;
+  --seat-booked-border: #334155;
+  --seat-booked-fg: #64748b;
+  --seat-booked-slash: rgba(148, 163, 184, 0.45);
+  --seat-focus-ring: #38bdf8;
 }
 
 [data-bs-theme="light"] {
@@ -63,6 +81,24 @@
   --bs-primary: var(--cinema-gold);
   --bs-primary-rgb: 217, 119, 6;
   --bs-secondary: #64748b;
+
+  /* Seat Map Tokens (Light Mode) */
+  --seat-available-bg: #ffffff;
+  --seat-available-border: #475569;
+  --seat-available-fg: #0f172a;
+  --seat-available-hover-bg: #fffbeb;
+  --seat-available-hover-border: #d97706;
+  --seat-selected-bg: #f59e0b;
+  --seat-selected-border: #b45309;
+  --seat-selected-fg: #0b0d12;
+  --seat-selected-glow: 0 0 12px rgba(245, 158, 11, 0.45);
+  --seat-selected-badge-bg: #0b0d12;
+  --seat-selected-badge-fg: #fbbf24;
+  --seat-booked-bg: #e2e8f0;
+  --seat-booked-border: #94a3b8;
+  --seat-booked-fg: #64748b;
+  --seat-booked-slash: rgba(71, 85, 105, 0.5);
+  --seat-focus-ring: #0d6efd;
   --bs-border-color: var(--cinema-border);
 
   --cinema-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.14);
@@ -222,33 +258,118 @@
 [data-bs-theme="light"] .footer-col h5,
 [data-bs-theme="light"] .detail-title,
 [data-bs-theme="light"] .detail-hero h1,
-[data-bs-theme="light"] .user-chip .name,
-[data-bs-theme="light"] .seat-btn:hover:not(:disabled) {
+[data-bs-theme="light"] .user-chip .name {
   color: var(--cinema-text) !important;
 }
 [data-bs-theme="light"] .detail-hero .desc {
   color: var(--cinema-text-muted) !important;
 }
 [data-bs-theme="light"] .date,
-[data-bs-theme="light"] .time-btn,
-[data-bs-theme="light"] .seat-btn {
+[data-bs-theme="light"] .time-btn {
   background: var(--cinema-surface-1);
   border-color: var(--cinema-border);
   color: var(--cinema-text-muted);
 }
-[data-bs-theme="light"] .time-btn:hover:not(:disabled),
-[data-bs-theme="light"] .seat-btn:hover:not(:disabled) {
+[data-bs-theme="light"] .time-btn:hover:not(:disabled) {
   background: var(--cinema-surface-2);
-}
-[data-bs-theme="light"] .seat-btn.taken {
-  background: #e2e8f0 !important;
-  color: #94a3b8 !important;
-  border-color: #cbd5e1 !important;
 }
 [data-bs-theme="light"] .date.on,
 [data-bs-theme="light"] .date.on b,
 [data-bs-theme="light"] .date.on small {
   color: #ffffff !important;
+}
+/* Date tabs hiện đại (.soa-date-tab) */
+[data-bs-theme="light"] .soa-date-tab {
+  background: var(--cinema-surface-1);
+  border-color: var(--cinema-border);
+  color: var(--cinema-text-muted);
+}
+[data-bs-theme="light"] .soa-date-tab b {
+  color: var(--cinema-text) !important;
+}
+[data-bs-theme="light"] .soa-date-tab:hover:not(.active):not(.on) {
+  background: var(--cinema-surface-2);
+  border-color: var(--cinema-border-light);
+  color: var(--cinema-text) !important;
+}
+[data-bs-theme="light"] .soa-date-tab.active,
+[data-bs-theme="light"] .soa-date-tab.on {
+  background: var(--cinema-gold);
+  border-color: var(--cinema-gold);
+  color: #0b0d12 !important;
+}
+[data-bs-theme="light"] .soa-date-tab.active b,
+[data-bs-theme="light"] .soa-date-tab.active small,
+[data-bs-theme="light"] .soa-date-tab.on b,
+[data-bs-theme="light"] .soa-date-tab.on small {
+  color: #0b0d12 !important;
+}
+[data-bs-theme="light"] .badge.status-PAID {
+  background: rgba(21, 128, 61, 0.14);
+  color: #15803d;
+  border: 1px solid rgba(21, 128, 61, 0.3);
+}
+[data-bs-theme="light"] .badge.status-PENDING {
+  background: rgba(180, 83, 9, 0.14);
+  color: #b45309;
+  border: 1px solid rgba(180, 83, 9, 0.3);
+}
+[data-bs-theme="light"] .badge.status-CANCELLED {
+  background: rgba(185, 28, 28, 0.14);
+  color: #b91c1c;
+  border: 1px solid rgba(185, 28, 28, 0.3);
+}
+/* Khối thông tin phim trong Detail Hero (.facts, .detail-title, .detail-desc) */
+[data-bs-theme="light"] .facts {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: 1px solid var(--cinema-border) !important;
+}
+[data-bs-theme="light"] .detail-content .detail-title {
+  color: var(--cinema-text) !important;
+  text-shadow: none;
+}
+[data-bs-theme="light"] .detail-content .detail-desc {
+  color: var(--cinema-text-muted) !important;
+}
+/* Movie card overlay, showtime tags, genre pills, stepper, footer */
+[data-bs-theme="light"] .mcard-hover-overlay .btn-outline-light {
+  color: #f8fafc !important;
+  border-color: rgba(248, 250, 252, 0.65);
+  background: rgba(15, 23, 42, 0.35);
+}
+[data-bs-theme="light"] .mcard-hover-overlay .btn-outline-light:hover {
+  background: rgba(248, 250, 252, 0.2);
+  color: #ffffff !important;
+}
+[data-bs-theme="light"] .mcard-showtimes.today {
+  color: #15803d;
+}
+[data-bs-theme="light"] .mcard-showtimes.soon {
+  color: #b45309;
+}
+[data-bs-theme="light"] .mcard-showtimes.none {
+  background: var(--cinema-surface-2);
+  border-color: var(--cinema-border);
+  color: var(--cinema-text-muted);
+}
+[data-bs-theme="light"] .genre,
+[data-bs-theme="light"] .genre-pill {
+  background: var(--cinema-surface-1);
+  border-color: var(--cinema-border);
+  color: var(--cinema-text-muted);
+}
+[data-bs-theme="light"] .genre:hover,
+[data-bs-theme="light"] .genre-pill:hover {
+  background: var(--cinema-surface-2);
+  color: var(--cinema-text) !important;
+}
+[data-bs-theme="light"] .soa-step.active,
+[data-bs-theme="light"] .nav-link-custom:hover,
+[data-bs-theme="light"] .nav-link-custom.active {
+  color: var(--cinema-text) !important;
+}
+[data-bs-theme="light"] .footer-bottom {
+  border-top-color: var(--cinema-border);
 }
 /* Ô tìm kiếm & Tabs/Pills trên nền sáng */
 [data-bs-theme="light"] .soa-search-input {
@@ -1769,41 +1890,69 @@ main#view {
   width: 20px;
 }
 .seat-btn {
+  position: relative;
   width: 36px;
   height: 36px;
+  padding: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
   border-radius: 8px;
   font-size: 12px;
   font-weight: 700;
   display: grid;
   place-items: center;
   cursor: pointer;
-  border: 1px solid var(--cinema-border-light);
-  background: var(--cinema-surface-2);
-  color: var(--cinema-text-muted);
-  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  border: 2px solid var(--seat-available-border);
+  background: var(--seat-available-bg);
+  color: var(--seat-available-fg);
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.seat-btn:hover:not(:disabled) {
-  transform: scale(1.15);
-  border-color: var(--cinema-gold);
-  color: #fff;
-  background: var(--cinema-surface-3);
+.seat-btn:hover:not(:disabled):not(.sel):not(.taken) {
+  transform: scale(1.1);
+  border-color: var(--seat-available-hover-border);
+  background: var(--seat-available-hover-bg);
+  color: var(--seat-available-fg);
   z-index: 2;
 }
+.seat-btn:focus-visible {
+  outline: 3px solid var(--seat-focus-ring);
+  outline-offset: 2px;
+  z-index: 3;
+}
 .seat-btn.sel {
-  background: var(--cinema-gold) !important;
-  border-color: var(--cinema-gold) !important;
-  color: #0b0d12 !important;
-  box-shadow: 0 0 16px rgba(245, 179, 1, 0.7);
-  transform: scale(1.1);
+  background: var(--seat-selected-bg);
+  border: 2px solid var(--seat-selected-border);
+  color: var(--seat-selected-fg);
+  box-shadow: var(--seat-selected-glow);
+  transform: scale(1.06);
   font-weight: 800;
+  z-index: 2;
+}
+.seat-btn.sel::after {
+  content: "✓";
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--seat-selected-badge-bg);
+  color: var(--seat-selected-badge-fg);
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 15px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 .seat-btn.taken {
-  background: #1e2433 !important;
-  border-color: transparent !important;
-  color: #475569 !important;
+  background-color: var(--seat-booked-bg);
+  background-image:
+    linear-gradient(to top right, transparent calc(50% - 1px), var(--seat-booked-slash) 50%, transparent calc(50% + 1px)),
+    linear-gradient(to bottom right, transparent calc(50% - 1px), var(--seat-booked-slash) 50%, transparent calc(50% + 1px));
+  border: 1.5px dashed var(--seat-booked-border);
+  color: var(--seat-booked-fg);
   cursor: not-allowed;
-  opacity: 0.55;
-  text-decoration: line-through;
+  opacity: 0.78;
 }
 
 .seat-legend {
@@ -1815,17 +1964,17 @@ main#view {
   border-top: 1px solid var(--cinema-border);
 }
 .seat-legend-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 13px;
+  font-weight: 500;
   color: var(--cinema-text-muted);
 }
-.seat-legend-item i {
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  display: inline-block;
+.seat-legend .seat-btn {
+  pointer-events: none;
+  transform: none;
+  flex-shrink: 0;
 }
 
 /* =============================================================================
@@ -1882,16 +2031,17 @@ main#view {
   flex-direction: column;
   align-items: center;
   flex-shrink: 0;
+  max-width: 100%;
 }
 .qr-wrap .qr,
 .qr-box-wrap .qr,
 .qr-box-wrap {
-  width: 220px !important;
-  height: 220px !important;
-  min-width: 220px !important;
-  min-height: 220px !important;
+  width: min(220px, 100%) !important;
+  aspect-ratio: 1;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
   max-width: 220px !important;
-  max-height: 220px !important;
   background: #ffffff !important;
   padding: 12px !important;
   border-radius: 14px !important;
@@ -1905,8 +2055,8 @@ main#view {
 .qr-wrap .qr svg,
 .qr-box-wrap .qr svg,
 .qr-box-wrap svg {
-  width: 196px !important;
-  height: 196px !important;
+  width: 100% !important;
+  height: auto !important;
   max-width: 196px !important;
   max-height: 196px !important;
   display: block !important;
@@ -2172,8 +2322,36 @@ main#view {
 }
 
 /* =============================================================================
-   10. RESPONSIVE BREAKPOINTS (390 / 768 / 1440)
+   10. RESPONSIVE BREAKPOINTS & MOBILE SAFETY
 ============================================================================= */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+html, body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+.booking-layout > *,
+.panel,
+.summary,
+.pay-info,
+.soa-info-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.hall {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.eticket-barcode-box svg {
+  max-width: 100%;
+  height: auto;
+}
+.hold-countdown-card #left {
+  white-space: nowrap;
+}
+
 @media (max-width: 900px) {
   .footer-grid {
     grid-template-columns: 1fr 1fr;
@@ -2181,22 +2359,32 @@ main#view {
 }
 
 @media (max-width: 768px) {
+  .topbar, main#view, .cinema-footer {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  .topbar-in {
+    padding: 10px 4px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
   .hero-slide {
-    padding: 24px;
+    padding: 20px;
     min-height: auto;
   }
   .hero-slide-in {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
   }
   .hero-slide-in .slide-poster {
     display: none;
   }
   .slide-content h1 {
-    font-size: 28px;
+    font-size: clamp(22px, 6vw, 28px);
   }
   .booking-layout {
     grid-template-columns: 1fr;
+    gap: 16px;
   }
   .detail-hero-in {
     grid-template-columns: 1fr;
@@ -2207,7 +2395,7 @@ main#view {
   .eticket-stub {
     border-left: 0;
     border-top: 2px dashed var(--cinema-border);
-    padding: 24px;
+    padding: 20px;
   }
   .eticket-stub::before, .eticket-stub::after {
     left: auto;
@@ -2215,6 +2403,40 @@ main#view {
   .eticket-stub::before { top: -14px; left: -14px; }
   .eticket-stub::after { top: -14px; right: -14px; left: auto; }
 
+  .paybox > .d-flex:not(.justify-content-center) {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+  .qr-mode-tabs {
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .method-badge {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .soa-tabs {
+    flex-wrap: wrap;
+    border-radius: 16px;
+    max-width: 100%;
+  }
+  .hold-countdown-card {
+    position: sticky;
+    top: 64px;
+    z-index: 15;
+  }
+  input.form-control,
+  select.form-select,
+  textarea.form-control {
+    min-height: 44px;
+    font-size: 16px !important;
+  }
+  .btn,
+  .soa-date-tab,
+  .time-btn {
+    min-height: 44px;
+  }
   .ticket-row {
     flex-direction: column;
     align-items: flex-start;
@@ -2229,6 +2451,7 @@ main#view {
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
     border-top: 1px solid var(--cinema-border);
     padding-top: 12px;
     margin-top: 4px;
@@ -2238,16 +2461,28 @@ main#view {
 @media (max-width: 600px) {
   .footer-grid {
     grid-template-columns: 1fr;
-    gap: 28px;
+    gap: 24px;
   }
 }
 
 @media (max-width: 480px) {
-  main#view { padding: 16px 12px 48px; }
-  .seat-row { gap: 4px; }
-  .seat-btn { width: 28px; height: 28px; font-size: 10px; border-radius: 6px; }
-  .seat-row .row-label { width: 16px; font-size: 11px; }
-  .movies-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  main#view { padding: 14px max(10px, env(safe-area-inset-left)) max(48px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-right)); }
+  .brand { font-size: 17px; gap: 8px; }
+  .brand-mark { width: 30px; height: 30px; font-size: 12px; }
+  .panel { padding: 14px; border-radius: 14px; }
+  .soa-stepper-list { overflow-x: auto; gap: 6px; padding-bottom: 4px; }
+  .seat-row { gap: clamp(2px, 0.8vw, 5px); }
+  .seat-row .aisle { width: clamp(6px, 2.2vw, 14px); }
+  .seat-btn {
+    width: clamp(24px, 7vw, 34px);
+    height: clamp(24px, 7vw, 34px);
+    font-size: clamp(10px, 2.7vw, 12px);
+    border-radius: 6px;
+  }
+  .seat-legend { gap: 12px 16px; }
+  .seat-legend .seat-btn { width: 32px; height: 32px; font-size: 11px; }
+  .seat-row .row-label { width: 14px; font-size: 11px; }
+  .movies-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .mcard .info { padding: 10px; }
   .mcard h3 { font-size: 14px; }
 }

@@ -24,7 +24,7 @@ def client(isolated_db):
 
 @pytest.fixture
 def seeded_client(client):
-    """TestClient đã có sẵn 5 bộ phim mẫu từ seed."""
+    """TestClient đã có sẵn 15 bộ phim mẫu từ seed."""
     run_seed()
     return client
 

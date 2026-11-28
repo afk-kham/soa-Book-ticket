@@ -62,7 +62,7 @@ async def send_otp(request: Request) -> JSONResponse:
 
 async def list_logs(bookingId: str | None = Query(None, description="Lọc theo mã đơn"),
                     username: str | None = Query(None, description="Lọc theo tên (không phân biệt hoa thường)"),
-                    channel: str | None = Query(None, description="EMAIL hoặc SMS")) -> JSONResponse:
+                    channel: str | None = Query(None, description="Lọc theo kênh (EMAIL)")) -> JSONResponse:
     logs = service.list_logs(bookingId, username, channel)
     return success_response([log_to_dict(n) for n in logs])
 

@@ -94,7 +94,7 @@ var page = Admin.crudPage({
     function updatePreview() {
       var m = movieObjects[sel.value];
       if (m) {
-        preview.innerHTML = Admin.poster(m) + '<div><b class="text-white">' + Admin.esc(m.title) + '</b><div class="text-secondary small">' + Admin.esc(m.genre) + ' · ' + m.duration + ' phút</div></div>';
+        preview.innerHTML = Admin.poster(m) + '<div><b>' + Admin.esc(m.title) + '</b><div class="text-secondary small">' + Admin.esc(m.genre) + ' · ' + m.duration + ' phút</div></div>';
         preview.style.display = "flex";
       } else {
         preview.style.display = "none";
