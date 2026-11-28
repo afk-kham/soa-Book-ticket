@@ -102,7 +102,25 @@ docker compose down         # dừng (volume SQLite được giữ). KHÔNG dùn
 
 - Cổng **publish ra host** (`5001:5001`…) khác khái niệm với cổng **nội bộ container**. Hiện hai giá trị trùng số; nếu đổi `*_HOST_PORT` thì chỉ đổi phía host, URL giữa các container vẫn là `http://movie:5001`.
 - **Vì sao Compose cố ý KHÔNG dùng `depends_on`:** SOA yêu cầu mỗi service khởi động, chạy và dừng độc lập ("tắt một service thì các service còn lại vẫn chạy"). Booking áp dụng graceful degradation (ví dụ Notification lỗi vẫn giữ đơn `PAID`; phụ thuộc bắt buộc sập trả `503`), nên hệ thống không khóa cứng thứ tự khởi động bằng `depends_on`.
-- Compose gồm cả **API Gateway** (nginx, `:8000`), **Client** (`:8080`) và **Admin** (`:8081`) — `docker compose up --build` chạy trọn hệ thống. Gateway chỉ là lớp vào tùy chọn (thêm `?gateway=http://localhost:8000` vào URL Client/Admin); gọi trực tiếp `:5001..5006` vẫn dùng được. Cấu hình định tuyến: `gateway/nginx.conf`.
+- Compose gồm cả **API Gateway** (nginx, `:8000`), **Client** (`:8080`) và **Admin** (`:8081`) — `docker compose up --build` chạy trọn hệ thống. Gateway chỉ là lớp vào tùy chọn (thêm `?gateway=http://localhost:8000` vào URL Client/Admin); gọi trực tiếp `:5001..5006` vẫn dùng được. Cấu hình định tuyến: `gateway/nginx.conf` (có giới hạn riêng cho `POST /api/login`: `5r/m`, `burst=5` trong `login_per_ip`).
+
+### Chế độ HTTPS tùy chọn qua API Gateway (opt-in)
+Mặc định hệ thống chạy HTTP để giữ nguyên tương thích CI/script demo. Khi muốn mã hóa TLS trên đường truyền (không sửa `API_CONTRACT.md`):
+1. **Sinh chứng chỉ cục bộ** (tự động lưu vào `services-py/gateway/certs/`, đã bị `.gitignore` bỏ qua):
+   ```powershell
+   # Windows:                                # Linux / macOS:
+   scripts\gen-tls-cert.ps1                   bash scripts/gen-tls-cert.sh
+   ```
+2. **Khởi động ở chế độ HTTPS** (tắt publish cổng `5001..5006` ra host, chỉ mở Gateway `:80` → redirect `https://` và `:443`):
+   ```bash
+   cd services-py
+   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
+   ```
+3. **Cấu hình kèm theo khi bật HTTPS:**
+   - Mở Client/Admin qua Gateway HTTPS: thêm `?gateway=https://localhost` (hoặc `?gateway=https://localhost:8443` nếu đổi `GATEWAY_HTTPS_PORT`).
+   - Cập nhật trong `services-py/.env` nếu test VNPAY Return qua Gateway HTTPS: `VNPAY_RETURN_URL=https://localhost/api/payment/vnpay/return`, `CLIENT_URL=http://localhost:8080` (hoặc URL HTTPS nếu bạn đặt Client sau proxy HTTPS).
+   - CORS của 6 service hiện cấu hình `Access-Control-Allow-Origin: *` nên nhận cả HTTP lẫn HTTPS origin; nếu siết origin khi lên production, đặt đúng origin `https://<domain>`.
+   - Không bật HSTS cho `localhost` trong `gateway/nginx.tls.conf` để tránh khóa trình duyệt khi quay lại HTTP demo.
 
 ## 6. Bảng cổng và biến môi trường
 

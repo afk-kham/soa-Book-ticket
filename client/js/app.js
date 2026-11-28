@@ -28,7 +28,7 @@
   var TOTAL_SEATS = MAP.rows.length * MAP.cols;
 
   var user = null;
-  try { user = JSON.parse(sessionStorage.getItem("soa.user") || "null"); } catch (e) {}
+  try { user = JSON.parse(sessionStorage.getItem("soa.user") || "null"); } catch (e) { }
 
   var ICON_SEARCH = '<i class="bi bi-search"></i>';
   var ICON_COPY = '<i class="bi bi-clipboard"></i>';
@@ -96,12 +96,16 @@
     try { json = await res.json(); } catch (e) { json = null; }
     if (!res.ok || !json || json.status !== "success") {
       var code = json && json.code;
-      var err = new Error(friendly(code, json && json.message));
+      var msgText = (svc === "user" && path === "/api/login" && code === "UNAUTHORIZED")
+        ? ((json && json.message && !TECHNICAL.test(json.message)) ? json.message : "Tên đăng nhập hoặc mật khẩu không đúng.")
+        : friendly(code, json && json.message);
+      var err = new Error(msgText);
       err.code = code;
       err.httpStatus = res.status;
       if (code === "UNAUTHORIZED" && svc === "booking" && user) {  // token hết hạn/không hợp lệ: đăng nhập lại
         sessionStorage.removeItem("soa.user");
         user = null;
+        sessionStorage.setItem("soa.expired", "1");
         sessionStorage.setItem("soa.next", location.hash);
         location.hash = "#/login";
       }
@@ -248,17 +252,17 @@
     var age = m.ageRating ? ageBadge(m.ageRating) : "";
     var imgTag = srcs.length
       ? '<img src="' + esc(srcs[0]) + '" data-alt="' + esc(srcs.slice(1).join("|")) + '" alt="Poster phim ' + esc(m.title) +
-        '" loading="lazy" onload="this.parentNode.classList.add(\'has-img\')" onerror="SOA_posterFail(this)">'
+      '" loading="lazy" onload="this.parentNode.classList.add(\'has-img\')" onerror="SOA_posterFail(this)">'
       : "";
 
     return '<div class="poster ' + (cls || "") + '" style="' + palette(m) + '">' +
       imgTag +
       age +
       '<div class="poster-fallback-info">' +
-        '<span class="poster-emoji">' + genreIcon(m.genre) + "</span>" +
-        '<span class="poster-title">' + esc(m.title) + "</span>" +
+      '<span class="poster-emoji">' + genreIcon(m.genre) + "</span>" +
+      '<span class="poster-title">' + esc(m.title) + "</span>" +
       "</div>" +
-    "</div>";
+      "</div>";
   }
 
   function backdrop(m) {
@@ -303,7 +307,7 @@
       try {
         if (ytPlayer.stopVideo) ytPlayer.stopVideo();
         if (ytPlayer.destroy) ytPlayer.destroy();
-      } catch (e) {}
+      } catch (e) { }
       ytPlayer = null;
     }
     var modalBody = document.getElementById("trailerModalBody");
@@ -329,19 +333,19 @@
       : 'background: var(--cinema-surface-1);';
     modalBody.innerHTML =
       '<div class="d-flex flex-column align-items-center justify-content-center p-4 text-center w-100 h-100" style="' + bgStyle + '">' +
-        '<i class="bi bi-shield-lock-fill text-warning fs-1 mb-2"></i>' +
-        '<h5 class="text-white mb-2">' + esc(title) + '</h5>' +
-        '<p class="text-secondary small mb-4" style="max-width: 440px;">' +
-          'Không thể phát trực tiếp trailer phim này do cài đặt bản quyền hoặc giới hạn nhúng của nhà phát hành.' +
-        '</p>' +
-        '<div class="d-flex gap-2 flex-wrap justify-content-center">' +
-          '<a href="https://www.youtube.com/watch?v=' + encodeURIComponent(youtubeId) + '" target="_blank" rel="noopener noreferrer" class="btn btn-danger px-4 py-2">' +
-            '<i class="bi bi-youtube me-2"></i>Mở xem trên YouTube ↗' +
-          '</a>' +
-          '<a href="https://www.youtube.com/results?search_query=' + encodeURIComponent(title + ' trailer chính thức') + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-light px-4 py-2">' +
-            '<i class="bi bi-search me-2"></i>Tìm trailer trên YouTube ↗' +
-          '</a>' +
-        '</div>' +
+      '<i class="bi bi-shield-lock-fill text-warning fs-1 mb-2"></i>' +
+      '<h5 class="text-white mb-2">' + esc(title) + '</h5>' +
+      '<p class="text-secondary small mb-4" style="max-width: 440px;">' +
+      'Không thể phát trực tiếp trailer phim này do cài đặt bản quyền hoặc giới hạn nhúng của nhà phát hành.' +
+      '</p>' +
+      '<div class="d-flex gap-2 flex-wrap justify-content-center">' +
+      '<a href="https://www.youtube.com/watch?v=' + encodeURIComponent(youtubeId) + '" target="_blank" rel="noopener noreferrer" class="btn btn-danger px-4 py-2">' +
+      '<i class="bi bi-youtube me-2"></i>Mở xem trên YouTube ↗' +
+      '</a>' +
+      '<a href="https://www.youtube.com/results?search_query=' + encodeURIComponent(title + ' trailer chính thức') + '" target="_blank" rel="noopener noreferrer" class="btn btn-outline-light px-4 py-2">' +
+      '<i class="bi bi-search me-2"></i>Tìm trailer trên YouTube ↗' +
+      '</a>' +
+      '</div>' +
       '</div>';
   }
 
@@ -392,7 +396,7 @@
             }
           }
         });
-      } catch (err) {}
+      } catch (err) { }
     }
   }
 
@@ -563,33 +567,79 @@
     }
   }
 
+  /* ---------- Giao diện Sáng / Tối (Theme) ---------- */
+  function getTheme() {
+    var saved = localStorage.getItem("soa.theme");
+    if (saved === "light" || saved === "dark") return saved;
+    return (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+  }
+
+  function applyTheme(theme) {
+    var t = theme === "light" ? "light" : "dark";
+    document.documentElement.setAttribute("data-bs-theme", t);
+    if (document.body) document.body.setAttribute("data-bs-theme", t);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", t === "light" ? "#f8fafc" : "#0a0c13");
+    var btn = $("#themeToggle");
+    if (btn) {
+      btn.innerHTML = t === "light" ? '<i class="bi bi-moon-stars-fill"></i>' : '<i class="bi bi-sun-fill"></i>';
+      btn.title = t === "light" ? "Chuyển sang nền tối" : "Chuyển sang nền sáng";
+      btn.setAttribute("aria-label", btn.title);
+    }
+  }
+
+  applyTheme(getTheme());
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: light)");
+    if (mq.addEventListener) {
+      mq.addEventListener("change", function (ev) {
+        if (!localStorage.getItem("soa.theme")) applyTheme(ev.matches ? "light" : "dark");
+      });
+    }
+  }
+
   /* ---------- Thanh điều hướng Topbar ---------- */
   function nav() {
     var h = location.hash || "#/";
     var mine = /^#\/(my|ticket|pay|result)/.test(h);
     var auth = /^#\/(login|register)/.test(h);
     var links = [["#/", "Phim", !mine && !auth], ["#/my", "Vé của tôi", mine]];
+    var curTheme = getTheme();
+    var themeBtn =
+      '<button type="button" class="btn btn-outline-light btn-sm px-2 theme-toggle-btn" id="themeToggle" ' +
+      'title="' + (curTheme === "light" ? "Chuyển sang nền tối" : "Chuyển sang nền sáng") + '" ' +
+      'aria-label="' + (curTheme === "light" ? "Chuyển sang nền tối" : "Chuyển sang nền sáng") + '">' +
+      (curTheme === "light" ? '<i class="bi bi-moon-stars-fill"></i>' : '<i class="bi bi-sun-fill"></i>') +
+      "</button>";
 
     $("#mainnav").innerHTML = links.map(function (l) {
       return '<a href="' + l[0] + '" class="' + (l[2] ? "active" : "") + '">' + l[1] + "</a>";
     }).join("");
 
-    $("#account").innerHTML = user
+    $("#account").innerHTML = '<div class="d-flex align-items-center gap-2">' + themeBtn + (user
       ? '<div class="dropdown">' +
-          '<button class="user-chip dropdown-toggle btn btn-link text-decoration-none p-0" id="userMenuBtn" data-bs-toggle="dropdown" aria-expanded="false">' +
-            '<span class="avatar">' + esc(user.username.charAt(0).toUpperCase()) + "</span>" +
-            '<span class="name text-light">' + esc(user.username) + "</span>" +
-          "</button>" +
-          '<ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end shadow" aria-labelledby="userMenuBtn">' +
-            '<li><a class="dropdown-item" href="#/my"><i class="bi bi-ticket-perforated me-2 text-warning"></i>Vé của tôi</a></li>' +
-            '<li><hr class="dropdown-divider border-secondary"></li>' +
-            '<li><button class="dropdown-item text-danger" id="logout"><i class="bi bi-box-arrow-right me-2"></i>Đăng xuất</button></li>' +
-          "</ul>" +
-        "</div>"
-      : '<div class="d-flex align-items-center gap-2">' +
-          '<a class="btn btn-outline-light btn-sm px-3" href="#/login">Đăng nhập</a>' +
-          '<a class="btn btn-primary btn-sm px-3" href="#/register">Đăng ký</a>' +
-        "</div>";
+      '<button class="user-chip dropdown-toggle btn btn-link text-decoration-none p-0" id="userMenuBtn" data-bs-toggle="dropdown" aria-expanded="false">' +
+      '<span class="avatar">' + esc(user.username.charAt(0).toUpperCase()) + "</span>" +
+      '<span class="name text-light">' + esc(user.username) + "</span>" +
+      "</button>" +
+      '<ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="userMenuBtn">' +
+      '<li><a class="dropdown-item" href="#/my"><i class="bi bi-ticket-perforated me-2 text-warning"></i>Vé của tôi</a></li>' +
+      '<li><hr class="dropdown-divider border-secondary"></li>' +
+      '<li><button class="dropdown-item text-danger" id="logout"><i class="bi bi-box-arrow-right me-2"></i>Đăng xuất</button></li>' +
+      "</ul>" +
+      "</div>"
+      : '<a class="btn btn-outline-light btn-sm px-3" href="#/login">Đăng nhập</a>' +
+      '<a class="btn btn-primary btn-sm px-3" href="#/register">Đăng ký</a>') +
+      "</div>";
+
+    var tb = $("#themeToggle");
+    if (tb) {
+      tb.onclick = function () {
+        var next = getTheme() === "light" ? "dark" : "light";
+        localStorage.setItem("soa.theme", next);
+        applyTheme(next);
+      };
+    }
 
     var lo = $("#logout");
     if (lo) {
@@ -663,7 +713,7 @@
       var age = m.ageRating ? ageBadge(m.ageRating) : "";
       var trailerBtn = m.youtubeId
         ? '<button type="button" class="btn btn-outline-light btn-lg hero-trailer-btn" data-trailer-title="' + esc(m.title) + '" data-trailer-id="' + esc(m.youtubeId) + '">' +
-            ICON_PLAY + ' Xem trailer</button>'
+        ICON_PLAY + ' Xem trailer</button>'
         : "";
       var todayTag = today[m.id] ? '<span class="chip"><i class="bi bi-ticket-perforated"></i> Hôm nay còn ' + today[m.id] + " suất</span>" : "";
       var desc = m.description || "Thưởng thức siêu phẩm điện ảnh với hình ảnh sắc nét và âm thanh vòm sống động tại SOA Cinema.";
@@ -671,75 +721,75 @@
       return '<div class="carousel-slide ' + (idx === 0 ? "active" : "") + '" data-slide-index="' + idx + '" style="' + palette(m) + '">' +
         backdrop(m) +
         '<div class="hero-slide-in">' +
-          '<div class="slide-content">' +
-            '<div class="slide-tags d-flex align-items-center gap-2 flex-wrap mb-2">' +
-              '<span class="badge bg-warning text-dark px-2 py-1"><i class="bi bi-star-fill"></i> Phim nổi bật</span>' +
-              age +
-            '</div>' +
-            '<h1 class="slide-title">' + esc(m.title) + "</h1>" +
-            (m.titleVi && m.titleVi !== m.title ? '<p class="slide-subtitle text-secondary mb-2">' + esc(m.titleVi) + "</p>" : "") +
-            '<div class="slide-meta mb-3">' +
-              '<span class="chip">' + genreIcon(m.genre) + " " + esc(m.genre) + "</span>" +
-              '<span class="chip"><i class="bi bi-clock"></i> ' + duration(m.duration) + "</span>" +
-              todayTag +
-            "</div>" +
-            '<p class="slide-desc text-light-50 mb-4">' + esc(desc) + "</p>" +
-            '<div class="slide-actions d-flex flex-wrap gap-3">' +
-              '<a class="btn btn-primary btn-lg px-4" href="#/movie/' + m.id + '"><i class="bi bi-lightning-charge-fill me-1"></i> Đặt vé ngay</a>' +
-              trailerBtn +
-              '<a class="btn btn-ghost btn-lg" href="#movies" data-scroll-movies>Tất cả phim</a>' +
-            "</div>" +
-          "</div>" +
-          '<div class="slide-poster-wrap d-none d-md-block">' +
-            poster(m, "hero-poster shadow-lg") +
-          "</div>" +
+        '<div class="slide-content">' +
+        '<div class="slide-tags d-flex align-items-center gap-2 flex-wrap mb-2">' +
+        '<span class="badge bg-warning text-dark px-2 py-1"><i class="bi bi-star-fill"></i> Phim nổi bật</span>' +
+        age +
+        '</div>' +
+        '<h1 class="slide-title">' + esc(m.title) + "</h1>" +
+        (m.titleVi && m.titleVi !== m.title ? '<p class="slide-subtitle text-secondary mb-2">' + esc(m.titleVi) + "</p>" : "") +
+        '<div class="slide-meta mb-3">' +
+        '<span class="chip">' + genreIcon(m.genre) + " " + esc(m.genre) + "</span>" +
+        '<span class="chip"><i class="bi bi-clock"></i> ' + duration(m.duration) + "</span>" +
+        todayTag +
         "</div>" +
-      "</div>";
+        '<p class="slide-desc text-light-50 mb-4">' + esc(desc) + "</p>" +
+        '<div class="slide-actions d-flex flex-wrap gap-3">' +
+        '<a class="btn btn-primary btn-lg px-4" href="#/movie/' + m.id + '"><i class="bi bi-lightning-charge-fill me-1"></i> Đặt vé ngay</a>' +
+        trailerBtn +
+        '<a class="btn btn-ghost btn-lg" href="#movies" data-scroll-movies>Tất cả phim</a>' +
+        "</div>" +
+        "</div>" +
+        '<div class="slide-poster-wrap d-none d-md-block">' +
+        poster(m, "hero-poster shadow-lg") +
+        "</div>" +
+        "</div>" +
+        "</div>";
     }).join("");
 
     var indicatorsHtml = carouselMovies.map(function (_, idx) {
       return '<button class="indicator-bar ' + (idx === 0 ? "active" : "") + '" data-to="' + idx + '" aria-label="Slide ' + (idx + 1) + '">' +
         '<span class="indicator-progress"></span>' +
-      "</button>";
+        "</button>";
     }).join("");
 
     show(
       '<section class="hero-carousel-wrapper" id="heroCarousel" aria-label="Phim nổi bật">' +
-        '<div class="carousel-track">' + slidesHtml + "</div>" +
-        '<div class="carousel-indicators-bar">' + indicatorsHtml + "</div>" +
-        '<button class="carousel-nav-btn prev" id="carouselPrev" aria-label="Phim trước"><i class="bi bi-chevron-left"></i></button>' +
-        '<button class="carousel-nav-btn next" id="carouselNext" aria-label="Phim tiếp theo"><i class="bi bi-chevron-right"></i></button>' +
+      '<div class="carousel-track">' + slidesHtml + "</div>" +
+      '<div class="carousel-indicators-bar">' + indicatorsHtml + "</div>" +
+      '<button class="carousel-nav-btn prev" id="carouselPrev" aria-label="Phim trước"><i class="bi bi-chevron-left"></i></button>' +
+      '<button class="carousel-nav-btn next" id="carouselNext" aria-label="Phim tiếp theo"><i class="bi bi-chevron-right"></i></button>' +
       "</section>" +
 
       '<section id="movies" class="mt-5">' +
-        '<div class="section-head mb-4 d-flex justify-content-between align-items-end flex-wrap gap-3">' +
-          '<div>' +
-            '<h2 class="section-title mb-1">Phim đang chiếu</h2>' +
-            '<div class="text-secondary small" id="m-count">Đang tải lịch chiếu...</div>' +
-          "</div>" +
-          '<div class="filters-search">' +
-            '<div class="soa-search">' +
-              '<i class="bi bi-search soa-search-icon"></i>' +
-              '<input class="soa-search-input" id="q" placeholder="Tìm phim…" aria-label="Tìm phim">' +
-              '<button type="button" class="soa-search-clear" id="q-clear" aria-label="Xóa">&times;</button>' +
-            '</div>' +
-          '</div>' +
-        "</div>" +
+      '<div class="section-head mb-4 d-flex justify-content-between align-items-end flex-wrap gap-3">' +
+      '<div>' +
+      '<h2 class="section-title mb-1">Phim đang chiếu</h2>' +
+      '<div class="text-secondary small" id="m-count">Đang tải lịch chiếu...</div>' +
+      "</div>" +
+      '<div class="filters-search">' +
+      '<div class="soa-search">' +
+      '<i class="bi bi-search soa-search-icon"></i>' +
+      '<input class="soa-search-input" id="q" placeholder="Tìm phim…" aria-label="Tìm phim">' +
+      '<button type="button" class="soa-search-clear" id="q-clear" aria-label="Xóa">&times;</button>' +
+      '</div>' +
+      '</div>' +
+      "</div>" +
 
-        '<div class="genres-wrapper mb-4">' +
-          '<div class="genres-scroll-container">' +
-            '<button type="button" class="genre-arrow-btn prev" id="genrePrev" aria-label="Cuộn trái"><i class="bi bi-chevron-left"></i></button>' +
-            '<div class="genres-scroll" id="genres">' +
-              '<button type="button" class="genre on" data-g="">Tất cả</button>' +
-              genres.map(function (g) {
-                return '<button type="button" class="genre" data-g="' + esc(g) + '">' + esc(g) + "</button>";
-              }).join("") +
-            '</div>' +
-            '<button type="button" class="genre-arrow-btn next" id="genreNext" aria-label="Cuộn phải"><i class="bi bi-chevron-right"></i></button>' +
-          '</div>' +
-        '</div>' +
+      '<div class="genres-wrapper mb-4">' +
+      '<div class="genres-scroll-container">' +
+      '<button type="button" class="genre-arrow-btn prev" id="genrePrev" aria-label="Cuộn trái"><i class="bi bi-chevron-left"></i></button>' +
+      '<div class="genres-scroll" id="genres">' +
+      '<button type="button" class="genre on" data-g="">Tất cả</button>' +
+      genres.map(function (g) {
+        return '<button type="button" class="genre" data-g="' + esc(g) + '">' + esc(g) + "</button>";
+      }).join("") +
+      '</div>' +
+      '<button type="button" class="genre-arrow-btn next" id="genreNext" aria-label="Cuộn phải"><i class="bi bi-chevron-right"></i></button>' +
+      '</div>' +
+      '</div>' +
 
-        '<div id="grid"></div>' +
+      '<div id="grid"></div>' +
       "</section>"
     );
 
@@ -789,26 +839,26 @@
 
         return '<a class="mcard" href="#/movie/' + m.id + '">' +
           '<div class="mcard-poster-wrap">' +
-            poster(m) +
-            '<div class="mcard-hover-overlay">' +
-              (m.youtubeId ? '<button type="button" class="btn btn-outline-light btn-sm rounded-pill px-3 mcard-trailer-btn" data-trailer-id="' + esc(m.youtubeId) + '" data-trailer-title="' + esc(m.title) + '"><i class="bi bi-play-circle-fill text-danger me-1"></i>Xem trailer</button>' : "") +
-              '<span class="btn btn-primary btn-sm rounded-pill px-3 shadow">Chi tiết & Đặt vé</span>' +
-            '</div>' +
+          poster(m) +
+          '<div class="mcard-hover-overlay">' +
+          (m.youtubeId ? '<button type="button" class="btn btn-outline-light btn-sm rounded-pill px-3 mcard-trailer-btn" data-trailer-id="' + esc(m.youtubeId) + '" data-trailer-title="' + esc(m.title) + '"><i class="bi bi-play-circle-fill text-danger me-1"></i>Xem trailer</button>' : "") +
+          '<span class="btn btn-primary btn-sm rounded-pill px-3 shadow">Chi tiết & Đặt vé</span>' +
+          '</div>' +
           '</div>' +
           '<div class="mcard-info">' +
-            '<h3 class="mcard-title" title="' + esc(m.title) + '">' + esc(m.title) + '</h3>' +
-            '<div class="mcard-sub">' +
-              '<span>' + esc(m.genre) + '</span> · <span>' + shortDuration(m.duration) + '</span>' +
-            '</div>' +
-            '<div class="mcard-showtimes ' + showtimeClass + '">' +
-              '<span class="showtime-dot"></span>' +
-              '<span class="showtime-text">' + showtimeText.replace("● ", "") + '</span>' +
-            '</div>' +
-            '<div class="mcard-footer">' +
-              '<span class="btn btn-primary btn-sm w-100 mcard-btn">Đặt vé</span>' +
-            '</div>' +
+          '<h3 class="mcard-title" title="' + esc(m.title) + '">' + esc(m.title) + '</h3>' +
+          '<div class="mcard-sub">' +
+          '<span>' + esc(m.genre) + '</span> · <span>' + shortDuration(m.duration) + '</span>' +
           '</div>' +
-        '</a>';
+          '<div class="mcard-showtimes ' + showtimeClass + '">' +
+          '<span class="showtime-dot"></span>' +
+          '<span class="showtime-text">' + showtimeText.replace("● ", "") + '</span>' +
+          '</div>' +
+          '<div class="mcard-footer">' +
+          '<span class="btn btn-primary btn-sm w-100 mcard-btn">Đặt vé</span>' +
+          '</div>' +
+          '</div>' +
+          '</a>';
       }).join("") + '</div>';
 
       $$(".mcard-trailer-btn").forEach(function (btn) {
@@ -971,7 +1021,7 @@
 
     var trailerBtnHtml = m.youtubeId
       ? '<button type="button" class="btn btn-outline-danger btn-lg d-inline-flex align-items-center gap-2" id="detailTrailerBtn">' +
-          ICON_PLAY + ' Xem trailer</button>'
+      ICON_PLAY + ' Xem trailer</button>'
       : "";
 
     var genresList = m.genres && m.genres.length ? m.genres.join(" · ") : m.genre;
@@ -980,35 +1030,35 @@
     show(
       back("#/", "Danh sách phim") +
       '<section class="detail detail-hero" style="' + palette(m) + '">' +
-        backdrop(m) +
-        '<div class="detail-in detail-hero-in">' +
-          poster(m, "detail-poster shadow-lg") +
-          '<div class="detail-content">' +
-            '<div class="d-flex align-items-center gap-2 mb-2">' +
-              '<span class="badge bg-secondary-subtle text-secondary px-3 py-1 rounded-pill">' + genreIcon(m.genre) + " " + esc(genresList) + "</span>" +
-              (m.ageRating ? ageBadge(m.ageRating) : "") +
-            "</div>" +
-            '<h1 class="detail-title">' + esc(m.title) + "</h1>" +
-            (m.titleVi && m.titleVi !== m.title ? '<h2 class="fs-5 text-secondary mb-3">' + esc(m.titleVi) + "</h2>" : "") +
-            '<p class="detail-desc text-light-50 mb-4">' + esc(descText) + "</p>" +
-            '<div class="facts" id="facts"></div>' +
-            '<div class="d-flex flex-wrap gap-3 mt-4">' +
-              '<a class="btn btn-primary btn-lg px-4" href="#showtimes" id="to-st"><i class="bi bi-calendar2-week me-2"></i>Chọn suất chiếu</a>' +
-              trailerBtnHtml +
-            "</div>" +
-          "</div>" +
-        "</div>" +
+      backdrop(m) +
+      '<div class="detail-in detail-hero-in">' +
+      poster(m, "detail-poster shadow-lg") +
+      '<div class="detail-content">' +
+      '<div class="d-flex align-items-center gap-2 mb-2">' +
+      '<span class="badge bg-secondary-subtle text-secondary px-3 py-1 rounded-pill">' + genreIcon(m.genre) + " " + esc(genresList) + "</span>" +
+      (m.ageRating ? ageBadge(m.ageRating) : "") +
+      "</div>" +
+      '<h1 class="detail-title">' + esc(m.title) + "</h1>" +
+      (m.titleVi && m.titleVi !== m.title ? '<h2 class="fs-5 text-secondary mb-3">' + esc(m.titleVi) + "</h2>" : "") +
+      '<p class="detail-desc text-light-50 mb-4">' + esc(descText) + "</p>" +
+      '<div class="facts" id="facts"></div>' +
+      '<div class="d-flex flex-wrap gap-3 mt-4">' +
+      '<a class="btn btn-primary btn-lg px-4" href="#showtimes" id="to-st"><i class="bi bi-calendar2-week me-2"></i>Chọn suất chiếu</a>' +
+      trailerBtnHtml +
+      "</div>" +
+      "</div>" +
+      "</div>" +
       "</section>" +
 
       '<section id="showtimes" class="mt-5">' +
-        '<div class="section-head mb-4 d-flex justify-content-between align-items-center">' +
-          '<div>' +
-            '<h2 class="section-title mb-1">Lịch chiếu phim</h2>' +
-            '<div class="text-secondary small">Chọn ngày và khung giờ bạn muốn xem</div>' +
-          "</div>" +
-          live("st-live") +
-        "</div>" +
-        '<div id="st-body"><div class="skel" style="height:180px;border-radius:16px"></div></div>' +
+      '<div class="section-head mb-4 d-flex justify-content-between align-items-center">' +
+      '<div>' +
+      '<h2 class="section-title mb-1">Lịch chiếu phim</h2>' +
+      '<div class="text-secondary small">Chọn ngày và khung giờ bạn muốn xem</div>' +
+      "</div>" +
+      live("st-live") +
+      "</div>" +
+      '<div id="st-body"><div class="skel" style="height:180px;border-radius:16px"></div></div>' +
       "</section>"
     );
 
@@ -1078,11 +1128,11 @@
 
       body.innerHTML =
         '<div class="soa-date-tabs mb-4" role="tablist" aria-label="Chọn ngày chiếu">' +
-          dates.map(function (d) {
-            var w = when(d + " 00:00");
-            return '<button type="button" class="soa-date-tab' + (d === cur ? " active" : "") + '" data-d="' + d + '" role="tab" aria-selected="' + (d === cur) + '">' +
-              '<small>' + dayLabel(d) + "</small><b>" + w.dm + "</b></button>";
-          }).join("") +
+        dates.map(function (d) {
+          var w = when(d + " 00:00");
+          return '<button type="button" class="soa-date-tab' + (d === cur ? " active" : "") + '" data-d="' + d + '" role="tab" aria-selected="' + (d === cur) + '">' +
+            '<small>' + dayLabel(d) + "</small><b>" + w.dm + "</b></button>";
+        }).join("") +
         "</div>" +
         order.map(function (c) {
           return '<div class="cinema-card mb-4">' +
@@ -1094,9 +1144,9 @@
                 '<b class="show-hm">' + when(s.time).hm + "</b>" +
                 '<span class="show-sub">Phòng ' + esc(s.room) + " · " + money(s.price) + "</span>" +
                 seat +
-              "</button>";
+                "</button>";
             }).join("") + "</div>" +
-          "</div>";
+            "</div>";
         }).join("");
 
       $$("#st-body .soa-date-tab").forEach(function (b) {
@@ -1122,8 +1172,8 @@
     show(
       backLink + steps(1) +
       '<div class="book booking-layout">' +
-        '<div class="skel" style="height:440px;border-radius:20px"></div>' +
-        '<div class="skel" style="height:440px;border-radius:20px"></div>' +
+      '<div class="skel" style="height:440px;border-radius:20px"></div>' +
+      '<div class="skel" style="height:440px;border-radius:20px"></div>' +
       "</div>"
     );
 
@@ -1172,57 +1222,57 @@
         '<a class="btn btn-warning btn-sm ms-2" href="#/pay/' + mine.id + '">Tiếp tục thanh toán</a></div></div>' : "") +
 
       '<div class="book booking-layout">' +
-        '<div class="panel seat-panel">' +
-          '<div class="panel-head d-flex justify-content-between align-items-center">' +
-            '<div><b class="fs-5">Sơ đồ ghế</b> · Phòng ' + esc(st.room) + "</div>" +
-            live("seat-live") +
-          "</div>" +
+      '<div class="panel seat-panel">' +
+      '<div class="panel-head d-flex justify-content-between align-items-center">' +
+      '<div><b class="fs-5">Sơ đồ ghế</b> · Phòng ' + esc(st.room) + "</div>" +
+      live("seat-live") +
+      "</div>" +
 
-          '<div class="hall">' +
-            '<div class="hall-in">' +
-              '<div class="screen-box"><div class="screen-curve"></div><span class="screen-label">MÀN HÌNH</span></div>' +
-              hall +
-            "</div>" +
-          "</div>" +
+      '<div class="hall">' +
+      '<div class="hall-in">' +
+      '<div class="screen-box"><div class="screen-curve"></div><span class="screen-label">MÀN HÌNH</span></div>' +
+      hall +
+      "</div>" +
+      "</div>" +
 
-          '<div class="legend seat-legend d-flex justify-content-center gap-4 flex-wrap mt-4">' +
-            '<span><i class="seat-dot available"></i>Ghế trống</span>' +
-            '<span><i class="seat-dot sel"></i>Đang chọn</span>' +
-            '<span><i class="seat-dot taken"></i>Đã có người đặt</span>' +
-          "</div>" +
-        "</div>" +
+      '<div class="legend seat-legend d-flex justify-content-center gap-4 flex-wrap mt-4">' +
+      '<span><i class="seat-dot available"></i>Ghế trống</span>' +
+      '<span><i class="seat-dot sel"></i>Đang chọn</span>' +
+      '<span><i class="seat-dot taken"></i>Đã có người đặt</span>' +
+      "</div>" +
+      "</div>" +
 
-        '<aside class="panel summary order-summary-panel">' +
-          '<div class="sum-movie d-flex gap-3 align-items-center mb-3">' +
-            poster(m, "sm") +
-            '<div>' +
-              '<h3 class="fs-5 mb-1 text-truncate">' + esc(m.title) + "</h3>" +
-              '<div class="text-secondary small">' + esc(st.cinema) + "</div>" +
-            "</div>" +
-          "</div>" +
+      '<aside class="panel summary order-summary-panel">' +
+      '<div class="sum-movie d-flex gap-3 align-items-center mb-3">' +
+      poster(m, "sm") +
+      '<div>' +
+      '<h3 class="fs-5 mb-1 text-truncate">' + esc(m.title) + "</h3>" +
+      '<div class="text-secondary small">' + esc(st.cinema) + "</div>" +
+      "</div>" +
+      "</div>" +
 
-          '<div class="soa-info-row"><span class="soa-info-label">Suất chiếu</span><b class="soa-info-value">' + w.hm + " · " + dayLabel(w.date) + " " + w.dm + "</b></div>" +
-          '<div class="soa-info-row"><span class="soa-info-label">Phòng chiếu</span><b class="soa-info-value">Phòng ' + esc(st.room) + "</b></div>" +
-          '<div class="soa-info-row"><span class="soa-info-label">Giá vé</span><b class="soa-info-value">' + money(st.price) + " / ghế</b></div>" +
-          '<div class="soa-info-row"><span class="soa-info-label">Số lượng</span><b class="soa-info-value" id="cnt">0 / ' + MAP.maxSeats + "</b></div>" +
+      '<div class="soa-info-row"><span class="soa-info-label">Suất chiếu</span><b class="soa-info-value">' + w.hm + " · " + dayLabel(w.date) + " " + w.dm + "</b></div>" +
+      '<div class="soa-info-row"><span class="soa-info-label">Phòng chiếu</span><b class="soa-info-value">Phòng ' + esc(st.room) + "</b></div>" +
+      '<div class="soa-info-row"><span class="soa-info-label">Giá vé</span><b class="soa-info-value">' + money(st.price) + " / ghế</b></div>" +
+      '<div class="soa-info-row"><span class="soa-info-label">Số lượng</span><b class="soa-info-value" id="cnt">0 / ' + MAP.maxSeats + "</b></div>" +
 
-          '<div class="seat-chips-container my-3">' +
-            '<label class="text-secondary small d-block mb-1">Ghế đã chọn:</label>' +
-            '<div class="seat-chips d-flex flex-wrap gap-2" id="chips"></div>' +
-          "</div>" +
+      '<div class="seat-chips-container my-3">' +
+      '<label class="text-secondary small d-block mb-1">Ghế đã chọn:</label>' +
+      '<div class="seat-chips d-flex flex-wrap gap-2" id="chips"></div>' +
+      "</div>" +
 
-          '<div class="total-box d-flex justify-content-between align-items-baseline pt-3 border-top border-secondary mb-3">' +
-            '<span class="text-secondary">Tổng cộng</span>' +
-            '<b class="total-price text-warning fs-4" id="sum">0 đ</b>' +
-          "</div>" +
+      '<div class="total-box d-flex justify-content-between align-items-baseline pt-3 border-top border-secondary mb-3">' +
+      '<span class="text-secondary">Tổng cộng</span>' +
+      '<b class="total-price text-warning fs-4" id="sum">0 đ</b>' +
+      "</div>" +
 
-          '<div id="err">' + (notice ? '<div class="alert alert-danger py-2 px-3 small mb-3">⚠ ' + esc(notice) + "</div>" : "") + "</div>" +
+      '<div id="err">' + (notice ? '<div class="alert alert-danger py-2 px-3 small mb-3">⚠ ' + esc(notice) + "</div>" : "") + "</div>" +
 
-          '<button class="btn btn-primary btn-lg w-100 py-3 font-weight-bold" id="hold" disabled>' +
-            '<i class="bi bi-lock-fill me-1"></i> Giữ ghế &amp; thanh toán' +
-          "</button>" +
-          '<p class="text-secondary small text-center mt-2 mb-0">Ghế được giữ 10 phút để bạn hoàn tất thanh toán.</p>' +
-        "</aside>" +
+      '<button class="btn btn-primary btn-lg w-100 py-3 font-weight-bold" id="hold" disabled>' +
+      '<i class="bi bi-lock-fill me-1"></i> Giữ ghế &amp; thanh toán' +
+      "</button>" +
+      '<p class="text-secondary small text-center mt-2 mb-0">Ghế được giữ 10 phút để bạn hoàn tất thanh toán.</p>' +
+      "</aside>" +
       "</div>"
     );
 
@@ -1342,18 +1392,18 @@
     return '<div class="sum-movie d-flex gap-3 align-items-center mb-3">' +
       poster(o.m, "sm") +
       '<div>' +
-        '<h3 class="fs-5 mb-1">' + esc(o.m.title) + "</h3>" +
-        '<div class="text-secondary small">' + esc(st ? st.cinema : "") + "</div>" +
+      '<h3 class="fs-5 mb-1">' + esc(o.m.title) + "</h3>" +
+      '<div class="text-secondary small">' + esc(st ? st.cinema : "") + "</div>" +
       "</div>" +
-    "</div>" +
-    (w ? '<div class="soa-info-row"><span class="soa-info-label">Suất chiếu</span><b class="soa-info-value">' + w.hm + " · " + dayLabel(w.date) + " " + w.dm + '</b></div><div class="soa-info-row"><span class="soa-info-label">Phòng chiếu</span><b class="soa-info-value">Phòng ' + esc(st.room) + "</b></div>" : "") +
-    '<div class="soa-info-row"><span class="soa-info-label">Ghế đặt</span><b class="soa-info-value">' + esc(b.seats.join(", ")) + '</b></div>' +
-    '<div class="soa-info-row"><span class="soa-info-label">Mã đặt vé</span><b class="soa-info-value text-warning font-monospace">' + code(b) + "</b></div>" +
-    '<div class="total-box pt-3 border-top border-secondary border-opacity-50 mt-2 mb-3">' +
+      "</div>" +
+      (w ? '<div class="soa-info-row"><span class="soa-info-label">Suất chiếu</span><b class="soa-info-value">' + w.hm + " · " + dayLabel(w.date) + " " + w.dm + '</b></div><div class="soa-info-row"><span class="soa-info-label">Phòng chiếu</span><b class="soa-info-value">Phòng ' + esc(st.room) + "</b></div>" : "") +
+      '<div class="soa-info-row"><span class="soa-info-label">Ghế đặt</span><b class="soa-info-value">' + esc(b.seats.join(", ")) + '</b></div>' +
+      '<div class="soa-info-row"><span class="soa-info-label">Mã đặt vé</span><b class="soa-info-value text-warning font-monospace">' + code(b) + "</b></div>" +
+      '<div class="total-box pt-3 border-top border-secondary border-opacity-50 mt-2 mb-3">' +
       '<span class="text-secondary">Tổng thanh toán</span>' +
       '<b class="total-price text-warning fs-4">' + money(b.totalPrice) + "</b>" +
-    "</div>" +
-    (extra || "");
+      "</div>" +
+      (extra || "");
   }
 
   /* =============================================================================
@@ -1364,12 +1414,12 @@
     return '<div class="otp-box p-3 rounded border border-secondary">' +
       '<div class="small text-secondary mb-2"><i class="bi bi-shield-lock-fill text-warning me-1"></i> Xác thực OTP qua email</div>' +
       '<div class="d-flex gap-2">' +
-        '<input class="form-control bg-secondary-subtle border-secondary text-light font-monospace" id="otp" inputmode="numeric" ' +
-          'maxlength="8" autocomplete="one-time-code" placeholder="Nhập mã OTP">' +
-        '<button type="button" class="btn btn-outline-warning text-nowrap" id="sendOtp">Gửi mã OTP</button>' +
+      '<input class="form-control bg-secondary-subtle border-secondary text-light font-monospace" id="otp" inputmode="numeric" ' +
+      'maxlength="8" autocomplete="one-time-code" placeholder="Nhập mã OTP">' +
+      '<button type="button" class="btn btn-outline-warning text-nowrap" id="sendOtp">Gửi mã OTP</button>' +
       "</div>" +
       '<div class="small mt-2" id="otp-msg">Bấm <b>Gửi mã OTP</b>, mã sẽ được gửi tới email của bạn.</div>' +
-    "</div>";
+      "</div>";
   }
 
   function bindOtp(bookingId, username) {
@@ -1417,8 +1467,8 @@
     show(
       steps(2) +
       '<div class="book pay booking-layout">' +
-        '<div class="skel" style="height:520px;border-radius:20px"></div>' +
-        '<div class="skel" style="height:440px;border-radius:20px"></div>' +
+      '<div class="skel" style="height:520px;border-radius:20px"></div>' +
+      '<div class="skel" style="height:440px;border-radius:20px"></div>' +
       "</div>"
     );
 
@@ -1446,55 +1496,55 @@
     show(
       back("#/my", "Vé của tôi") + steps(2) +
       '<div class="book pay booking-layout">' +
-        '<div class="panel">' +
-          '<div class="panel-head d-flex justify-content-between align-items-center">' +
-            '<div><b class="fs-5">Phương thức thanh toán</b></div>' +
-            '<span class="hold-mini badge bg-warning text-dark px-3 py-2 fs-6" id="left2">Giữ ghế còn --:--</span>' +
+      '<div class="panel">' +
+      '<div class="panel-head d-flex justify-content-between align-items-center">' +
+      '<div><b class="fs-5">Phương thức thanh toán</b></div>' +
+      '<span class="hold-mini badge bg-warning text-dark px-3 py-2 fs-6" id="left2">Giữ ghế còn --:--</span>' +
+      "</div>" +
+
+      '<div class="methods-group my-3" id="methods">' +
+      METHODS.map(function (p) {
+        return '<label class="method-card d-flex align-items-center justify-content-between p-3 mb-2 rounded border border-secondary">' +
+          '<div class="d-flex align-items-center gap-3">' +
+          '<input type="radio" name="method" class="form-check-input" value="' + p.value + '"' + (p.value === method ? " checked" : "") + ">" +
+          '<div>' +
+          '<b class="d-block">' + esc(p.label) + "</b>" +
+          '<small class="text-secondary">' + esc(p.hint) + "</small>" +
           "</div>" +
-
-          '<div class="methods-group my-3" id="methods">' +
-            METHODS.map(function (p) {
-              return '<label class="method-card d-flex align-items-center justify-content-between p-3 mb-2 rounded border border-secondary">' +
-                '<div class="d-flex align-items-center gap-3">' +
-                  '<input type="radio" name="method" class="form-check-input" value="' + p.value + '"' + (p.value === method ? " checked" : "") + ">" +
-                  '<div>' +
-                    '<b class="d-block">' + esc(p.label) + "</b>" +
-                    '<small class="text-secondary">' + esc(p.hint) + "</small>" +
-                  "</div>" +
-                "</div>" +
-                '<span class="method-badge ' + p.value + '">' + esc(p.logo) + "</span>" +
-              "</label>";
-            }).join("") +
           "</div>" +
+          '<span class="method-badge ' + p.value + '">' + esc(p.logo) + "</span>" +
+          "</label>";
+      }).join("") +
+      "</div>" +
 
-          '<div id="pay-box"></div>' +
-        "</div>" +
+      '<div id="pay-box"></div>' +
+      "</div>" +
 
-        '<aside class="panel summary order-summary-panel">' +
-          '<div class="hold-countdown-card p-3 rounded mb-4" id="hold">' +
-            '<div class="d-flex justify-content-between align-items-center mb-2">' +
-              '<span class="text-secondary small"><i class="bi bi-clock-history me-1"></i> Thời gian giữ ghế</span>' +
-              '<b class="fs-4 font-monospace" id="left">--:--</b>' +
-            "</div>" +
-            '<div class="progress" style="height: 8px;">' +
-              '<div class="progress-bar bg-warning progress-bar-striped progress-bar-animated" id="bar" role="progressbar" style="width: 100%"></div>' +
-            "</div>" +
-          "</div>" +
+      '<aside class="panel summary order-summary-panel">' +
+      '<div class="hold-countdown-card p-3 rounded mb-4" id="hold">' +
+      '<div class="d-flex justify-content-between align-items-center mb-2">' +
+      '<span class="text-secondary small"><i class="bi bi-clock-history me-1"></i> Thời gian giữ ghế</span>' +
+      '<b class="fs-4 font-monospace" id="left">--:--</b>' +
+      "</div>" +
+      '<div class="progress" style="height: 8px;">' +
+      '<div class="progress-bar bg-warning progress-bar-striped progress-bar-animated" id="bar" role="progressbar" style="width: 100%"></div>' +
+      "</div>" +
+      "</div>" +
 
-          orderSummary(o) +
+      orderSummary(o) +
 
-          '<div id="otp-wrap" class="mb-3">' + otpHtml() + "</div>" +
+      '<div id="otp-wrap" class="mb-3">' + otpHtml() + "</div>" +
 
-          '<div id="err"></div>' +
+      '<div id="err"></div>' +
 
-          '<button class="btn btn-primary btn-lg w-100 py-3 font-weight-bold" id="paid">' +
-            '<i class="bi bi-check2-circle me-1"></i> Tôi đã thanh toán' +
-          "</button>" +
+      '<button class="btn btn-primary btn-lg w-100 py-3 font-weight-bold" id="paid">' +
+      '<i class="bi bi-check2-circle me-1"></i> Tôi đã thanh toán' +
+      "</button>" +
 
-          '<button class="btn btn-outline-danger w-100 mt-2 py-2" id="cancel">' +
-            '<i class="bi bi-x-circle me-1"></i> Hủy đơn &amp; nhả ghế' +
-          "</button>" +
-        "</aside>" +
+      '<button class="btn btn-outline-danger w-100 mt-2 py-2" id="cancel">' +
+      '<i class="bi bi-x-circle me-1"></i> Hủy đơn &amp; nhả ghế' +
+      "</button>" +
+      "</aside>" +
       "</div>"
     );
 
@@ -1535,24 +1585,24 @@
 
       $("#pay-box").innerHTML =
         '<div class="paybox ' + method + ' p-3 rounded border border-secondary mt-3">' +
-          '<div class="d-flex justify-content-center mb-3">' +
-            '<div class="qr-mode-tabs">' +
-              '<button type="button" class="qr-mode-btn ' + (qrMode === "BANK" ? "active" : "") + '" id="btnQrBank">Mã thanh toán ' + esc(p.logo) + '</button>' +
-              '<button type="button" class="qr-mode-btn ' + (qrMode === "SANDBOX" ? "active" : "") + '" id="btnQrSandbox"><i class="bi bi-phone me-1"></i>Quét thử bằng điện thoại</button>' +
-            '</div>' +
-          '</div>' +
-          '<div class="d-flex flex-column flex-md-row gap-4 align-items-center">' +
-            '<div class="qr-wrap text-center">' +
-              '<div class="qr p-2 bg-white rounded shadow-sm d-inline-block">' + QR.svg(qr, { label: qrLabel }) + "</div>" +
-              '<div class="qr-cap mt-2 text-secondary small font-weight-bold">' + qrCap + "</div>" +
-            "</div>" +
-            '<div class="pay-info flex-grow-1">' +
-              info +
-              '<ol class="howto small text-secondary ps-3 mt-3 mb-0">' +
-                stepsTxt.map(function (s) { return '<li class="mb-1">' + s + "</li>"; }).join("") +
-              "</ol>" +
-            "</div>" +
-          "</div>" +
+        '<div class="d-flex justify-content-center mb-3">' +
+        '<div class="qr-mode-tabs">' +
+        '<button type="button" class="qr-mode-btn ' + (qrMode === "BANK" ? "active" : "") + '" id="btnQrBank">Mã thanh toán ' + esc(p.logo) + '</button>' +
+        '<button type="button" class="qr-mode-btn ' + (qrMode === "SANDBOX" ? "active" : "") + '" id="btnQrSandbox"><i class="bi bi-phone me-1"></i>Quét thử bằng điện thoại</button>' +
+        '</div>' +
+        '</div>' +
+        '<div class="d-flex flex-column flex-md-row gap-4 align-items-center">' +
+        '<div class="qr-wrap text-center">' +
+        '<div class="qr p-2 bg-white rounded shadow-sm d-inline-block">' + QR.svg(qr, { label: qrLabel }) + "</div>" +
+        '<div class="qr-cap mt-2 text-secondary small font-weight-bold">' + qrCap + "</div>" +
+        "</div>" +
+        '<div class="pay-info flex-grow-1">' +
+        info +
+        '<ol class="howto small text-secondary ps-3 mt-3 mb-0">' +
+        stepsTxt.map(function (s) { return '<li class="mb-1">' + s + "</li>"; }).join("") +
+        "</ol>" +
+        "</div>" +
+        "</div>" +
         "</div>";
 
       var btnBank = $("#btnQrBank");
@@ -1569,7 +1619,7 @@
       return '<div class="soa-info-row">' +
         '<span class="soa-info-label">' + k + "</span>" +
         '<b class="soa-info-value d-flex align-items-center gap-2">' + v +
-          (copyVal ? ' <button class="btn btn-sm btn-outline-secondary p-1 lh-1" type="button" data-copy="' + esc(copyVal) + '" data-label="' + esc(label) + '" title="Sao chép ' + esc(label) + '">' + ICON_COPY + "</button>" : "") +
+        (copyVal ? ' <button class="btn btn-sm btn-outline-secondary p-1 lh-1" type="button" data-copy="' + esc(copyVal) + '" data-label="' + esc(label) + '" title="Sao chép ' + esc(label) + '">' + ICON_COPY + "</button>" : "") +
         "</b></div>";
     }
 
@@ -1644,18 +1694,9 @@
           return;
         }
         var code = otpValue();
-        if (!code) {
-          $("#err").innerHTML = '<div class="alert alert-warning small mb-3">⚠ Vui lòng bấm <b>Gửi mã OTP</b> rồi nhập mã nhận được qua email trước khi thanh toán.</div>';
-          busy = false;
-          btn.disabled = false;
-          btn.innerHTML = payLabel();
-          return;
-        }
-        var r = await call("booking", "POST", "/api/booking/" + id + "/pay", {
-          username: user.username,
-          paymentMethod: method,
-          otp: code
-        });
+        var payBody = { username: user.username, paymentMethod: method };
+        if (code) payBody.otp = code;
+        var r = await call("booking", "POST", "/api/booking/" + id + "/pay", payBody);
         if (r.status === "PAID") {
           sessionStorage.setItem("soa.paid." + id, JSON.stringify({
             method: method,
@@ -1715,8 +1756,8 @@
         "Đơn đã hết thời gian giữ ghế",
         "Đơn " + code(o.b) + " chưa được thanh toán trong thời gian 10 phút giữ chỗ nên đã tự động hủy và ghế đã được nhả.",
         '<div class="d-flex justify-content-center gap-3 mt-4">' +
-          '<a class="btn btn-primary" href="#/book/' + o.b.movieId + "/" + o.b.showtimeId + '">Chọn lại ghế</a>' +
-          '<a class="btn btn-outline-light" href="#/my">Vé của tôi</a>' +
+        '<a class="btn btn-primary" href="#/book/' + o.b.movieId + "/" + o.b.showtimeId + '">Chọn lại ghế</a>' +
+        '<a class="btn btn-outline-light" href="#/my">Vé của tôi</a>' +
         "</div>"
       )
     );
@@ -1729,7 +1770,7 @@
     var alive = current();
     show(
       '<div class="container py-5" style="max-width: 520px;">' +
-        '<div class="skel" style="height:440px;border-radius:20px"></div>' +
+      '<div class="skel" style="height:440px;border-radius:20px"></div>' +
       '</div>'
     );
 
@@ -1761,33 +1802,33 @@
 
     show(
       '<div class="container py-4" style="max-width: 520px;">' +
-        '<div class="card border-warning bg-dark p-4 shadow-lg text-center" style="border-radius: 20px;">' +
-          '<div class="d-flex align-items-center justify-content-center gap-2 mb-3">' +
-            '<span class="brand-mark">▶</span>' +
-            '<span class="fs-4 fw-bold text-white">SOA<b>Cinema</b></span>' +
-          '</div>' +
-          '<div class="mb-3">' +
-            '<span class="badge bg-warning text-dark px-3 py-1 fs-6 rounded-pill"><i class="bi bi-phone me-1"></i>Thanh toán di động mô phỏng</span>' +
-          '</div>' +
-          '<div class="d-flex gap-3 align-items-center text-start p-3 rounded bg-black bg-opacity-50 border border-secondary mb-3">' +
-            poster(m, "sm") +
-            '<div>' +
-              '<h5 class="text-white mb-1">' + esc(m.title) + '</h5>' +
-              '<div class="text-secondary small">' + (st.cinema ? esc(st.cinema) + " · Phòng " + esc(st.room) : "") + '</div>' +
-              '<div class="text-warning small">' + (w ? w.hm + " · " + dayLabel(w.date) + " " + w.dm : "") + '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="soa-info-row"><span class="soa-info-label">Mã đặt vé</span><b class="soa-info-value text-warning font-monospace">' + code(b) + '</b></div>' +
-          '<div class="soa-info-row"><span class="soa-info-label">Khách hàng</span><b class="soa-info-value">' + esc(b.username) + '</b></div>' +
-          '<div class="soa-info-row"><span class="soa-info-label">Ghế đã chọn</span><b class="soa-info-value text-warning">' + esc(b.seats.join(", ")) + '</b></div>' +
-          '<div class="soa-info-row"><span class="soa-info-label">Tổng tiền</span><b class="soa-info-value fs-4 text-warning">' + money(b.totalPrice) + '</b></div>' +
-          '<div class="text-start mt-3">' + otpHtml() + "</div>" +
-          '<div id="sandboxErr"></div>' +
-          '<button type="button" class="btn btn-primary btn-lg w-100 py-3 mt-4 fw-bold shadow" id="btnConfirmSandbox">' +
-            '<i class="bi bi-check-circle-fill me-2"></i> Xác nhận thanh toán thử' +
-          '</button>' +
-          '<a href="#/pay/' + b.id + '" class="btn btn-outline-secondary w-100 mt-2 py-2 small">Quay lại trang chi tiết thanh toán</a>' +
-        '</div>' +
+      '<div class="card border-warning bg-dark p-4 shadow-lg text-center" style="border-radius: 20px;">' +
+      '<div class="d-flex align-items-center justify-content-center gap-2 mb-3">' +
+      '<span class="brand-mark">▶</span>' +
+      '<span class="fs-4 fw-bold text-white">SOA<b>Cinema</b></span>' +
+      '</div>' +
+      '<div class="mb-3">' +
+      '<span class="badge bg-warning text-dark px-3 py-1 fs-6 rounded-pill"><i class="bi bi-phone me-1"></i>Thanh toán di động mô phỏng</span>' +
+      '</div>' +
+      '<div class="d-flex gap-3 align-items-center text-start p-3 rounded bg-black bg-opacity-50 border border-secondary mb-3">' +
+      poster(m, "sm") +
+      '<div>' +
+      '<h5 class="text-white mb-1">' + esc(m.title) + '</h5>' +
+      '<div class="text-secondary small">' + (st.cinema ? esc(st.cinema) + " · Phòng " + esc(st.room) : "") + '</div>' +
+      '<div class="text-warning small">' + (w ? w.hm + " · " + dayLabel(w.date) + " " + w.dm : "") + '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="soa-info-row"><span class="soa-info-label">Mã đặt vé</span><b class="soa-info-value text-warning font-monospace">' + code(b) + '</b></div>' +
+      '<div class="soa-info-row"><span class="soa-info-label">Khách hàng</span><b class="soa-info-value">' + esc(b.username) + '</b></div>' +
+      '<div class="soa-info-row"><span class="soa-info-label">Ghế đã chọn</span><b class="soa-info-value text-warning">' + esc(b.seats.join(", ")) + '</b></div>' +
+      '<div class="soa-info-row"><span class="soa-info-label">Tổng tiền</span><b class="soa-info-value fs-4 text-warning">' + money(b.totalPrice) + '</b></div>' +
+      '<div class="text-start mt-3">' + otpHtml() + "</div>" +
+      '<div id="sandboxErr"></div>' +
+      '<button type="button" class="btn btn-primary btn-lg w-100 py-3 mt-4 fw-bold shadow" id="btnConfirmSandbox">' +
+      '<i class="bi bi-check-circle-fill me-2"></i> Xác nhận thanh toán thử' +
+      '</button>' +
+      '<a href="#/pay/' + b.id + '" class="btn btn-outline-secondary w-100 mt-2 py-2 small">Quay lại trang chi tiết thanh toán</a>' +
+      '</div>' +
       '</div>'
     );
 
@@ -1894,13 +1935,13 @@
     if (b.status === "CANCELLED") { expired(o); return; }
 
     var paid = null;
-    try { paid = JSON.parse(sessionStorage.getItem("soa.paid." + id) || "null"); } catch (e) {}
+    try { paid = JSON.parse(sessionStorage.getItem("soa.paid." + id) || "null"); } catch (e) { }
     var pm = paid && methodOf(paid.method);
     var started = st.time && !upcoming(st);
     var note = fresh
       ? (paid && paid.notification === "FAILED"
-          ? "Vé đã được xác nhận. Thông báo qua email sẽ được gửi bổ sung sau ít phút."
-          : "Vé xem phim đã được tạo và gửi thông báo xác nhận tới tài khoản của bạn.")
+        ? "Vé đã được xác nhận. Thông báo qua email sẽ được gửi bổ sung sau ít phút."
+        : "Vé xem phim đã được tạo và gửi thông báo xác nhận tới tài khoản của bạn.")
       : "";
 
     var bookingCode = code(b);
@@ -1913,69 +1954,69 @@
     show(
       (fresh ? steps(3) : back("#/my", "Vé của tôi")) +
       '<div class="eticket-wrapper my-4">' +
-        '<div class="eticket-card ' + (fresh ? "fresh-reveal" : "") + '">' +
-          // Khối thân vé chính (bên trái)
-          '<div class="eticket-main">' +
-            '<div class="eticket-header d-flex justify-content-between align-items-center mb-3">' +
-              '<div class="d-flex align-items-center gap-2">' +
-                '<span class="brand-mark">▶</span>' +
-                '<span class="fw-bold fs-5">SOA<b>Cinema</b></span>' +
-              "</div>" +
-              '<span class="badge bg-success-subtle text-success px-3 py-1 rounded-pill">' +
-                '<i class="bi bi-check-circle-fill me-1"></i> ' + (fresh ? "Thanh toán thành công" : "Vé hợp lệ") +
-              "</span>" +
-            "</div>" +
+      '<div class="eticket-card ' + (fresh ? "fresh-reveal" : "") + '">' +
+      // Khối thân vé chính (bên trái)
+      '<div class="eticket-main">' +
+      '<div class="eticket-header d-flex justify-content-between align-items-center mb-3">' +
+      '<div class="d-flex align-items-center gap-2">' +
+      '<span class="brand-mark">▶</span>' +
+      '<span class="fw-bold fs-5">SOA<b>Cinema</b></span>' +
+      "</div>" +
+      '<span class="badge bg-success-subtle text-success px-3 py-1 rounded-pill">' +
+      '<i class="bi bi-check-circle-fill me-1"></i> ' + (fresh ? "Thanh toán thành công" : "Vé hợp lệ") +
+      "</span>" +
+      "</div>" +
 
-            '<div class="eticket-movie-info d-flex gap-3 align-items-start mb-4">' +
-              poster(m, "ticket-poster") +
-              '<div>' +
-                '<h2 class="eticket-movie-title mb-1">' + esc(m.title) + "</h2>" +
-                (m.titleVi && m.titleVi !== m.title ? '<div class="text-secondary small mb-2">' + esc(m.titleVi) + "</div>" : "") +
-                '<div class="d-flex gap-2 flex-wrap mb-2">' +
-                  '<span class="badge bg-secondary-subtle text-light small">' + esc(m.genre) + "</span>" +
-                  (m.ageRating ? ageBadge(m.ageRating) : "") +
-                  '<span class="badge bg-secondary-subtle text-light small">' + duration(m.duration) + "</span>" +
-                "</div>" +
-                (note ? '<p class="text-success small mb-0"><i class="bi bi-info-circle me-1"></i>' + note + "</p>" : "") +
-              "</div>" +
-            "</div>" +
+      '<div class="eticket-movie-info d-flex gap-3 align-items-start mb-4">' +
+      poster(m, "ticket-poster") +
+      '<div>' +
+      '<h2 class="eticket-movie-title mb-1">' + esc(m.title) + "</h2>" +
+      (m.titleVi && m.titleVi !== m.title ? '<div class="text-secondary small mb-2">' + esc(m.titleVi) + "</div>" : "") +
+      '<div class="d-flex gap-2 flex-wrap mb-2">' +
+      '<span class="badge bg-secondary-subtle text-light small">' + esc(m.genre) + "</span>" +
+      (m.ageRating ? ageBadge(m.ageRating) : "") +
+      '<span class="badge bg-secondary-subtle text-light small">' + duration(m.duration) + "</span>" +
+      "</div>" +
+      (note ? '<p class="text-success small mb-0"><i class="bi bi-info-circle me-1"></i>' + note + "</p>" : "") +
+      "</div>" +
+      "</div>" +
 
-            '<div class="eticket-grid">' +
-              '<div class="soa-info-row"><span class="soa-info-label">Rạp chiếu</span><b class="soa-info-value">' + esc(st.cinema || "—") + "</b></div>" +
-              '<div class="soa-info-row"><span class="soa-info-label">Phòng chiếu</span><b class="soa-info-value">Phòng ' + esc(st.room || "—") + "</b></div>" +
-              '<div class="soa-info-row"><span class="soa-info-label">Suất chiếu</span><b class="soa-info-value text-warning">' + esc(st.time ? w.full : "—") + "</b></div>" +
-              '<div class="soa-info-row"><span class="soa-info-label">Ghế (' + b.seats.length + ' vé)</span><b class="soa-info-value text-warning fs-5">' + esc(b.seats.join(", ")) + "</b></div>" +
-              '<div class="soa-info-row"><span class="soa-info-label">Tổng thanh toán</span><b class="soa-info-value">' + money(b.totalPrice) + "</b></div>" +
-              '<div class="soa-info-row"><span class="soa-info-label">Phương thức</span><b class="soa-info-value">' + esc(pm ? pm.label : "Chuyển khoản") + "</b></div>" +
-            "</div>" +
-          "</div>" +
+      '<div class="eticket-grid">' +
+      '<div class="soa-info-row"><span class="soa-info-label">Rạp chiếu</span><b class="soa-info-value">' + esc(st.cinema || "—") + "</b></div>" +
+      '<div class="soa-info-row"><span class="soa-info-label">Phòng chiếu</span><b class="soa-info-value">Phòng ' + esc(st.room || "—") + "</b></div>" +
+      '<div class="soa-info-row"><span class="soa-info-label">Suất chiếu</span><b class="soa-info-value text-warning">' + esc(st.time ? w.full : "—") + "</b></div>" +
+      '<div class="soa-info-row"><span class="soa-info-label">Ghế (' + b.seats.length + ' vé)</span><b class="soa-info-value text-warning fs-5">' + esc(b.seats.join(", ")) + "</b></div>" +
+      '<div class="soa-info-row"><span class="soa-info-label">Tổng thanh toán</span><b class="soa-info-value">' + money(b.totalPrice) + "</b></div>" +
+      '<div class="soa-info-row"><span class="soa-info-label">Phương thức</span><b class="soa-info-value">' + esc(pm ? pm.label : "Chuyển khoản") + "</b></div>" +
+      "</div>" +
+      "</div>" +
 
-          // Khối cuống vé kiểm soát (bên phải, đục lỗ hai bên)
-          '<div class="eticket-stub text-center">' +
-            '<div class="stub-brand mb-2 text-secondary small">MÃ SOÁT VÉ ĐIỆN TỬ</div>' +
-            '<div class="stub-code font-monospace fs-4 text-warning mb-3">' + bookingCode + "</div>" +
+      // Khối cuống vé kiểm soát (bên phải, đục lỗ hai bên)
+      '<div class="eticket-stub text-center">' +
+      '<div class="stub-brand mb-2 text-secondary small">MÃ SOÁT VÉ ĐIỆN TỬ</div>' +
+      '<div class="stub-code font-monospace fs-4 text-warning mb-3">' + bookingCode + "</div>" +
 
-            '<div class="eticket-barcode-box p-3 bg-white rounded shadow-sm mb-3">' +
-              barcodeSvg +
-              '<div class="barcode-text font-monospace text-dark small mt-1">' + bookingCode + "</div>" +
-            "</div>" +
+      '<div class="eticket-barcode-box p-3 bg-white rounded shadow-sm mb-3">' +
+      barcodeSvg +
+      '<div class="barcode-text font-monospace text-dark small mt-1">' + bookingCode + "</div>" +
+      "</div>" +
 
-            (started ? '<span class="badge bg-danger mb-2">Suất chiếu đã diễn ra</span>' : badge(b.status)) +
-            '<p class="text-secondary small mt-3 mb-0">Đưa mã vạch này cho nhân viên tại rạp để quét kiểm tra vào phòng chiếu.</p>' +
-          "</div>" +
-        "</div>" +
+      (started ? '<span class="badge bg-danger mb-2">Suất chiếu đã diễn ra</span>' : badge(b.status)) +
+      '<p class="text-secondary small mt-3 mb-0">Đưa mã vạch này cho nhân viên tại rạp để quét kiểm tra vào phòng chiếu.</p>' +
+      "</div>" +
+      "</div>" +
       "</div>" +
 
       '<div class="ticket-actions d-flex justify-content-center gap-3 flex-wrap mt-4">' +
-        '<button class="btn btn-outline-light px-4 py-2" id="printTicket">' +
-          '<i class="bi bi-printer-fill me-2"></i>In / Lưu PDF' +
-        "</button>" +
-        '<a class="btn btn-primary px-4 py-2" href="#/my">' +
-          '<i class="bi bi-ticket-perforated me-2"></i>Vé của tôi' +
-        "</a>" +
-        '<a class="btn btn-ghost px-4 py-2" href="#/">' +
-          '<i class="bi bi-film me-2"></i>Đặt thêm vé' +
-        "</a>" +
+      '<button class="btn btn-outline-light px-4 py-2" id="printTicket">' +
+      '<i class="bi bi-printer-fill me-2"></i>In / Lưu PDF' +
+      "</button>" +
+      '<a class="btn btn-primary px-4 py-2" href="#/my">' +
+      '<i class="bi bi-ticket-perforated me-2"></i>Vé của tôi' +
+      "</a>" +
+      '<a class="btn btn-ghost px-4 py-2" href="#/">' +
+      '<i class="bi bi-film me-2"></i>Đặt thêm vé' +
+      "</a>" +
       "</div>"
     );
 
@@ -1995,11 +2036,11 @@
 
     var head = '<div class="section-head mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">' +
       '<div>' +
-        '<h2 class="section-title mb-1">Vé của tôi</h2>' +
-        '<div class="text-secondary small">Quản lý lịch sử và trạng thái đơn vé của bạn</div>' +
+      '<h2 class="section-title mb-1">Vé của tôi</h2>' +
+      '<div class="text-secondary small">Quản lý lịch sử và trạng thái đơn vé của bạn</div>' +
       "</div>" +
       live("my-live") +
-    "</div>";
+      "</div>";
 
     show(head + '<div class="tlist">' + Array(4).join('<div class="skel" style="height:110px;border-radius:16px;margin-bottom:12px"></div>') + "</div>");
 
@@ -2052,8 +2093,8 @@
       if (noteEl) {
         noteEl.innerHTML = pending.length
           ? '<div class="alert alert-warning d-flex align-items-center gap-3 mb-4"><i class="bi bi-clock-history fs-4"></i><div>' +
-              'Bạn đang có <b>' + pending.length + ' đơn</b> giữ ghế chờ thanh toán. Vui lòng thanh toán trước khi hết giờ để không bị hủy vé.' +
-            "</div></div>"
+          'Bạn đang có <b>' + pending.length + ' đơn</b> giữ ghế chờ thanh toán. Vui lòng thanh toán trước khi hết giờ để không bị hủy vé.' +
+          "</div></div>"
           : "";
       }
 
@@ -2094,8 +2135,8 @@
           right = '<span class="price text-warning">' + money(b.totalPrice) + "</span>" +
             '<span class="countdown badge bg-warning text-dark py-2 px-3 my-2" data-exp="' + esc(b.expiresAt || "") + '">Giữ ghế còn --:--</span>' +
             '<div class="row-actions d-flex gap-2 justify-content-end">' +
-              '<button class="btn btn-outline-danger btn-sm" data-cancel="' + b.id + '">Hủy đơn</button>' +
-              '<a class="btn btn-primary btn-sm px-3" href="#/pay/' + b.id + '">Thanh toán ngay</a>' +
+            '<button class="btn btn-outline-danger btn-sm" data-cancel="' + b.id + '">Hủy đơn</button>' +
+            '<a class="btn btn-primary btn-sm px-3" href="#/pay/' + b.id + '">Thanh toán ngay</a>' +
             "</div>";
         } else if (b.status === "PAID") {
           right = '<span class="price text-warning">' + money(b.totalPrice) + "</span>" +
@@ -2110,16 +2151,16 @@
         return '<article class="trow ticket-row ' + esc(b.status) + ' mb-3 p-3 rounded border border-secondary">' +
           poster(mv, "sm") +
           '<div class="trow-body flex-grow-1">' +
-            '<h3 class="trow-title fs-5 mb-1">' + esc(mv.title) + "</h3>" +
-            '<div class="trow-line text-secondary small d-flex flex-wrap gap-3 my-1">' +
-              (s ? '<span><i class="bi bi-geo-alt-fill text-danger me-1"></i>' + esc(s.cinema) + " · Phòng " + esc(s.room) + "</span>" +
-                   '<span><i class="bi bi-calendar3 me-1"></i>' + w.hm + " · " + w.dm + "/" + s.time.slice(0, 4) + "</span>" : "") +
-              '<span><i class="bi bi-person-badge-fill me-1"></i>Ghế: ' + esc(b.seats.join(", ")) + "</span>" +
-            "</div>" +
-            '<div class="text-secondary small font-monospace mt-1">Mã đặt vé: <b class="text-warning">' + code(b) + "</b> · Đặt lúc: " + esc(when(b.createdAt).full) + "</div>" +
+          '<h3 class="trow-title fs-5 mb-1">' + esc(mv.title) + "</h3>" +
+          '<div class="trow-line text-secondary small d-flex flex-wrap gap-3 my-1">' +
+          (s ? '<span><i class="bi bi-geo-alt-fill text-danger me-1"></i>' + esc(s.cinema) + " · Phòng " + esc(s.room) + "</span>" +
+            '<span><i class="bi bi-calendar3 me-1"></i>' + w.hm + " · " + w.dm + "/" + s.time.slice(0, 4) + "</span>" : "") +
+          '<span><i class="bi bi-person-badge-fill me-1"></i>Ghế: ' + esc(b.seats.join(", ")) + "</span>" +
+          "</div>" +
+          '<div class="text-secondary small font-monospace mt-1">Mã đặt vé: <b class="text-warning">' + code(b) + "</b> · Đặt lúc: " + esc(when(b.createdAt).full) + "</div>" +
           "</div>" +
           '<div class="right trow-right text-end">' + right + "</div>" +
-        "</article>";
+          "</article>";
       }).join("") + "</div>";
 
       $$("[data-cancel]").forEach(function (btn) {
@@ -2184,62 +2225,70 @@
 
     show(
       '<div class="auth-wrapper d-flex justify-content-center align-items-center py-5">' +
-        '<div class="auth-card d-flex flex-column flex-md-row rounded-4 overflow-hidden shadow-lg border border-secondary" style="max-width: 900px; width: 100%;">' +
-          '<div class="auth-art p-4 p-md-5 bg-gradient d-flex flex-column justify-content-between" style="flex: 1.1; background: linear-gradient(135deg, #111520 0%, #1e2538 100%);">' +
-            '<div>' +
-              '<div class="d-flex align-items-center gap-2 mb-3">' +
-                '<span class="brand-mark fs-4 text-warning">▶</span>' +
-                '<span class="fs-4 fw-bold">SOA<b>Cinema</b></span>' +
-              "</div>" +
-              '<h2 class="fs-3 fw-bold mb-3">Trải nghiệm điện ảnh<br>đỉnh cao chỉ trong vài bước.</h2>' +
-              '<ul class="list-unstyled text-secondary mb-4">' +
-                '<li class="mb-2"><i class="bi bi-film text-warning me-2"></i>Cập nhật liên tục lịch chiếu 7 ngày tới</li>' +
-                '<li class="mb-2"><i class="bi bi-grid-3x3-gap text-warning me-2"></i>Chọn ghế trực quan trên sơ đồ thời gian thực</li>' +
-                '<li class="mb-2"><i class="bi bi-qr-code-scan text-warning me-2"></i>Thanh toán nhanh chóng qua VietQR, MoMo, VNPAY</li>' +
-                '<li class="mb-2"><i class="bi bi-upc-scan text-warning me-2"></i>Vé điện tử mã vạch 1D tiện lợi, kiểm soát dễ dàng</li>' +
-              "</ul>" +
-            "</div>" +
-            '<span class="text-secondary small">Ghế được giữ 10 phút để bạn an tâm hoàn tất thanh toán.</span>' +
-          "</div>" +
+      '<div class="auth-card d-flex flex-column flex-md-row rounded-4 overflow-hidden shadow-lg border border-secondary" style="max-width: 900px; width: 100%;">' +
+      '<div class="auth-art p-4 p-md-5 bg-gradient d-flex flex-column justify-content-between" style="flex: 1.1; background: linear-gradient(135deg, #111520 0%, #1e2538 100%);">' +
+      '<div>' +
+      '<div class="d-flex align-items-center gap-2 mb-3">' +
+      '<span class="brand-mark fs-4 text-warning">▶</span>' +
+      '<span class="fs-4 fw-bold">SOA<b>Cinema</b></span>' +
+      "</div>" +
+      '<h2 class="fs-3 fw-bold mb-3">Trải nghiệm điện ảnh<br>đỉnh cao chỉ trong vài bước.</h2>' +
+      '<ul class="list-unstyled text-secondary mb-4">' +
+      '<li class="mb-2"><i class="bi bi-film text-warning me-2"></i>Cập nhật liên tục lịch chiếu 7 ngày tới</li>' +
+      '<li class="mb-2"><i class="bi bi-grid-3x3-gap text-warning me-2"></i>Chọn ghế trực quan trên sơ đồ thời gian thực</li>' +
+      '<li class="mb-2"><i class="bi bi-qr-code-scan text-warning me-2"></i>Thanh toán nhanh chóng qua VietQR, MoMo, VNPAY</li>' +
+      '<li class="mb-2"><i class="bi bi-upc-scan text-warning me-2"></i>Vé điện tử mã vạch 1D tiện lợi, kiểm soát dễ dàng</li>' +
+      "</ul>" +
+      "</div>" +
+      '<span class="text-secondary small">Ghế được giữ 10 phút để bạn an tâm hoàn tất thanh toán.</span>' +
+      "</div>" +
 
-          '<form class="auth-form p-4 p-md-5 bg-dark" id="auth" novalidate style="flex: 1;">' +
-            '<h1 class="fs-3 fw-bold mb-2">' + (reg ? "Tạo tài khoản mới" : "Chào mừng trở lại") + "</h1>" +
-            '<p class="text-secondary small mb-4">' + (reg ? "Đăng ký để nhận nhiều ưu đãi và quản lý vé tiện lợi." : "Đăng nhập để tiếp tục đặt vé của bạn.") + "</p>" +
+      '<form class="auth-form p-4 p-md-5 bg-dark" id="auth" novalidate style="flex: 1;">' +
+      '<h1 class="fs-3 fw-bold mb-2">' + (reg ? "Tạo tài khoản mới" : "Chào mừng trở lại") + "</h1>" +
+      '<p class="text-secondary small mb-4">' + (reg ? "Đăng ký để nhận nhiều ưu đãi và quản lý vé tiện lợi." : "Đăng nhập để tiếp tục đặt vé của bạn.") + "</p>" +
 
-            '<div id="err"></div>' +
+      '<div id="err"></div>' +
 
-            '<div class="mb-3">' +
-              '<label class="form-label small text-secondary" for="u">Tên đăng nhập</label>' +
-              '<input class="form-control bg-secondary-subtle border-secondary text-light" id="u" autocomplete="username" required placeholder="Nhập tên tài khoản">' +
-            "</div>" +
+      '<div class="mb-3">' +
+      '<label class="form-label small text-secondary" for="u">Tên đăng nhập</label>' +
+      '<input class="form-control bg-secondary-subtle border-secondary text-light" id="u" autocomplete="username" required placeholder="Nhập tên tài khoản">' +
+      "</div>" +
 
-            (reg ? '<div class="mb-3">' +
-              '<label class="form-label small text-secondary" for="e">Email <span class="text-muted">(nhận mã OTP khi thanh toán)</span></label>' +
-              '<input class="form-control bg-secondary-subtle border-secondary text-light" id="e" type="email" autocomplete="email" placeholder="email@domain.com">' +
-            "</div>" : "") +
+      (reg ? '<div class="mb-3">' +
+        '<label class="form-label small text-secondary" for="e">Email <span class="text-muted">(nhận mã OTP khi thanh toán)</span></label>' +
+        '<input class="form-control bg-secondary-subtle border-secondary text-light" id="e" type="email" autocomplete="email" placeholder="email@domain.com">' +
+        "</div>" : "") +
 
-            '<div class="mb-4">' +
-              '<label class="form-label small text-secondary" for="p">Mật khẩu</label>' +
-              '<div class="input-group">' +
-                '<input class="form-control bg-secondary-subtle border-secondary text-light" id="p" type="password" autocomplete="' + (reg ? "new-password" : "current-password") + '" required' + (reg ? ' minlength="6" placeholder="Tối thiểu 6 ký tự"' : ' placeholder="Nhập mật khẩu"') + ">" +
-                '<button type="button" class="btn btn-outline-secondary" id="eye"><i class="bi bi-eye"></i></button>' +
-              "</div>" +
-            "</div>" +
+      '<div class="mb-4">' +
+      '<label class="form-label small text-secondary" for="p">Mật khẩu</label>' +
+      '<div class="input-group">' +
+      '<input class="form-control bg-secondary-subtle border-secondary text-light" id="p" type="password" autocomplete="' + (reg ? "new-password" : "current-password") + '" required' + (reg ? ' minlength="6" placeholder="Tối thiểu 6 ký tự"' : ' placeholder="Nhập mật khẩu"') + ">" +
+      '<button type="button" class="btn btn-outline-secondary" id="eye"><i class="bi bi-eye"></i></button>' +
+      "</div>" +
+      "</div>" +
 
-            '<button class="btn btn-primary w-100 py-2 mb-3 font-weight-bold" id="go" type="submit">' +
-              (reg ? "Tạo tài khoản ngay" : "Đăng nhập") +
-            "</button>" +
+      '<button class="btn btn-primary w-100 py-2 mb-3 font-weight-bold" id="go" type="submit">' +
+      (reg ? "Tạo tài khoản ngay" : "Đăng nhập") +
+      "</button>" +
 
-            '<p class="text-secondary text-center small mb-0">' +
-              (reg ? 'Đã có tài khoản? <a href="#/login" class="text-warning">Đăng nhập ngay</a>' : 'Chưa có tài khoản? <a href="#/register" class="text-warning">Đăng ký mới</a>') +
-            "</p>" +
-          "</form>" +
-        "</div>" +
+      '<p class="text-secondary text-center small mb-0">' +
+      (reg ? 'Đã có tài khoản? <a href="#/login" class="text-warning">Đăng nhập ngay</a>' : 'Chưa có tài khoản? <a href="#/register" class="text-warning">Đăng ký mới</a>') +
+      "</p>" +
+      "</form>" +
+      "</div>" +
       "</div>"
     );
 
     var uEl = $("#u");
     if (uEl) uEl.focus();
+
+    if (!reg && sessionStorage.getItem("soa.expired") === "1") {
+      sessionStorage.removeItem("soa.expired");
+      var errInit = $("#err");
+      if (errInit) {
+        errInit.innerHTML = '<div class="alert alert-warning py-2 px-3 small mb-3">⚠ ' + esc(FRIENDLY.UNAUTHORIZED) + "</div>";
+      }
+    }
 
     var eyeBtn = $("#eye");
     if (eyeBtn) {

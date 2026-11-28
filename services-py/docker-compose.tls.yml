@@ -1,0 +1,27 @@
+# Override tùy chọn cho chế độ HTTPS qua API Gateway.
+# Cách chạy (sau khi sinh chứng chỉ bằng scripts/gen-tls-cert.ps1 hoặc .sh):
+#   cd services-py
+#   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
+# Trong chế độ này, 6 service backend KHÔNG publish cổng 5001..5006 ra host; chỉ Gateway công khai 80/443.
+
+services:
+  movie:
+    ports: !reset []
+  showtime:
+    ports: !reset []
+  user:
+    ports: !reset []
+  booking:
+    ports: !reset []
+  payment:
+    ports: !reset []
+  notification:
+    ports: !reset []
+
+  gateway:
+    ports: !reset
+      - "${GATEWAY_HTTP_PORT:-80}:80"
+      - "${GATEWAY_HTTPS_PORT:-443}:443"
+    volumes: !reset
+      - ./gateway/nginx.tls.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./gateway/certs:/etc/nginx/certs:ro

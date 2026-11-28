@@ -42,6 +42,293 @@
   --cinema-font: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
 }
 
+[data-bs-theme="light"] {
+  --cinema-bg: #f8fafc;
+  --cinema-surface-1: #ffffff;
+  --cinema-surface-2: #f1f5f9;
+  --cinema-surface-3: #e2e8f0;
+  --cinema-border: #cbd5e1;
+  --cinema-border-light: #94a3b8;
+
+  --cinema-text: #0f172a;
+  --cinema-text-muted: #475569;
+  --cinema-text-dim: #64748b;
+
+  --cinema-gold: #d97706;
+  --cinema-gold-hover: #b45309;
+  --cinema-gold-glow: rgba(217, 119, 6, 0.2);
+
+  --bs-body-bg: var(--cinema-bg);
+  --bs-body-color: var(--cinema-text);
+  --bs-primary: var(--cinema-gold);
+  --bs-primary-rgb: 217, 119, 6;
+  --bs-secondary: #64748b;
+  --bs-border-color: var(--cinema-border);
+
+  --cinema-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.14);
+}
+
+[data-bs-theme="light"] body {
+  background-image:
+    radial-gradient(1100px 550px at 85% -10%, rgba(217, 119, 6, 0.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 20%, rgba(229, 9, 20, 0.05), transparent 60%);
+}
+[data-bs-theme="light"] .topbar {
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom-color: var(--cinema-border);
+}
+[data-bs-theme="light"] .brand,
+[data-bs-theme="light"] .brand:hover,
+[data-bs-theme="light"] .mainnav a:hover {
+  color: var(--cinema-text);
+}
+[data-bs-theme="light"] .bg-dark {
+  background-color: var(--cinema-surface-1) !important;
+}
+[data-bs-theme="light"] .text-light {
+  color: var(--cinema-text) !important;
+}
+[data-bs-theme="light"] .text-light-50 {
+  color: var(--cinema-text-muted) !important;
+}
+[data-bs-theme="light"] .bg-secondary-subtle {
+  background-color: var(--cinema-surface-2) !important;
+  color: var(--cinema-text) !important;
+}
+[data-bs-theme="light"] .btn-outline-light {
+  color: var(--cinema-text);
+  border-color: var(--cinema-border-light);
+}
+[data-bs-theme="light"] .btn-outline-light:hover {
+  background-color: var(--cinema-surface-2);
+  color: var(--cinema-text);
+  border-color: var(--cinema-text-muted);
+}
+[data-bs-theme="light"] .auth-art {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%) !important;
+  color: var(--cinema-text);
+}
+[data-bs-theme="light"] .auth-card {
+  border-color: var(--cinema-border) !important;
+}
+[data-bs-theme="light"] .cinema-footer {
+  background-color: var(--cinema-surface-1);
+  border-top-color: var(--cinema-border);
+}
+/* Hero Carousel Banner & Detail Hero: chuyển hẳn sang tông sáng dịu, chữ đậm sắc nét ở Light Mode */
+[data-bs-theme="light"] .hero-carousel,
+[data-bs-theme="light"] .hero-carousel-wrapper {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 45%, #f8fafc 100%) !important;
+  border-color: var(--cinema-border);
+  box-shadow: 0 18px 40px -14px rgba(15, 23, 42, 0.12);
+}
+[data-bs-theme="light"] .hero-bg,
+[data-bs-theme="light"] .hero-backdrop {
+  filter: blur(28px) brightness(1.12) saturate(1.15);
+  opacity: 0.18;
+}
+[data-bs-theme="light"] .carousel-slide .slide-content h1,
+[data-bs-theme="light"] .carousel-slide .slide-content .slide-title,
+[data-bs-theme="light"] .slide-content h1,
+[data-bs-theme="light"] .slide-content .slide-title {
+  color: #0f172a !important;
+  text-shadow: none;
+}
+[data-bs-theme="light"] .carousel-slide .slide-content .slide-subtitle {
+  color: #b45309 !important;
+}
+[data-bs-theme="light"] .carousel-slide .slide-content .slide-desc,
+[data-bs-theme="light"] .slide-content .desc,
+[data-bs-theme="light"] .slide-content .slide-desc {
+  color: #334155 !important;
+}
+[data-bs-theme="light"] .hero-poster {
+  box-shadow: 0 18px 36px -10px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+[data-bs-theme="light"] .chip {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: var(--cinema-border);
+  color: #0f172a;
+}
+[data-bs-theme="light"] .hero-carousel-wrapper .btn-outline-light,
+[data-bs-theme="light"] .hero-carousel .btn-outline-light {
+  color: #0f172a !important;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-color: var(--cinema-border-light);
+}
+[data-bs-theme="light"] .hero-carousel-wrapper .btn-outline-light:hover,
+[data-bs-theme="light"] .hero-carousel .btn-outline-light:hover {
+  background-color: #ffffff;
+  color: #0f172a !important;
+  border-color: #475569;
+}
+[data-bs-theme="light"] .hero-carousel-wrapper .btn-ghost,
+[data-bs-theme="light"] .hero-carousel .btn-ghost {
+  color: #0f172a !important;
+  background-color: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--cinema-border);
+}
+[data-bs-theme="light"] .hero-carousel-wrapper .btn-ghost:hover,
+[data-bs-theme="light"] .hero-carousel .btn-ghost:hover {
+  background-color: #ffffff;
+  color: #0f172a !important;
+  border-color: var(--cinema-border-light);
+}
+[data-bs-theme="light"] .carousel-nav-btn {
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  border-color: var(--cinema-border);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+}
+[data-bs-theme="light"] .carousel-nav-btn:hover {
+  background: #ffffff;
+  color: var(--cinema-gold);
+}
+[data-bs-theme="light"] .indicator-bar {
+  background: rgba(15, 23, 42, 0.18);
+}
+[data-bs-theme="light"] .indicator-bar.active {
+  background: rgba(217, 119, 6, 0.35);
+}
+[data-bs-theme="light"] .detail-hero {
+  background: linear-gradient(135deg, #fffbeb 0%, #f1f5f9 100%);
+  border-color: var(--cinema-border);
+}
+[data-bs-theme="light"] .detail-hero .btn-outline-light {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.85);
+  border-color: var(--cinema-border-light);
+}
+[data-bs-theme="light"] .steps .step.on {
+  color: var(--cinema-text);
+}
+[data-bs-theme="light"] .soa-info-row,
+[data-bs-theme="light"] .kv,
+[data-bs-theme="light"] .t-cell {
+  border-bottom-color: var(--cinema-border) !important;
+}
+[data-bs-theme="light"] .soa-info-value,
+[data-bs-theme="light"] .kv > b:last-child,
+[data-bs-theme="light"] .kv > span:last-child,
+[data-bs-theme="light"] .t-cell .t-val {
+  color: var(--cinema-text) !important;
+}
+/* Toàn bộ tiêu đề/giờ chiếu/ngày/rạp/footer/chi tiết đặt vé ở Light Mode */
+[data-bs-theme="light"] .fact-val,
+[data-bs-theme="light"] .date b,
+[data-bs-theme="light"] .cinema-card h3,
+[data-bs-theme="light"] .show-hm,
+[data-bs-theme="light"] .time-btn b,
+[data-bs-theme="light"] .footer-col h5,
+[data-bs-theme="light"] .detail-title,
+[data-bs-theme="light"] .detail-hero h1,
+[data-bs-theme="light"] .user-chip .name,
+[data-bs-theme="light"] .seat-btn:hover:not(:disabled) {
+  color: var(--cinema-text) !important;
+}
+[data-bs-theme="light"] .detail-hero .desc {
+  color: var(--cinema-text-muted) !important;
+}
+[data-bs-theme="light"] .date,
+[data-bs-theme="light"] .time-btn,
+[data-bs-theme="light"] .seat-btn {
+  background: var(--cinema-surface-1);
+  border-color: var(--cinema-border);
+  color: var(--cinema-text-muted);
+}
+[data-bs-theme="light"] .time-btn:hover:not(:disabled),
+[data-bs-theme="light"] .seat-btn:hover:not(:disabled) {
+  background: var(--cinema-surface-2);
+}
+[data-bs-theme="light"] .seat-btn.taken {
+  background: #e2e8f0 !important;
+  color: #94a3b8 !important;
+  border-color: #cbd5e1 !important;
+}
+[data-bs-theme="light"] .date.on,
+[data-bs-theme="light"] .date.on b,
+[data-bs-theme="light"] .date.on small {
+  color: #ffffff !important;
+}
+/* Ô tìm kiếm & Tabs/Pills trên nền sáng */
+[data-bs-theme="light"] .soa-search-input {
+  background: var(--cinema-surface-1);
+  border-color: var(--cinema-border) !important;
+  color: var(--cinema-text) !important;
+}
+[data-bs-theme="light"] .soa-search-input:hover {
+  background: var(--cinema-surface-2);
+  border-color: var(--cinema-border-light) !important;
+}
+[data-bs-theme="light"] .soa-search-input:focus {
+  background: var(--cinema-surface-1);
+  border-color: var(--cinema-gold) !important;
+}
+[data-bs-theme="light"] .soa-search-clear {
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--cinema-text-muted);
+}
+[data-bs-theme="light"] .soa-search-clear:hover {
+  background: rgba(15, 23, 42, 0.16);
+  color: var(--cinema-text);
+}
+[data-bs-theme="light"] .soa-tabs {
+  background: var(--cinema-surface-2);
+  border-color: var(--cinema-border);
+}
+[data-bs-theme="light"] .soa-tab:hover:not(.active):not(.on) {
+  color: var(--cinema-text);
+  background: rgba(15, 23, 42, 0.05);
+}
+[data-bs-theme="light"] .soa-tab.active,
+[data-bs-theme="light"] .soa-tab.on {
+  background: var(--cinema-surface-1);
+  color: var(--cinema-text);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08), 0 0 0 1px var(--cinema-border);
+}
+[data-bs-theme="light"] .soa-tab-badge-all {
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--cinema-text);
+}
+[data-bs-theme="light"] .soa-tab-badge-pending { color: #b45309; }
+[data-bs-theme="light"] .soa-tab-badge-paid { color: #15803d; }
+[data-bs-theme="light"] .soa-tab-badge-cancelled { color: #b91c1c; }
+[data-bs-theme="light"] .cat-pill,
+[data-bs-theme="light"] .genre-tab {
+  background: var(--cinema-surface-1);
+  border-color: var(--cinema-border);
+  color: var(--cinema-text-muted);
+}
+[data-bs-theme="light"] .cat-pill:hover,
+[data-bs-theme="light"] .genre-tab:hover {
+  background: var(--cinema-surface-2);
+  color: var(--cinema-text);
+}
+[data-bs-theme="light"] .cat-nav {
+  background: var(--cinema-surface-1);
+  border-color: var(--cinema-border);
+  color: var(--cinema-text);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+}
+[data-bs-theme="light"] .mcard {
+  background: var(--cinema-surface-1);
+  border-color: var(--cinema-border);
+}
+[data-bs-theme="light"] .mcard-title { color: var(--cinema-text); }
+[data-bs-theme="light"] .step.done { color: #047857; }
+[data-bs-theme="light"] .ticket-summary,
+[data-bs-theme="light"] .order-box,
+[data-bs-theme="light"] .pay-card,
+[data-bs-theme="light"] .ticket-card,
+[data-bs-theme="light"] .seat-panel {
+  background: var(--cinema-surface-1);
+  border-color: var(--cinema-border);
+}
+[data-bs-theme="light"] .summary-row,
+[data-bs-theme="light"] .ticket-row {
+  border-bottom-color: var(--cinema-border) !important;
+}
+
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 

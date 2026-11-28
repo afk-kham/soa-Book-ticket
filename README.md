@@ -86,6 +86,15 @@ python tests/integration/run_tests.py --expect-down payment
 SOA_PORT_OFFSET=11000 python -m pytest -q tests/integration/test_e2e.py
 ```
 
+### Bảo mật đường truyền
+- **Vì sao KHÔNG băm hay mã hóa mật khẩu ở JavaScript trên trình duyệt?**
+  Nếu frontend tự băm mật khẩu (như SHA-256/MD5) rồi gửi lên trên HTTP thuần, chính chuỗi băm đó lại trở thành "mật khẩu tương đương" — kẻ tấn công nghe lén chỉ cần gửi lại đúng chuỗi băm đó để đăng nhập (lỗi *Pass-the-Hash* / replay).
+- **Vì sao tab Network → Payload của DevTools luôn thấy mật khẩu?**
+  DevTools ghi lại dữ liệu JSON gốc trong bộ nhớ trình duyệt *trước khi* tầng TLS mã hóa để truyền đi (kể cả trên các trang HTTPS thật).
+- **Cơ chế bảo vệ 2 lớp của SOA Cinema:**
+  1. **Tại máy chủ (`User Service`):** Mật khẩu được băm ngay bằng **bcrypt** (`cost 10`, `$2a$`) trước khi lưu vào SQLite và không bao giờ trả về qua API.
+  2. **Trên đường truyền (khi triển khai thật / tùy chọn local):** Bật **HTTPS/TLS** tại Nginx API Gateway bằng `services-py/docker-compose.tls.yml` (xem hướng dẫn trong [services-py/README.md](services-py/README.md#5-docker-compose)). Gateway cũng giới hạn tốc độ riêng cho `POST /api/login` (`5 request/phút/IP`, `burst=5`) để chống dò mật khẩu.
+
 **Tài khoản đăng nhập thử** (dữ liệu mẫu của User Service):
 
 | Vai trò | Tên đăng nhập | Mật khẩu |
