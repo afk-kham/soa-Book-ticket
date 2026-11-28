@@ -21,15 +21,17 @@ def test_list_movies_empty(client):
 
 
 def test_list_movies_seeded(seeded_client):
-    """GET /api/movies sau khi nạp seed phải trả về 5 bộ phim theo thứ tự id tăng dần."""
+    """GET /api/movies sau khi nạp seed phải trả về 15 bộ phim theo thứ tự id tăng dần."""
     res = seeded_client.get("/api/movies")
     assert res.status_code == 200
     data = res.json()
     assert data["status"] == "success"
     movies = data["data"]
-    assert len(movies) == 5
+    assert len(movies) == 15
+    assert [m["id"] for m in movies] == list(range(1, 16))
     assert movies[0]["id"] == 1
     assert movies[0]["title"] == "Avengers: Endgame"
+    assert movies[-1]["title"] == "Godzilla x Kong: The New Empire"
     # Kiểm tra chuẩn camelCase (createdAt, không để lộ created_at)
     assert "createdAt" in movies[0]
     assert "created_at" not in json.dumps(data)

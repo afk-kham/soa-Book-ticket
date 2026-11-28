@@ -8,7 +8,7 @@ from pydantic import BaseModel, ValidationError
 from app.core import config
 from app.core.errors import BookingError, validation_error
 from app.core.http import EnvelopeResponse, error, success
-from app.core.jwt_auth import verify_bearer
+from app.core.jwt_auth import make_pay_token, verify_bearer, verify_pay_token
 from app.entities import BOOKING_STATUSES, MAX_ID
 from app.schemas import (
     BookingResponse,
@@ -111,6 +111,17 @@ def _identity(request: Request) -> dict | None:
     return verify_bearer(request.headers.get("authorization")) if config.JWT_REQUIRED else None
 
 
+def _identity_for_booking(request: Request, booking_id: int) -> dict | None:
+    """Cho phép JWT người dùng/admin hoặc payToken theo đúng bookingId khi quét QR trên điện thoại."""
+    if not config.JWT_REQUIRED:
+        return None
+    auth = request.headers.get("authorization")
+    pay_claims = verify_pay_token(auth, booking_id)
+    if pay_claims is not None:
+        return pay_claims
+    return verify_bearer(auth)
+
+
 def _is_admin(claims: dict | None) -> bool:
     return claims is not None and claims.get("role") == ADMIN_ROLE
 
@@ -141,7 +152,7 @@ class BookingController:
         return success(201, BookingResultResponse.from_result(result).model_dump(by_alias=True))
 
     async def pay(self, request: Request, booking_id: int) -> EnvelopeResponse:
-        claims = _identity(request)
+        claims = _identity_for_booking(request, booking_id)
         data = await _read_json(request)
         if claims:
             data["username"] = claims["sub"]
@@ -153,7 +164,7 @@ class BookingController:
         return success(200, BookingResultResponse.from_result(result).model_dump(by_alias=True))
 
     async def otp(self, request: Request, booking_id: int) -> EnvelopeResponse:
-        claims = _identity(request)
+        claims = _identity_for_booking(request, booking_id)
         data = await _read_json(request)
         if claims:
             data["username"] = claims["sub"]
@@ -209,9 +220,13 @@ class BookingController:
         return success(200, [BookingResponse.from_entity(b).model_dump(by_alias=True) for b in bookings])
 
     def get(self, request: Request, booking_id: int) -> EnvelopeResponse:
-        claims = _identity(request)
+        claims = _identity_for_booking(request, booking_id)
         booking = self._service.get_booking(booking_id, claims["sub"] if claims else None, _is_admin(claims))
-        return success(200, BookingResponse.from_entity(booking).model_dump(by_alias=True))
+        payload = BookingResponse.from_entity(booking).model_dump(by_alias=True)
+        pt = make_pay_token(booking.id, booking.username)
+        if pt:
+            payload["payToken"] = pt
+        return success(200, payload)
 
     def seats(self, showtime_id: str | None) -> EnvelopeResponse:
         parsed = _parse_positive_int(showtime_id)

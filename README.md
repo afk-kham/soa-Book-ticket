@@ -38,7 +38,7 @@ Client/Admin → (API Gateway tùy chọn) → 6 service độc lập, mỗi ser
 scripts\init-db.bat                          bash scripts/init-db.sh      # (tùy chọn) tạo & nạp dữ liệu mẫu; start-all tự tạo lần đầu
 scripts\start-all.bat                        bash scripts/start-all.sh    # chạy 6 service (5001–5006) + Admin (8081) + Client (8080)
 scripts\stop-all.bat                         bash scripts/stop-all.sh     # dừng toàn bộ tiến trình
-python ui-seed/seed-movies.py                                             # (tùy chọn) nạp thêm phim (5 -> 15 phim) + suất chiếu 7 ngày tới
+python ui-seed/seed-movies.py                                             # (tùy chọn) bổ sung phim còn thiếu (đủ 15 phim) + suất chiếu 7 ngày tới cho CSDL cũ
 ```
 
 - Lần chạy đầu tiên, mỗi service tự tạo `.venv/` riêng và cài thư viện từ `requirements.txt` nên mất khoảng 1 phút.
@@ -59,14 +59,33 @@ docker compose logs -f      # theo dõi log (Ctrl+C để thoát xem log)
 docker compose down         # dừng container (giữ lại volume dữ liệu SQLite)
 ```
 
-- Khi dùng Gateway, có thể truy cập Client/Admin kèm `?gateway=http://localhost:8000`.
+- Khi dùng Gateway, có thể truy cập trực tiếp **Client qua Gateway:** `http://localhost:8000` (hoặc `http://localhost:8080?gateway=http://localhost:8000`).
 
-### Cấu hình biến môi trường (tùy chọn)
-Hệ thống **chạy được ngay với cấu hình mặc định** (chế độ demo: thanh toán giả lập, thông báo `SIMULATED`, token demo). Chỉ cần tạo/sửa file `.env` (dựa theo `services-py/.env.example` cho Docker hoặc `services-py/<tên>/.env.example` cho chạy local) khi muốn bật thêm tính năng:
-- **Xác thực JWT thật (`JWT_SECRET`, `JWT_REQUIRED`):** điền cùng một chuỗi `JWT_SECRET` (≥ 32 ký tự) cho User và Booking; đặt `JWT_REQUIRED=true` ở Booking nếu muốn ép buộc Bearer token.
-- **Gửi email OTP/xác nhận thật (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`):** cấu hình trong `services-py/notification/.env` (hoặc `services-py/.env` với Docker).
-- **Thanh toán VNPAY Sandbox (`VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_URL`, `VNPAY_RETURN_URL`):** cấu hình trong `services-py/payment/.env` (hoặc `services-py/.env` với Docker).
-- **OTP thanh toán (`OTP_REQUIRED`, `OTP_DEBUG`):** mặc định `OTP_REQUIRED=true` trên Booking/Payment khi chạy Docker/Compose (hoặc đặt trong `.env` từng service khi chạy local).
+### Quét QR thanh toán online bằng điện thoại (ngrok)
+Để điện thoại quét mã QR trong mục **"Quét thử bằng điện thoại"** và xác nhận thanh toán OTP qua Internet:
+1. Cập nhật domain ngrok của bạn vào `DEFAULT_SANDBOX_URL` trong [client/js/config.js](client/js/config.js) (nếu dùng domain khác).
+2. Chạy Docker Compose như trên, sau đó mở 1 tunnel ngrok trỏ vào **Gateway cổng `8000`** (cổng này phục vụ cả Client lẫn toàn bộ API):
+   - **Cách A (ngrok cài trên máy):**
+     ```bash
+     ngrok http 8000
+     ```
+   - **Cách B (chạy bằng Docker profile `ngrok`):** điền `NGROK_AUTHTOKEN` vào `services-py/.env`, rồi chạy:
+     ```bash
+     cd services-py
+     docker compose --profile ngrok up -d
+     ```
+     *(Xem URL ngrok tại `http://localhost:4040`.)*
+3. Khi quét mã QR trên điện thoại, trình duyệt mở thẳng trang xác nhận thanh toán chỉ cần nhập **mã OTP gửi về email** — **không yêu cầu đăng nhập lại** trên điện thoại.
+
+### Cấu hình biến môi trường (`.env`)
+Hệ thống **chạy được ngay với cấu hình mặc định** (chế độ demo: thanh toán giả lập, thông báo `SIMULATED`, token demo). Khi triển khai hoặc test đầy đủ tính năng, sao chép `services-py/.env.example` thành `services-py/.env` và chỉnh các nhóm biến sau:
+- **Xác thực JWT thật (`JWT_SECRET`, `JWT_REQUIRED`):** điền cùng một chuỗi `JWT_SECRET` (≥ 32 ký tự) cho các service. Khi đặt `JWT_REQUIRED=true`, Booking ép kiểm tra Bearer JWT (trang Admin sẽ tự hiện hộp thoại đăng nhập tài khoản `ADMIN`).
+- **Gửi email OTP/xác nhận thật (`SMTP_*` & timeout):**
+  - `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_USER=<email>`, `SMTP_PASSWORD=<App Password 16 ký tự>`, `SMTP_FROM=SOA Cinema <email>` (không bọc dấu ngoặc kép thừa).
+  - Đặt `NOTIFICATION_TIMEOUT_SECONDS=15` và `SMTP_TIMEOUT=12` để Booking không cắt kết nối sớm khi Gmail SMTP phản hồi chậm.
+  - Để trống `SMTP_HOST=` nếu muốn chạy chế độ giả lập `SIMULATED` (không gửi mạng).
+- **Thanh toán VNPAY Sandbox (`VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_URL`, `VNPAY_RETURN_URL`):** cấu hình trong `services-py/.env` (Docker) hoặc `services-py/payment/.env` (local).
+- **OTP thanh toán (`OTP_REQUIRED`, `OTP_DEBUG`):** đặt `OTP_REQUIRED=true` để yêu cầu OTP qua email khi thanh toán; đặt `OTP_DEBUG=true` chỉ khi test/demo để trả thêm `devOtp` trên giao diện.
 
 ### Kiểm thử hệ thống
 ```bash
@@ -116,7 +135,7 @@ scripts/          init-db, start-all, stop-all, run-service (.bat/.sh)
 ```
 
 ## Nạp thêm dữ liệu & tài nguyên (UI Seed)
-Để làm phong phú danh mục phim cho giao diện người dùng (từ 5 phim gốc lên 15 phim đa dạng thể loại cùng suất chiếu 7 ngày tới):
+Seed của Movie Service (`services-py/movie/app/db/seed.sql`) đã nạp sẵn **đủ 15 phim** (id 1–15) mỗi khi khởi tạo CSDL, kể cả khi `docker compose up --build`. Script dưới đây chỉ cần cho CSDL/volume cũ đang có ít hơn 15 phim:
 ```bash
 # Đảm bảo Movie Service (cổng 5001) và Showtime Service (cổng 5002) đang chạy
 python ui-seed/seed-movies.py

@@ -24,7 +24,7 @@
       border-radius: 6px;
       border: 1px solid var(--cinema-border);
       background: var(--cinema-surface-2);
-      color: #fff;
+      color: var(--cinema-text);
       font-size: 11px;
       font-weight: 700;
       cursor: pointer;
@@ -241,7 +241,7 @@ function detail(b) {
     "<h4>Phim &amp; suất chiếu</h4>" +
     '<div class="d-flex gap-3 align-items-center mb-3 p-2 rounded border border-secondary">' +
       Admin.poster(m) +
-      "<div><b class='fs-6 text-white'>" + esc(m.title) + "</b><div class='text-secondary small'>Mã phim #" + b.movieId + "</div></div>" +
+      "<div><b class='fs-6'>" + esc(m.title) + "</b><div class='text-secondary small'>Mã phim #" + b.movieId + "</div></div>" +
     "</div>" +
     Admin.dl([
       ["Rạp chiếu", s ? esc(s.cinema) + " · " + esc(s.room) : "Suất #" + b.showtimeId],
@@ -372,7 +372,7 @@ document.getElementById("btn-new").onclick = async function () {
 
     gridHost.innerHTML = '<div class="text-secondary small p-3 text-center"><span class="spinner-border spinner-border-sm me-2"></span>Đang kiểm tra tình trạng ghế...</div>';
     selectedSeats = [];
-    if (priceEl) priceEl.textContent = "0 đ";
+    if (priceEl) priceEl.textContent = Admin.money(0);
 
     // Lấy danh sách ghế đã giữ
     try {

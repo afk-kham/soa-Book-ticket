@@ -40,7 +40,9 @@
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
     });
   }
-  function money(n) { return Number(n || 0).toLocaleString("vi-VN") + " đ"; }
+  var _vnd = new Intl.NumberFormat("vi-VN");
+  function formatVND(n) { return _vnd.format(Math.round(Number(n || 0))) + " đ"; }
+  function money(n) { return formatVND(n); }
   function badge(v, label) { return '<span class="badge ' + esc(v) + '">' + esc(label || v) + "</span>"; }
   function methodLabel(v) {
     var m = (window.SOA.paymentMethods || []).filter(function (x) { return x.value === v; })[0];
@@ -111,13 +113,90 @@
     return (list || []).map(function (s) { return '<span class="seat-tag">' + esc(s) + "</span>"; }).join("");
   }
 
-  /* ---------- Gọi API ---------- */
-  async function api(service, method, path, body) {
+  /* ---------- Gọi API & Xác thực Admin JWT ---------- */
+  var _loginPromise = null;
+  function getAdminToken() {
+    try { return sessionStorage.getItem("soa.admin.token") || ""; } catch (e) { return ""; }
+  }
+  function setAdminToken(tok) {
+    try {
+      if (tok) sessionStorage.setItem("soa.admin.token", tok);
+      else sessionStorage.removeItem("soa.admin.token");
+    } catch (e) {}
+  }
+
+  function promptAdminLogin() {
+    if (_loginPromise) return _loginPromise;
+    _loginPromise = new Promise(function (resolve, reject) {
+      var exist = document.getElementById("soa-admin-login-modal");
+      if (exist) exist.remove();
+      var wrap = document.createElement("div");
+      wrap.id = "soa-admin-login-modal";
+      wrap.className = "modal fade show d-block";
+      wrap.style.background = "rgba(0,0,0,0.65)";
+      wrap.innerHTML =
+        '<div class="modal-dialog modal-dialog-centered"><div class="modal-content p-4">' +
+        '<h5 class="mb-1">Đăng nhập Quản trị viên</h5>' +
+        '<p class="text-secondary small mb-3">Hệ thống đang bật xác thực JWT. Vui lòng đăng nhập tài khoản <b>ADMIN</b> để quản lý đặt vé.</p>' +
+        '<div id="adm-login-err"></div>' +
+        '<form id="adm-login-form">' +
+        '<div class="mb-2"><label class="form-label small">Tên đăng nhập</label><input class="form-control" id="adm-u" value="admin" required></div>' +
+        '<div class="mb-3"><label class="form-label small">Mật khẩu</label><input class="form-control" id="adm-p" type="password" placeholder="Nhập mật khẩu admin" required></div>' +
+        '<div class="d-flex justify-content-end gap-2">' +
+        '<button type="button" class="btn btn-outline-secondary" id="adm-cancel">Đóng</button>' +
+        '<button type="submit" class="btn btn-primary" id="adm-go">Đăng nhập</button>' +
+        '</div></form></div></div>';
+      document.body.appendChild(wrap);
+      var pEl = document.getElementById("adm-p");
+      if (pEl) pEl.focus();
+
+      function closeModal() {
+        wrap.remove();
+        _loginPromise = null;
+      }
+      document.getElementById("adm-cancel").onclick = function () {
+        closeModal();
+        reject(new Error("Chưa đăng nhập quản trị viên"));
+      };
+      document.getElementById("adm-login-form").onsubmit = async function (ev) {
+        ev.preventDefault();
+        var u = document.getElementById("adm-u").value.trim();
+        var p = document.getElementById("adm-p").value;
+        var errBox = document.getElementById("adm-login-err");
+        var btn = document.getElementById("adm-go");
+        btn.disabled = true;
+        errBox.innerHTML = "";
+        try {
+          var r = await fetch(S.user.base + "/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: u, password: p })
+          });
+          var j = await r.json();
+          if (!r.ok || !j || j.status !== "success") throw new Error((j && j.message) || "Đăng nhập thất bại");
+          if (j.data.role !== "ADMIN") throw new Error("Tài khoản này không có quyền ADMIN.");
+          setAdminToken(j.data.token);
+          toast("Đã đăng nhập quản trị (" + j.data.username + ")");
+          closeModal();
+          resolve(j.data.token);
+        } catch (ex) {
+          errBox.innerHTML = '<div class="alert alert-danger py-2 small mb-2">' + esc(ex.message) + "</div>";
+          btn.disabled = false;
+        }
+      };
+    });
+    return _loginPromise;
+  }
+
+  async function api(service, method, path, body, _retried) {
     var svc = S[service], res, json;
+    var headers = body ? { "Content-Type": "application/json" } : {};
+    var tok = getAdminToken();
+    if (tok) headers["Authorization"] = "Bearer " + tok;
     try {
       res = await fetch(svc.base + path, {
         method: method,
-        headers: body ? { "Content-Type": "application/json" } : {},
+        headers: headers,
         body: body ? JSON.stringify(body) : undefined
       });
     } catch (e) {
@@ -126,6 +205,13 @@
       throw err;
     }
     try { json = await res.json(); } catch (e) { json = null; }
+    if (res.status === 401 && service === "booking" && !_retried) {
+      setAdminToken("");
+      try {
+        await promptAdminLogin();
+        return await api(service, method, path, body, true);
+      } catch (cancelErr) {}
+    }
     if (!res.ok || !json || json.status !== "success") {
       var e2 = new Error((json && json.message) || ("Lỗi HTTP " + res.status));
       e2.code = json && json.code;
@@ -304,7 +390,7 @@
               '<h5 class="modal-title fs-6 text-truncate d-flex align-items-center gap-2" id="adminTrailerTitle">' +
                 '<span class="text-danger">▶</span> Trailer' +
               "</h5>" +
-              '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>' +
+              '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>' +
             "</div>" +
             '<div class="modal-body p-0 ratio ratio-16x9 bg-black">' +
               '<iframe id="adminTrailerIframe" src="" title="Trailer" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>' +
@@ -677,6 +763,7 @@
     payStatus: payStatus,
     esc: esc,
     money: money,
+    formatVND: formatVND,
     badge: badge,
     fmtTime: fmtTime,
     showError: showError,

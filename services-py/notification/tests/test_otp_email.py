@@ -72,7 +72,10 @@ def test_otp_sent_by_real_email_when_smtp_configured(client, smtp):
     assert len(smtp.sent) == 1
     mail = smtp.sent[0]
     assert mail["To"] == "user1@cinema.local" and "OTP" in mail["Subject"] and "#5" in mail["Subject"]
-    assert "123456" in mail.get_content()
+    plain_part = mail.get_body(preferencelist=("plain",))
+    html_part = mail.get_body(preferencelist=("html",))
+    assert plain_part is not None and "1 2 3 4 5 6" in plain_part.get_content()
+    assert html_part is not None and "font-size:32px" in html_part.get_content() and "1 2 3 4 5 6" in html_part.get_content()
 
 
 def test_otp_never_stored_in_logs(client, smtp):
@@ -131,10 +134,9 @@ def test_confirmation_email_sent_when_email_given(client, smtp):
     assert smtp.sent[0]["To"] == "a@b.vn" and "Xác nhận" in smtp.sent[0]["Subject"]
 
 
-def test_confirmation_without_email_or_sms_stays_simulated(client, smtp):
+def test_confirmation_without_email_stays_simulated(client, smtp):
     a = client.post("/api/notify", json={"username": "u", "bookingId": 5, "channel": "EMAIL"})
-    b = client.post("/api/notify", json={"username": "u", "bookingId": 5, "channel": "SMS", "email": "a@b.vn"})
-    assert a.json()["data"]["deliveryStatus"] == b.json()["data"]["deliveryStatus"] == "SIMULATED"
+    assert a.status_code == 200 and a.json()["data"]["deliveryStatus"] == "SIMULATED"
     assert smtp.sent == []
 
 

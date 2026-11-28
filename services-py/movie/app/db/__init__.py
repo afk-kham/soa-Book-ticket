@@ -16,7 +16,7 @@ def init_schema() -> None:
 
 
 def run_seed() -> int:
-    """Nạp 5 bộ phim mẫu (INSERT OR IGNORE). Trả về số lượng dòng mới được thêm."""
+    """Nạp 15 bộ phim mẫu (INSERT OR IGNORE). Trả về số lượng dòng mới được thêm."""
     script = SEED_SQL.read_text(encoding="utf-8")
     with get_connection() as conn:
         before = conn.execute("SELECT COUNT(*) FROM movies").fetchone()[0]

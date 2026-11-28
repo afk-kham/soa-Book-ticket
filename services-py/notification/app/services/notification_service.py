@@ -2,6 +2,7 @@
 
 Không biết HTTP (chỉ ném ApiError) và không viết SQL. Thông báo lỗi giữ nguyên như mã Go cũ.
 """
+import html
 import logging
 import re
 import smtplib
@@ -16,7 +17,7 @@ from app.services.sender import SENT, ConsoleSender, DeliverySender
 logger = logging.getLogger("notification")
 
 MAX_BOOKING_ID = 2147483647
-CHANNELS = ("EMAIL", "SMS")
+CHANNELS = ("EMAIL",)
 _STORE_ERRORS = {
     "ghi": "Không thể lưu nhật ký thông báo",
     "đọc": "Không thể đọc nhật ký thông báo",
@@ -45,7 +46,7 @@ def _check_booking_id(booking_id: int) -> None:
 
 def _check_channel(channel: str) -> None:
     if channel not in CHANNELS:
-        raise ApiError(400, "channel phải là EMAIL hoặc SMS")
+        raise ApiError(400, "Hệ thống chỉ hỗ trợ thông báo qua EMAIL", "UNSUPPORTED_CHANNEL")
 
 
 class NotificationService:
@@ -92,17 +93,52 @@ class NotificationService:
             raise ApiError(400, "ttlSeconds phải từ 30 đến 3600")
         n = NotificationLog(0, req.booking_id, username, "EMAIL",
                             f"Đã gửi mã OTP xác nhận thanh toán cho đơn #{req.booking_id}", now_utc())
-        body = (f"Xin chào {username},\n\nMã OTP xác nhận thanh toán đơn #{req.booking_id} của bạn là: {otp}\n"
-                f"Mã có hiệu lực trong {req.ttl_seconds // 60} phút. Không chia sẻ mã này cho bất kỳ ai.\n\nSOA Cinema")
-        n.delivery = self._deliver(n, email, f"SOA Cinema - Mã OTP thanh toán đơn #{req.booking_id}", body)
+        spaced_otp = " ".join(otp)
+        body = (
+            f"Xin chào {username},\n\n"
+            f"Mã OTP của bạn:\n\n"
+            f"{spaced_otp}\n\n"
+            f"Dùng cho: Xác nhận thanh toán đơn đặt vé #{req.booking_id}\n"
+            f"Mã có hiệu lực {req.ttl_seconds} giây ({req.ttl_seconds // 60} phút) và chỉ dùng được một lần.\n\n"
+            f"SOA Cinema không bao giờ hỏi mã OTP qua điện thoại hay chat. "
+            f"Không chia sẻ mã này với bất kỳ ai, kể cả người tự xưng là nhân viên rạp.\n\n"
+            f"Nếu bạn không thực hiện thao tác này, hãy bỏ qua email và đổi mật khẩu tài khoản ngay.\n\n"
+            f"SOA Cinema (ứng dụng đặt vé xem phim)"
+        )
+        safe_user = html.escape(username)
+        safe_otp_spaced = html.escape(spaced_otp)
+        html_body = (
+            '<!DOCTYPE html><html><body style="margin:0;padding:24px;background:#ffffff;'
+            'font-family:Segoe UI,Arial,sans-serif;color:#111827;line-height:1.6;">'
+            '<div style="max-width:600px;">'
+            f'<p style="margin:0 0 16px;">Xin chào {safe_user},</p>'
+            '<p style="margin:0 0 12px;">Mã OTP của bạn:</p>'
+            f'<div style="margin:8px 0 20px;font-size:32px;font-weight:700;letter-spacing:4px;color:#0f172a;font-family:Segoe UI,Arial,sans-serif;">{safe_otp_spaced}</div>'
+            f'<p style="margin:0 0 4px;">Dùng cho: <strong>Xác nhận thanh toán đơn đặt vé #{req.booking_id}</strong></p>'
+            f'<p style="margin:0 0 16px;">Mã có hiệu lực {req.ttl_seconds} giây và chỉ dùng được một lần.</p>'
+            '<p style="margin:0 0 16px;color:#b91c1c;">'
+            '<strong>SOA Cinema không bao giờ hỏi mã OTP qua điện thoại hay chat.</strong> '
+            'Không chia sẻ mã này với bất kỳ ai, kể cả người tự xưng là nhân viên rạp.'
+            '</p>'
+            '<p style="margin:0 0 20px;">Nếu bạn không thực hiện thao tác này, hãy bỏ qua email và đổi mật khẩu tài khoản ngay.</p>'
+            '<p style="margin:0;font-size:12px;color:#6b7280;">SOA Cinema (ứng dụng đặt vé xem phim)</p>'
+            '</div></body></html>'
+        )
+        n.delivery = self._deliver(
+            n,
+            email,
+            f"Mã xác thực (OTP) SOA Cinema - Đơn #{req.booking_id}",
+            body,
+            html_body=html_body,
+        )
         if n.delivery != SENT:  # chỉ ở chế độ giả lập: in mã ra log để demo/kiểm thử (không lưu DB)
             logger.info("SIMULATED OTP bookingId=%d email=%s otp=%s", req.booking_id, email, otp)
         n.id = self._store("ghi", self.repo.insert, n.booking_id, n.username, n.channel, n.message, n.sent_at)
         return n
 
-    def _deliver(self, n: NotificationLog, email: str, subject: str, body: str) -> str:
+    def _deliver(self, n: NotificationLog, email: str, subject: str, body: str, html_body: str | None = None) -> str:
         try:
-            return self.sender.deliver(n, email or None, subject, body)
+            return self.sender.deliver(n, email or None, subject, body, html_body)
         except (smtplib.SMTPRecipientsRefused, smtplib.SMTPSenderRefused):
             logger.exception("Địa chỉ email bị từ chối khi gửi thông báo")
             raise ApiError(400, "Địa chỉ email không hợp lệ hoặc bị máy chủ từ chối", "EMAIL_REJECTED")
@@ -132,7 +168,7 @@ class NotificationService:
             bid = int(booking_id)
         ch = (channel or "").strip().upper()
         if ch and ch not in CHANNELS:
-            raise ApiError(400, "channel phải là EMAIL hoặc SMS")
+            raise ApiError(400, "Hệ thống chỉ hỗ trợ thông báo qua EMAIL", "UNSUPPORTED_CHANNEL")
         return self._store("đọc", self.repo.list, bid, (username or "").strip(), ch)
 
     # GET /api/notify/logs/{id}
